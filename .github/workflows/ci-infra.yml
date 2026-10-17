@@ -39,6 +39,11 @@ jobs:
           python-version: '3.12'
       # 문법 검사. 합성이 실패하기 전에 오타를 먼저 걸러냅니다.
       - run: python -m compileall -q infra
+      # cdk.json 의 app 명령(python app.py)이 쓰는 인터프리터에 aws-cdk-lib 를 설치합니다.
+      - run: pip install -r infra/requirements.txt
+      # 템플릿 단위 테스트. 합성이 "되는지"가 아니라 "의도한 설정대로 되는지"를 검사합니다.
+      # Lambda 자산을 임시 디렉터리로 만들어 쓰기 때문에 패키징 전에 돌 수 있습니다.
+      - run: python -B -m unittest discover -s infra/tests -p 'test_*.py'
       # cdk synth 는 CloudFormation 템플릿을 "합성"만 하고 AWS 를 호출하지 않으므로
       # 자격증명(IAM 계정) 없이도 실행됩니다. 아래 단계들은 합성에 필요한 입력을 준비합니다.
       - uses: actions/setup-node@v4
@@ -55,8 +60,6 @@ jobs:
       # backend/requirements.txt 를 manylinux 휠로 .build/lambda 에 설치합니다.
       # infra/app.py 가 이 번들이 없으면 합성을 거부합니다.
       - run: npm run lambda:package
-      # cdk.json 의 app 명령(python app.py)이 쓰는 인터프리터에 aws-cdk-lib 를 설치합니다.
-      - run: pip install -r infra/requirements.txt
       # 합성만 검증합니다. --quiet 는 템플릿 본문 출력을 생략합니다.
       # CLI 버전을 고정해 업스트림 업데이트로 결과가 흔들리지 않게 합니다.
       - run: npx --yes aws-cdk@2.1145.0 synth --quiet
