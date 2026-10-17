@@ -6,11 +6,21 @@ on:
     paths:
       - 'infra/**'
       - 'scripts/package-lambda.mjs'
+      - 'scripts/runtime.mjs'
+      - 'scripts/setup.mjs'
+      - 'backend/lambda_handler.py'
+      - 'backend/requirements.txt'
+      - 'backend/requirements-lock.txt'
       - '.github/workflows/ci-infra.yml'
   pull_request:
     paths:
       - 'infra/**'
       - 'scripts/package-lambda.mjs'
+      - 'scripts/runtime.mjs'
+      - 'scripts/setup.mjs'
+      - 'backend/lambda_handler.py'
+      - 'backend/requirements.txt'
+      - 'backend/requirements-lock.txt'
       - '.github/workflows/ci-infra.yml'
   workflow_dispatch:
 
@@ -27,4 +37,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # 문법 검사. 합성이 실패하기 전에 오타를 먼저 걸러냅니다.
       - run: python -m compileall -q infra
+      # cdk synth 는 CloudFormation 템플릿을 "합성"만 하고 AWS 를 호출하지 않으므로
+      # 자격증명(IAM 계정) 없이도 실행됩니다. 아래 단계들은 합성에 필요한 입력을 준비합니다.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # setup 이 마지막에 contracts.mjs 로 타입을 생성하고, 그 스크립트가
+      # node_modules 의 openapi-typescript 를 실행하므로 의존성을 먼저 설치합니다.
+      - run: npm ci --ignore-scripts
+      # .venv 와 backend/.env 를 만듭니다. package-lambda.mjs 가 이 둘을 전제로 합니다.
+      # 이때 생성되는 로컬 토큰은 러너에만 남고 저장소나 로그에 올라가지 않습니다.
+      - run: npm run setup
+      # backend/requirements.txt 를 manylinux 휠로 .build/lambda 에 설치합니다.
+      # infra/app.py 가 이 번들이 없으면 합성을 거부합니다.
+      - run: npm run lambda:package
+      # cdk.json 의 app 명령(python app.py)이 쓰는 인터프리터에 aws-cdk-lib 를 설치합니다.
+      - run: pip install -r infra/requirements.txt
+      # 합성만 검증합니다. --quiet 는 템플릿 본문 출력을 생략합니다.
+      # CLI 버전을 고정해 업스트림 업데이트로 결과가 흔들리지 않게 합니다.
+      - run: npx --yes aws-cdk@2.1145.0 synth --quiet
+        working-directory: infra

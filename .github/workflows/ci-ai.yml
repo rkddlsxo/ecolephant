@@ -23,6 +23,9 @@ permissions:
 
 jobs:
   build:
+    # 자동 생성 및 삭제: GitHub Actions가 실행(Push 등)되는 순간, GitHub의 Cloud 인프라에서 우분투 가상 머신(Runner)을 자동으로 1대 새로 생성합니다.
+    # 자동 환경 세팅: 사전 구성된 우분투 서버에서 작성한 명령어/스프립트를 실행합니다.
+    # 자동 파기: 작업이 끝나면 해당 가상 머신은 즉시 자동으로 삭제 및 초기화됩니다.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +36,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: package-lock.json
+      # package-lock.json 그대로 설치합니다. --ignore-scripts 는 의존성의 postinstall 스크립트 실행을 막습니다.
       - run: npm ci --ignore-scripts
+      # 저장소에 복사된 계약 사본(openapi/policy)이 원본과 같은지 검사합니다.
       - run: npm run contracts:check
+      # 코드 정적 분석 도구
+      # 소스 코드를 실행하지 않고 분석하여 문법 오류, 잠재적 버그, 지켜지지 않은 코딩 스타일(관례)을 찾아 경고해 주는 자동화 도구
+      # ai 는 TypeScript 라서 빌드(tsc)가 타입 검사를 겸해 정적 분석 역할을 합니다.
       - run: npm run build --workspace ai
