@@ -19,6 +19,10 @@ defaults:
 jobs:
   build:
     name: Lint & test
+    
+    # 자동 생성 및 삭제: GitHub Actions가 실행(Push 등)되는 순간, GitHub의 Cloud 인프라에서 우분투 가상 머신(Runner)을 자동으로 1대 새로 생성합니다.
+    # 자동 환경 세팅: 사전 구성된 우분투 서버에서 작성한 명령어/스프립트를 실행합니다.
+    # 자동 파기: 작업이 끝나면 해당 가상 머신은 즉시 자동으로 삭제 및 초기화됩니다.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
