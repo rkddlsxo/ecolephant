@@ -110,7 +110,7 @@
       "path": "docs/development/mvp-status.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "6c27b3008360884afce6a8f93d51020923263ebb982ce82a21946e69f8aca41c",
+      "sha256": "7258bdd8eb1074652fdc7cfbdea20a0d2dca4bda4130ca45175428d8dbd2a504",
       "reviewed_on": "2026-10-17"
     },
     {
@@ -782,7 +782,7 @@
       "path": "infra/README.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "1653fcef92477fc5ade6ad7204bfd5b3dcfddba635bbafb1b024dd0661eedf75",
+      "sha256": "8fbeb8144bb29131a942b6d8c8f1c16a3fdeb12c754a21e8f35a1c4b0f8471c5",
       "reviewed_on": "2026-10-17"
     },
     {
