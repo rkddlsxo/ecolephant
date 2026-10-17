@@ -1,0 +1,30 @@
+name: CI / infra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - 'scripts/package-lambda.mjs'
+      - '.github/workflows/ci-infra.yml'
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'scripts/package-lambda.mjs'
+      - '.github/workflows/ci-infra.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q infra

@@ -1,7 +1,7 @@
 import ast
 import re
 from pathlib import Path
-from .common import ROOT, load, require
+from .common import ROOT, load, require, source_files
 
 def target_package(name, path, root, packages):
     if name.startswith('.'):
@@ -81,7 +81,7 @@ def check_architecture():
     issues=[]
     count=0
     for package in policy['packages']:
-        for path in (ROOT/package).rglob('*'):
+        for path in source_files(ROOT/package):
             if path.is_file() and path.suffix in policy['source_extensions'] and not any(p in {'.venv','node_modules','dist','__pycache__'} for p in path.parts):
                 count+=1
                 issues.extend(inspect_source(path,ROOT,policy))

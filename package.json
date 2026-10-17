@@ -1,0 +1,48 @@
+{
+  "name": "ecolephant",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "frontend",
+    "ai"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "node scripts/backend.mjs",
+    "contracts:sync": "node scripts/contracts.mjs",
+    "contracts:check": "node scripts/contracts.mjs --check",
+    "typecheck": "npm run typecheck --workspace ai && npm run typecheck --workspace frontend",
+    "build": "npm run build --workspace ai && npm run build --workspace frontend",
+    "lint": "eslint frontend/src ai/src",
+    "format": "prettier --write frontend/src ai/src scripts package.json",
+    "format:check": "prettier --check frontend/src ai/src scripts package.json",
+    "prepare": "node scripts/hooks.mjs",
+    "lambda:package": "node scripts/package-lambda.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "eslint": "9.39.5",
+    "@eslint/js": "9.39.5",
+    "typescript-eslint": "8.71.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "16.5.0",
+    "prettier": "3.9.10",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "@types/node": "22.20.5"
+  },
+  "lint-staged": {
+    "*.{js,mjs,ts,tsx}": [
+      "prettier --write"
+    ],
+    "*.{json,css}": [
+      "prettier --write"
+    ]
+  }
+}

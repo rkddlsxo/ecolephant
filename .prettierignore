@@ -1,0 +1,5 @@
+node_modules
+frontend/dist
+frontend/src/api/generated.ts
+ai/src/policy.json
+backend/ecolephant/contracts/

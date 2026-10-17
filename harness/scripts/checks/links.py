@@ -1,11 +1,11 @@
 import re
 from urllib.parse import unquote, urlsplit
-from .common import ROOT, require, relative, within_root
+from .common import ROOT, require, relative, within_root, markdown_files
 
 
 def check_links():
     count=0
-    md=[p for p in ROOT.rglob('*.md') if not any(part in {'.git','.venv','node_modules','tmp'} for part in p.relative_to(ROOT).parts)]
+    md=markdown_files()
     pattern=re.compile(r'!?(?:\[[^\]]+\])\(([^)]+)\)')
     for path in md:
         text=path.read_text(encoding='utf-8')

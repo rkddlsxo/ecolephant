@@ -41,3 +41,8 @@
 7. 문서·OpenAPI·스키마 검사를 통과하고 선택한 출시 범위의 미확정 항목을 해소합니다.
 
 요구사항별 책임과 근거는 [상세 목록](docs/product/requirements.md), 구현 순서는 [로드맵](harness/docs/plans/mvp-roadmap.md)을 따릅니다.
+
+## 1차 구현의 현재 범위
+
+2026-10-17 구현은 합성 입력으로 전체 화면·저장 흐름을 연결하는 데모 MVP입니다.
+원문 요구 전체의 출시 완료를 뜻하지 않습니다. 실제 센서·실측·운영 인증은 [현재 상태](docs/development/mvp-status.md)에 남깁니다.

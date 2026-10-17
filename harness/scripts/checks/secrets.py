@@ -1,6 +1,6 @@
 import re
 import subprocess
-from .common import ROOT, require, within_root
+from .common import ROOT, require, within_root, source_files
 
 PATTERNS=[
     re.compile(r'AKIA[0-9A-Z]{16}'),
@@ -18,8 +18,7 @@ def candidates(root):
     if (root/'.git').exists():
         result=subprocess.run(['git','-C',str(root),'ls-files','--cached','--others','--exclude-standard','-z'],capture_output=True,check=True)
         return [root/name for name in result.stdout.decode('utf-8').split('\0') if name]
-    excluded={'.git','.venv','node_modules','tmp','__pycache__','.agents','.codex'}
-    return [p for p in root.rglob('*') if p.is_file() and not any(part in excluded for part in p.relative_to(root).parts) and not (p.name=='.env' or (p.name.startswith('.env.') and p.name!='.env.example'))]
+    return list(source_files(root))
 
 def check_secrets():
     issues=[]

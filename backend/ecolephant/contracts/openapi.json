@@ -1,0 +1,2457 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Ecolephant 자세 측정 결과 API",
+    "version": "0.1.0",
+    "description": "구현 전 설계 초안. 사용자 제공 UI 설계에서 추출한 요구와 추가 설계 제안을 포함합니다. 인증 발급·배포·판정 프로필은 DEC-xxx 결정과 실측 후 확정합니다."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "문서용 개발 주소 제안. 외부 배포는 HTTPS 필수"
+    }
+  ],
+  "tags": [
+    {
+      "name": "운영"
+    },
+    {
+      "name": "정책"
+    },
+    {
+      "name": "세션"
+    },
+    {
+      "name": "기록"
+    },
+    {
+      "name": "통계"
+    }
+  ],
+  "security": [
+    {
+      "ownerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "기동 상태 확인",
+        "tags": ["운영"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/policies": {
+      "get": {
+        "operationId": "listPolicies",
+        "summary": "사용 가능한 불변 정책 목록",
+        "tags": ["정책"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "post": {
+        "operationId": "createSession",
+        "summary": "보정 후 세션 생성",
+        "tags": ["세션"],
+        "description": "소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 정책은 서버 등록·승인된 프로필이어야 합니다.",
+        "responses": {
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "중복 내용·상태·연속성 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "listSessions",
+        "summary": "소유자 세션 목록",
+        "tags": ["세션"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "포함되는 시작 시각. to와 함께 사용"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "제외되는 끝 시각. from보다 뒤"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 400
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["webcam", "airpods", "combined"]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["active", "completed", "abandoned"]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "operationId": "getSession",
+        "summary": "세션 상세와 모드별 요약",
+        "tags": ["세션"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteSession",
+        "summary": "세션과 관련 결과 삭제",
+        "tags": ["세션"],
+        "description": "소유자 확인 후 창·이벤트·파생 캐시를 삭제합니다. 반복 삭제도 204로 처리합니다.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "삭제됨 또는 이미 없음"
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/samples:batch": {
+      "post": {
+        "operationId": "ingestSampleBatch",
+        "summary": "파생 결과 창 배치 저장",
+        "tags": ["기록"],
+        "description": "배치 전체를 검증한 뒤 원자적으로 저장합니다. (session_id, seq)가 같고 내용도 같으면 duplicate입니다. 다른 내용은 409입니다. 최대 60개, 본문 64KiB. 완료 세션은 새 창을 받지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "중복 내용·상태·연속성 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleBatch"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/events:batch": {
+      "post": {
+        "operationId": "ingestEventBatch",
+        "summary": "허용된 상태·알림 이벤트 저장",
+        "tags": ["기록"],
+        "description": "event_id로 중복을 판별합니다. 동일 ID의 내용 변경과 다른 세션 재사용은 409입니다. 알려지지 않은 payload 필드는 422입니다. 완료 세션의 새 이벤트는 409입니다. event_seq는 세션 내 1부터 증가하며 중복 ID와 함께 검증합니다. 응답은 가장 긴 연속 event_seq를 반환합니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "중복 내용·상태·연속성 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBatch"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/events": {
+      "get": {
+        "operationId": "listSessionEvents",
+        "summary": "세션 이벤트 목록",
+        "tags": ["기록"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 400
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/complete": {
+      "post": {
+        "operationId": "completeSession",
+        "summary": "최종 전송 확인 후 세션 종료",
+        "tags": ["세션"],
+        "description": "final_seq까지 연속 창과 마지막 시각을 확인합니다. 모든 이벤트 전송을 먼저 완료해야 합니다. 누락은 409입니다. 같은 완료 본문은 같은 결과, 다른 완료 본문은 409입니다. final_event_seq까지 이벤트 연속성도 확인합니다. 두 final 값보다 뒤의 저장 기록이 있으면 종료를 거부합니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "중복 내용·상태·연속성 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionComplete"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/timeline": {
+      "get": {
+        "operationId": "getSessionTimeline",
+        "summary": "1분 단위 상태 타임라인",
+        "tags": ["기록"],
+        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Timeline"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음 또는 다른 소유자",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from_elapsed_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "to_elapsed_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "resolution_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 60000,
+              "maximum": 60000,
+              "default": 60000
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/statistics": {
+      "get": {
+        "operationId": "getStatistics",
+        "summary": "기간·시간대별 모드 분리 통계",
+        "tags": ["통계"],
+        "description": "from 포함·to 제외. 최대 조회 기간 93일 제안. 기본값은 완료 세션만 포함합니다. active 포함 시 승인된 창만 사용하고 클라이언트 미전송 지표와 중복 합산하지 않습니다. 모드+정책 그룹을 분리합니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON 또는 요청 구문",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 없음 또는 만료",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드·업무 제약 위반",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 빈도 제한",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적 저장 불가",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "Asia/Seoul",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": "유효한 IANA 시간대"
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["day", "hour"]
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["webcam", "airpods", "combined"]
+            }
+          },
+          {
+            "name": "policy_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            }
+          },
+          {
+            "name": "include_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ownerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "소유자 문맥을 만드는 자격. 발급·보관·갱신은 DEC-005에서 결정합니다. 공유 토큰으로 소유권을 대체하지 않습니다."
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "code": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 240
+                }
+              },
+              "required": ["path", "code", "message"]
+            },
+            "maxItems": 20
+          }
+        },
+        "required": ["code", "message", "request_id"]
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "ok"
+          },
+          "contract_version": {
+            "const": "0.1.0"
+          }
+        },
+        "required": ["status", "contract_version"]
+      },
+      "PolicySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "release_approved": {
+            "type": "boolean"
+          },
+          "supported_modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["webcam", "airpods", "combined"]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "camera_mapping_status": {
+            "type": "string",
+            "enum": ["unvalidated", "validated"]
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "policy_id",
+          "release_approved",
+          "supported_modes",
+          "camera_mapping_status",
+          "revision"
+        ]
+      },
+      "SessionCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requested_mode": {
+            "type": "string",
+            "enum": ["webcam", "airpods", "combined"]
+          },
+          "policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "initial_calibration_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "data_source": {
+            "type": "string",
+            "enum": ["demo"],
+            "default": "demo",
+            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
+          }
+        },
+        "required": [
+          "client_session_id",
+          "started_at",
+          "requested_mode",
+          "policy_id",
+          "initial_calibration_epoch"
+        ]
+      },
+      "SampleWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "elapsed_start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "calibration_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "active_mode": {
+            "type": "string",
+            "enum": ["webcam", "airpods", "combined", "none"]
+          },
+          "quality": {
+            "type": "string",
+            "enum": ["valid", "no_sensor", "low_confidence", "motion", "calibrating", "paused"]
+          },
+          "camera_estimate_deg": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 90
+          },
+          "head_flexion_deg": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 90
+          },
+          "display_angle_deg": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 90
+          },
+          "posture_level": {
+            "type": "string",
+            "enum": ["normal", "caution", "high", "unknown"]
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "within_range",
+              "combined_high",
+              "forward_shift",
+              "head_flexion",
+              "mixed_caution",
+              "insufficient_data",
+              "motion",
+              "calibrating",
+              "paused"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["dual_sensor", "single_sensor", "unavailable"]
+          }
+        },
+        "required": [
+          "seq",
+          "elapsed_start_ms",
+          "duration_ms",
+          "calibration_epoch",
+          "active_mode",
+          "quality",
+          "camera_estimate_deg",
+          "head_flexion_deg",
+          "display_angle_deg",
+          "posture_level",
+          "reason_code",
+          "confidence"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "valid"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "active_mode": {
+                  "type": "string",
+                  "enum": ["webcam", "airpods", "combined"]
+                },
+                "posture_level": {
+                  "type": "string",
+                  "enum": ["normal", "caution", "high"]
+                },
+                "reason_code": {
+                  "type": "string",
+                  "enum": [
+                    "within_range",
+                    "combined_high",
+                    "forward_shift",
+                    "head_flexion",
+                    "mixed_caution"
+                  ]
+                },
+                "display_angle_deg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 90
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": ["dual_sensor", "single_sensor"]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "camera_estimate_deg": {
+                  "type": "null"
+                },
+                "head_flexion_deg": {
+                  "type": "null"
+                },
+                "display_angle_deg": {
+                  "type": "null"
+                },
+                "posture_level": {
+                  "const": "unknown"
+                },
+                "confidence": {
+                  "const": "unavailable"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "valid"
+                },
+                "active_mode": {
+                  "const": "combined"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "camera_estimate_deg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 90
+                },
+                "head_flexion_deg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 90
+                },
+                "confidence": {
+                  "const": "dual_sensor"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "valid"
+                },
+                "active_mode": {
+                  "const": "webcam"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "camera_estimate_deg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 90
+                },
+                "head_flexion_deg": {
+                  "type": "null"
+                },
+                "confidence": {
+                  "const": "single_sensor"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "valid"
+                },
+                "active_mode": {
+                  "const": "airpods"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "camera_estimate_deg": {
+                  "type": "null"
+                },
+                "head_flexion_deg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 90
+                },
+                "confidence": {
+                  "const": "single_sensor"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "active_mode": {
+                  "const": "none"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "quality": {
+                  "const": "no_sensor"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "no_sensor"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_code": {
+                  "const": "insufficient_data"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "low_confidence"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_code": {
+                  "const": "insufficient_data"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "motion"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_code": {
+                  "const": "motion"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "calibrating"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_code": {
+                  "const": "calibrating"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "paused"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reason_code": {
+                  "const": "paused"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SampleBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SampleWindow"
+            },
+            "minItems": 1,
+            "maxItems": 60
+          }
+        },
+        "required": ["samples"]
+      },
+      "BatchReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accepted_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duplicate_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "acknowledged_through_seq": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["accepted_count", "duplicate_count", "acknowledged_through_seq"]
+      },
+      "EventReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accepted_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duplicate_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "acknowledged_through_event_seq": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["accepted_count", "duplicate_count", "acknowledged_through_event_seq"]
+      },
+      "SessionComplete": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ended_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "final_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "final_event_seq": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["ended_at", "final_seq", "final_event_seq"]
+      },
+      "MetricSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "valid_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "normal_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "caution_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "high_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "forward_head_suspected_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mean_display_angle_deg": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 90
+          },
+          "within_range_percent": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "first_stage_alert_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "corrected_alert_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unknown_correction_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mean_correction_ms": {
+            "type": ["number", "null"],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "valid_duration_ms",
+          "normal_duration_ms",
+          "caution_duration_ms",
+          "high_duration_ms",
+          "forward_head_suspected_ms",
+          "mean_display_angle_deg",
+          "within_range_percent",
+          "first_stage_alert_count",
+          "corrected_alert_count",
+          "unknown_correction_count",
+          "mean_correction_ms"
+        ]
+      },
+      "ModeSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "active_mode": {
+            "type": "string",
+            "enum": ["webcam", "airpods", "combined"]
+          },
+          "policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSummary"
+          }
+        },
+        "required": ["active_mode", "policy_id", "metrics"]
+      },
+      "TimelineBucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "elapsed_start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000
+          },
+          "normal_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "caution_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "high_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unknown_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active_modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["webcam", "airpods", "combined"]
+            },
+            "uniqueItems": true,
+            "maxItems": 3
+          }
+        },
+        "required": [
+          "elapsed_start_ms",
+          "duration_ms",
+          "normal_ms",
+          "caution_ms",
+          "high_ms",
+          "unknown_ms",
+          "active_modes"
+        ]
+      },
+      "TimeMetricBucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSummary"
+          }
+        },
+        "required": ["starts_at", "ends_at", "metrics"]
+      },
+      "StatisticsGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "active_mode": {
+            "type": "string",
+            "enum": ["webcam", "airpods", "combined"]
+          },
+          "policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/MetricSummary"
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeMetricBucket"
+            }
+          }
+        },
+        "required": ["active_mode", "policy_id", "summary", "buckets"]
+      },
+      "StatisticsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "group_by": {
+            "type": "string",
+            "enum": ["day", "hour"]
+          },
+          "include_active": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatisticsGroup"
+            }
+          },
+          "unassigned_unknown_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "timezone",
+          "group_by",
+          "include_active",
+          "groups",
+          "unassigned_unknown_duration_ms"
+        ]
+      },
+      "SessionEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "mode_changed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "previous_mode": {
+                    "type": "string",
+                    "enum": ["webcam", "airpods", "combined", "none"]
+                  },
+                  "current_mode": {
+                    "type": "string",
+                    "enum": ["webcam", "airpods", "combined", "none"]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": ["sensor_lost", "sensor_restored", "user_selected"]
+                  }
+                },
+                "required": ["previous_mode", "current_mode", "reason"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "paused"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "resumed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "calibration_started"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "calibration_epoch": {
+                    "type": "integer",
+                    "minimum": 2
+                  }
+                },
+                "required": ["calibration_epoch"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "calibration_completed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "calibration_epoch": {
+                    "type": "integer",
+                    "minimum": 2
+                  }
+                },
+                "required": ["calibration_epoch"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "calibration_failed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "calibration_epoch": {
+                    "type": "integer",
+                    "minimum": 2
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": ["movement", "missing_sensor", "low_quality"]
+                  }
+                },
+                "required": ["calibration_epoch", "reason"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "alert_delivery"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "alert_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "stage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": ["screen", "system", "sound"]
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": ["delivered", "denied", "unsupported", "failed", "muted"]
+                  }
+                },
+                "required": ["alert_id", "stage", "channel", "result"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "const": "correction_observed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "alert_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": ["corrected", "unknown"]
+                  }
+                },
+                "required": ["alert_id", "outcome"]
+              },
+              "event_seq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
+          }
+        ]
+      },
+      "EventBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent"
+            },
+            "minItems": 1,
+            "maxItems": 60
+          }
+        },
+        "required": ["events"]
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "requested_mode": {
+            "type": "string",
+            "enum": ["webcam", "airpods", "combined"]
+          },
+          "policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "abandoned"]
+          },
+          "final_seq": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "acknowledged_through_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModeSummary"
+            }
+          },
+          "unassigned_unknown_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "final_event_seq": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "acknowledged_through_event_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "data_source": {
+            "type": "string",
+            "enum": ["demo"],
+            "default": "demo",
+            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
+          }
+        },
+        "required": [
+          "id",
+          "client_session_id",
+          "started_at",
+          "ended_at",
+          "requested_mode",
+          "policy_id",
+          "status",
+          "final_seq",
+          "acknowledged_through_seq",
+          "summaries",
+          "unassigned_unknown_duration_ms",
+          "final_event_seq",
+          "acknowledged_through_event_seq"
+        ]
+      },
+      "SessionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            }
+          },
+          "next_cursor": {
+            "type": ["string", "null"],
+            "maxLength": 400
+          }
+        },
+        "required": ["items", "next_cursor"]
+      },
+      "EventPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent"
+            }
+          },
+          "next_cursor": {
+            "type": ["string", "null"],
+            "maxLength": 400
+          }
+        },
+        "required": ["items", "next_cursor"]
+      },
+      "Timeline": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resolution_ms": {
+            "const": 60000
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineBucket"
+            }
+          }
+        },
+        "required": ["session_id", "resolution_ms", "buckets"]
+      },
+      "PolicyPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicySummary"
+            }
+          }
+        },
+        "required": ["items"]
+      }
+    }
+  },
+  "x-status": "draft-not-implemented",
+  "x-decisions": [
+    "DEC-001",
+    "DEC-002",
+    "DEC-003",
+    "DEC-004",
+    "DEC-005",
+    "DEC-006",
+    "DEC-007",
+    "DEC-008",
+    "DEC-010"
+  ]
+}

@@ -5,71 +5,42 @@ on:
     branches: [main]
     paths:
       - 'ai/**'
+      - 'package*.json'
+      - 'harness/fixtures/policy/**'
+      - 'scripts/contracts.mjs'
       - '.github/workflows/ci-ai.yml'
   pull_request:
     paths:
       - 'ai/**'
+      - 'package*.json'
+      - 'harness/fixtures/policy/**'
+      - 'scripts/contracts.mjs'
       - '.github/workflows/ci-ai.yml'
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: ai
+permissions:
+  contents: read
 
 jobs:
   build:
-    # 코드 정적 분석 도구
-    # 소스 코드를 실행하지 않고 분석하여 문법 오류, 잠재적 버그, 지켜지지 않은 코딩 스타일(관례)을 찾아 경고해 주는 자동화 도구
-    name: Lint & test
-    
     # 자동 생성 및 삭제: GitHub Actions가 실행(Push 등)되는 순간, GitHub의 Cloud 인프라에서 우분투 가상 머신(Runner)을 자동으로 1대 새로 생성합니다.
     # 자동 환경 세팅: 사전 구성된 우분투 서버에서 작성한 명령어/스프립트를 실행합니다.
     # 자동 파기: 작업이 끝나면 해당 가상 머신은 즉시 자동으로 삭제 및 초기화됩니다.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # 아직 코드가 없는 단계에서도 CI가 실패하지 않도록 가드
-      - name: Check for Python project
-        id: check
-        run: |
-          if ls *.py >/dev/null 2>&1 || [ -f requirements.txt ] || [ -f pyproject.toml ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ai/ 에 Python 코드가 없어 검사를 건너뜁니다."
-          fi
-          if ls requirements*.txt >/dev/null 2>&1; then
-            echo "req=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "req=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up Python 3.11
-        if: steps.check.outputs.exists == 'true'
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: ${{ steps.check.outputs.req == 'true' && 'pip' || '' }}
-          cache-dependency-path: ai/requirements*.txt
-
-      - name: Install dependencies
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          pip install ruff pytest
-
-      - name: Lint (ruff)
-        if: steps.check.outputs.exists == 'true'
-        run: ruff check .
-
-      - name: Test (pytest)
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          if ls tests/test_*.py test_*.py >/dev/null 2>&1; then
-            pytest -q
-          else
-            echo "::notice::테스트 파일이 없어 pytest 를 건너뜁니다."
-          fi
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # package-lock.json 그대로 설치합니다. --ignore-scripts 는 의존성의 postinstall 스크립트 실행을 막습니다.
+      - run: npm ci --ignore-scripts
+      # 저장소에 복사된 계약 사본(openapi/policy)이 원본과 같은지 검사합니다.
+      - run: npm run contracts:check
+      # 코드 정적 분석 도구
+      # 소스 코드를 실행하지 않고 분석하여 문법 오류, 잠재적 버그, 지켜지지 않은 코딩 스타일(관례)을 찾아 경고해 주는 자동화 도구
+      # ai 는 TypeScript 라서 빌드(tsc)가 타입 검사를 겸해 정적 분석 역할을 합니다.
+      - run: npm run build --workspace ai

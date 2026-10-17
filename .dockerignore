@@ -1,0 +1,10 @@
+.git
+.tools
+.venv
+.data
+node_modules
+**/node_modules
+**/.env
+**/.env.local
+frontend/dist
+infra/cdk.out

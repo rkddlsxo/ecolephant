@@ -25,3 +25,6 @@
 충돌 시 출처와 결정 기록을 확인하고 문서를 함께 수정합니다. HTTP 필드 정의는 OpenAPI, 도우미 메시지는 JSON Schema, 숫자 시작값은 [예시 정책](../harness/fixtures/policy/example.json)이 단일 진입점입니다.
 
 개발 운영 지식은 [하네스 지식 색인](../harness/docs/index.md)에 주제별로 있습니다.
+
+- [개발·실행·구현 현황](development/index.md)
+- [1차 MVP 스택 결정](decisions/adr-0002-first-mvp-stack.md)

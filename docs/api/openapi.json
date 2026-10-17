@@ -39,9 +39,7 @@
       "get": {
         "operationId": "getHealth",
         "summary": "기동 상태 확인",
-        "tags": [
-          "운영"
-        ],
+        "tags": ["운영"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -72,9 +70,7 @@
       "get": {
         "operationId": "listPolicies",
         "summary": "사용 가능한 불변 정책 목록",
-        "tags": [
-          "정책"
-        ],
+        "tags": ["정책"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -124,9 +120,7 @@
       "post": {
         "operationId": "createSession",
         "summary": "보정 후 세션 생성",
-        "tags": [
-          "세션"
-        ],
+        "tags": ["세션"],
         "description": "소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 정책은 서버 등록·승인된 프로필이어야 합니다.",
         "responses": {
           "201": {
@@ -245,9 +239,7 @@
       "get": {
         "operationId": "listSessions",
         "summary": "소유자 세션 목록",
-        "tags": [
-          "세션"
-        ],
+        "tags": ["세션"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -358,11 +350,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "webcam",
-                "airpods",
-                "combined"
-              ]
+              "enum": ["webcam", "airpods", "combined"]
             }
           },
           {
@@ -371,11 +359,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "active",
-                "completed",
-                "abandoned"
-              ]
+              "enum": ["active", "completed", "abandoned"]
             }
           }
         ]
@@ -385,9 +369,7 @@
       "get": {
         "operationId": "getSession",
         "summary": "세션 상세와 모드별 요약",
-        "tags": [
-          "세션"
-        ],
+        "tags": ["세션"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -456,9 +438,7 @@
       "delete": {
         "operationId": "deleteSession",
         "summary": "세션과 관련 결과 삭제",
-        "tags": [
-          "세션"
-        ],
+        "tags": ["세션"],
         "description": "소유자 확인 후 창·이벤트·파생 캐시를 삭제합니다. 반복 삭제도 204로 처리합니다.",
         "parameters": [
           {
@@ -512,9 +492,7 @@
       "post": {
         "operationId": "ingestSampleBatch",
         "summary": "파생 결과 창 배치 저장",
-        "tags": [
-          "기록"
-        ],
+        "tags": ["기록"],
         "description": "배치 전체를 검증한 뒤 원자적으로 저장합니다. (session_id, seq)가 같고 내용도 같으면 duplicate입니다. 다른 내용은 409입니다. 최대 60개, 본문 64KiB. 완료 세션은 새 창을 받지 않습니다.",
         "responses": {
           "200": {
@@ -635,9 +613,7 @@
       "post": {
         "operationId": "ingestEventBatch",
         "summary": "허용된 상태·알림 이벤트 저장",
-        "tags": [
-          "기록"
-        ],
+        "tags": ["기록"],
         "description": "event_id로 중복을 판별합니다. 동일 ID의 내용 변경과 다른 세션 재사용은 409입니다. 알려지지 않은 payload 필드는 422입니다. 완료 세션의 새 이벤트는 409입니다. event_seq는 세션 내 1부터 증가하며 중복 ID와 함께 검증합니다. 응답은 가장 긴 연속 event_seq를 반환합니다.",
         "responses": {
           "200": {
@@ -758,9 +734,7 @@
       "get": {
         "operationId": "listSessionEvents",
         "summary": "세션 이벤트 목록",
-        "tags": [
-          "기록"
-        ],
+        "tags": ["기록"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -871,9 +845,7 @@
       "post": {
         "operationId": "completeSession",
         "summary": "최종 전송 확인 후 세션 종료",
-        "tags": [
-          "세션"
-        ],
+        "tags": ["세션"],
         "description": "final_seq까지 연속 창과 마지막 시각을 확인합니다. 모든 이벤트 전송을 먼저 완료해야 합니다. 누락은 409입니다. 같은 완료 본문은 같은 결과, 다른 완료 본문은 409입니다. final_event_seq까지 이벤트 연속성도 확인합니다. 두 final 값보다 뒤의 저장 기록이 있으면 종료를 거부합니다.",
         "responses": {
           "200": {
@@ -994,9 +966,7 @@
       "get": {
         "operationId": "getSessionTimeline",
         "summary": "1분 단위 상태 타임라인",
-        "tags": [
-          "기록"
-        ],
+        "tags": ["기록"],
         "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
         "responses": {
           "200": {
@@ -1117,9 +1087,7 @@
       "get": {
         "operationId": "getStatistics",
         "summary": "기간·시간대별 모드 분리 통계",
-        "tags": [
-          "통계"
-        ],
+        "tags": ["통계"],
         "description": "from 포함·to 제외. 최대 조회 기간 93일 제안. 기본값은 완료 세션만 포함합니다. active 포함 시 승인된 창만 사용하고 클라이언트 미전송 지표와 중복 합산하지 않습니다. 모드+정책 그룹을 분리합니다.",
         "responses": {
           "200": {
@@ -1220,10 +1188,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "day",
-                "hour"
-              ]
+              "enum": ["day", "hour"]
             }
           },
           {
@@ -1232,11 +1197,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "webcam",
-                "airpods",
-                "combined"
-              ]
+              "enum": ["webcam", "airpods", "combined"]
             }
           },
           {
@@ -1309,20 +1270,12 @@
                   "maxLength": 240
                 }
               },
-              "required": [
-                "path",
-                "code",
-                "message"
-              ]
+              "required": ["path", "code", "message"]
             },
             "maxItems": 20
           }
         },
-        "required": [
-          "code",
-          "message",
-          "request_id"
-        ]
+        "required": ["code", "message", "request_id"]
       },
       "Health": {
         "type": "object",
@@ -1335,10 +1288,7 @@
             "const": "0.1.0"
           }
         },
-        "required": [
-          "status",
-          "contract_version"
-        ]
+        "required": ["status", "contract_version"]
       },
       "PolicySummary": {
         "type": "object",
@@ -1357,21 +1307,14 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "webcam",
-                "airpods",
-                "combined"
-              ]
+              "enum": ["webcam", "airpods", "combined"]
             },
             "minItems": 1,
             "uniqueItems": true
           },
           "camera_mapping_status": {
             "type": "string",
-            "enum": [
-              "unvalidated",
-              "validated"
-            ]
+            "enum": ["unvalidated", "validated"]
           },
           "revision": {
             "type": "string",
@@ -1401,11 +1344,7 @@
           },
           "requested_mode": {
             "type": "string",
-            "enum": [
-              "webcam",
-              "airpods",
-              "combined"
-            ]
+            "enum": ["webcam", "airpods", "combined"]
           },
           "policy_id": {
             "type": "string",
@@ -1416,6 +1355,12 @@
           "initial_calibration_epoch": {
             "type": "integer",
             "minimum": 1
+          },
+          "data_source": {
+            "type": "string",
+            "enum": ["demo"],
+            "default": "demo",
+            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
           }
         },
         "required": [
@@ -1449,56 +1394,30 @@
           },
           "active_mode": {
             "type": "string",
-            "enum": [
-              "webcam",
-              "airpods",
-              "combined",
-              "none"
-            ]
+            "enum": ["webcam", "airpods", "combined", "none"]
           },
           "quality": {
             "type": "string",
-            "enum": [
-              "valid",
-              "no_sensor",
-              "low_confidence",
-              "motion",
-              "calibrating",
-              "paused"
-            ]
+            "enum": ["valid", "no_sensor", "low_confidence", "motion", "calibrating", "paused"]
           },
           "camera_estimate_deg": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0,
             "maximum": 90
           },
           "head_flexion_deg": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0,
             "maximum": 90
           },
           "display_angle_deg": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0,
             "maximum": 90
           },
           "posture_level": {
             "type": "string",
-            "enum": [
-              "normal",
-              "caution",
-              "high",
-              "unknown"
-            ]
+            "enum": ["normal", "caution", "high", "unknown"]
           },
           "reason_code": {
             "type": "string",
@@ -1516,11 +1435,7 @@
           },
           "confidence": {
             "type": "string",
-            "enum": [
-              "dual_sensor",
-              "single_sensor",
-              "unavailable"
-            ]
+            "enum": ["dual_sensor", "single_sensor", "unavailable"]
           }
         },
         "required": [
@@ -1550,19 +1465,11 @@
               "properties": {
                 "active_mode": {
                   "type": "string",
-                  "enum": [
-                    "webcam",
-                    "airpods",
-                    "combined"
-                  ]
+                  "enum": ["webcam", "airpods", "combined"]
                 },
                 "posture_level": {
                   "type": "string",
-                  "enum": [
-                    "normal",
-                    "caution",
-                    "high"
-                  ]
+                  "enum": ["normal", "caution", "high"]
                 },
                 "reason_code": {
                   "type": "string",
@@ -1581,10 +1488,7 @@
                 },
                 "confidence": {
                   "type": "string",
-                  "enum": [
-                    "dual_sensor",
-                    "single_sensor"
-                  ]
+                  "enum": ["dual_sensor", "single_sensor"]
                 }
               }
             },
@@ -1802,9 +1706,7 @@
             "maxItems": 60
           }
         },
-        "required": [
-          "samples"
-        ]
+        "required": ["samples"]
       },
       "BatchReceipt": {
         "type": "object",
@@ -1823,11 +1725,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "accepted_count",
-          "duplicate_count",
-          "acknowledged_through_seq"
-        ]
+        "required": ["accepted_count", "duplicate_count", "acknowledged_through_seq"]
       },
       "EventReceipt": {
         "type": "object",
@@ -1846,11 +1744,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "accepted_count",
-          "duplicate_count",
-          "acknowledged_through_event_seq"
-        ]
+        "required": ["accepted_count", "duplicate_count", "acknowledged_through_event_seq"]
       },
       "SessionComplete": {
         "type": "object",
@@ -1869,11 +1763,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "ended_at",
-          "final_seq",
-          "final_event_seq"
-        ]
+        "required": ["ended_at", "final_seq", "final_event_seq"]
       },
       "MetricSummary": {
         "type": "object",
@@ -1900,18 +1790,12 @@
             "minimum": 0
           },
           "mean_display_angle_deg": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0,
             "maximum": 90
           },
           "within_range_percent": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0,
             "maximum": 100
           },
@@ -1928,10 +1812,7 @@
             "minimum": 0
           },
           "mean_correction_ms": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 0
           }
         },
@@ -1955,11 +1836,7 @@
         "properties": {
           "active_mode": {
             "type": "string",
-            "enum": [
-              "webcam",
-              "airpods",
-              "combined"
-            ]
+            "enum": ["webcam", "airpods", "combined"]
           },
           "policy_id": {
             "type": "string",
@@ -1971,11 +1848,7 @@
             "$ref": "#/components/schemas/MetricSummary"
           }
         },
-        "required": [
-          "active_mode",
-          "policy_id",
-          "metrics"
-        ]
+        "required": ["active_mode", "policy_id", "metrics"]
       },
       "TimelineBucket": {
         "type": "object",
@@ -2010,11 +1883,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "webcam",
-                "airpods",
-                "combined"
-              ]
+              "enum": ["webcam", "airpods", "combined"]
             },
             "uniqueItems": true,
             "maxItems": 3
@@ -2046,11 +1915,7 @@
             "$ref": "#/components/schemas/MetricSummary"
           }
         },
-        "required": [
-          "starts_at",
-          "ends_at",
-          "metrics"
-        ]
+        "required": ["starts_at", "ends_at", "metrics"]
       },
       "StatisticsGroup": {
         "type": "object",
@@ -2058,11 +1923,7 @@
         "properties": {
           "active_mode": {
             "type": "string",
-            "enum": [
-              "webcam",
-              "airpods",
-              "combined"
-            ]
+            "enum": ["webcam", "airpods", "combined"]
           },
           "policy_id": {
             "type": "string",
@@ -2080,12 +1941,7 @@
             }
           }
         },
-        "required": [
-          "active_mode",
-          "policy_id",
-          "summary",
-          "buckets"
-        ]
+        "required": ["active_mode", "policy_id", "summary", "buckets"]
       },
       "StatisticsResponse": {
         "type": "object",
@@ -2106,10 +1962,7 @@
           },
           "group_by": {
             "type": "string",
-            "enum": [
-              "day",
-              "hour"
-            ]
+            "enum": ["day", "hour"]
           },
           "include_active": {
             "type": "boolean"
@@ -2158,49 +2011,25 @@
                 "properties": {
                   "previous_mode": {
                     "type": "string",
-                    "enum": [
-                      "webcam",
-                      "airpods",
-                      "combined",
-                      "none"
-                    ]
+                    "enum": ["webcam", "airpods", "combined", "none"]
                   },
                   "current_mode": {
                     "type": "string",
-                    "enum": [
-                      "webcam",
-                      "airpods",
-                      "combined",
-                      "none"
-                    ]
+                    "enum": ["webcam", "airpods", "combined", "none"]
                   },
                   "reason": {
                     "type": "string",
-                    "enum": [
-                      "sensor_lost",
-                      "sensor_restored",
-                      "user_selected"
-                    ]
+                    "enum": ["sensor_lost", "sensor_restored", "user_selected"]
                   }
                 },
-                "required": [
-                  "previous_mode",
-                  "current_mode",
-                  "reason"
-                ]
+                "required": ["previous_mode", "current_mode", "reason"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2228,13 +2057,7 @@
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2262,13 +2085,7 @@
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2294,22 +2111,14 @@
                     "minimum": 2
                   }
                 },
-                "required": [
-                  "calibration_epoch"
-                ]
+                "required": ["calibration_epoch"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2335,22 +2144,14 @@
                     "minimum": 2
                   }
                 },
-                "required": [
-                  "calibration_epoch"
-                ]
+                "required": ["calibration_epoch"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2377,30 +2178,17 @@
                   },
                   "reason": {
                     "type": "string",
-                    "enum": [
-                      "movement",
-                      "missing_sensor",
-                      "low_quality"
-                    ]
+                    "enum": ["movement", "missing_sensor", "low_quality"]
                   }
                 },
-                "required": [
-                  "calibration_epoch",
-                  "reason"
-                ]
+                "required": ["calibration_epoch", "reason"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2432,42 +2220,21 @@
                   },
                   "channel": {
                     "type": "string",
-                    "enum": [
-                      "screen",
-                      "system",
-                      "sound"
-                    ]
+                    "enum": ["screen", "system", "sound"]
                   },
                   "result": {
                     "type": "string",
-                    "enum": [
-                      "delivered",
-                      "denied",
-                      "unsupported",
-                      "failed",
-                      "muted"
-                    ]
+                    "enum": ["delivered", "denied", "unsupported", "failed", "muted"]
                   }
                 },
-                "required": [
-                  "alert_id",
-                  "stage",
-                  "channel",
-                  "result"
-                ]
+                "required": ["alert_id", "stage", "channel", "result"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           },
           {
             "type": "object",
@@ -2494,29 +2261,17 @@
                   },
                   "outcome": {
                     "type": "string",
-                    "enum": [
-                      "corrected",
-                      "unknown"
-                    ]
+                    "enum": ["corrected", "unknown"]
                   }
                 },
-                "required": [
-                  "alert_id",
-                  "outcome"
-                ]
+                "required": ["alert_id", "outcome"]
               },
               "event_seq": {
                 "type": "integer",
                 "minimum": 1
               }
             },
-            "required": [
-              "event_id",
-              "elapsed_ms",
-              "type",
-              "data",
-              "event_seq"
-            ]
+            "required": ["event_id", "elapsed_ms", "type", "data", "event_seq"]
           }
         ]
       },
@@ -2533,9 +2288,7 @@
             "maxItems": 60
           }
         },
-        "required": [
-          "events"
-        ]
+        "required": ["events"]
       },
       "Session": {
         "type": "object",
@@ -2554,19 +2307,12 @@
             "format": "date-time"
           },
           "ended_at": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "requested_mode": {
             "type": "string",
-            "enum": [
-              "webcam",
-              "airpods",
-              "combined"
-            ]
+            "enum": ["webcam", "airpods", "combined"]
           },
           "policy_id": {
             "type": "string",
@@ -2576,17 +2322,10 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "completed",
-              "abandoned"
-            ]
+            "enum": ["active", "completed", "abandoned"]
           },
           "final_seq": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "acknowledged_through_seq": {
@@ -2604,15 +2343,18 @@
             "minimum": 0
           },
           "final_event_seq": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "acknowledged_through_event_seq": {
             "type": "integer",
             "minimum": 0
+          },
+          "data_source": {
+            "type": "string",
+            "enum": ["demo"],
+            "default": "demo",
+            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
           }
         },
         "required": [
@@ -2642,17 +2384,11 @@
             }
           },
           "next_cursor": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 400
           }
         },
-        "required": [
-          "items",
-          "next_cursor"
-        ]
+        "required": ["items", "next_cursor"]
       },
       "EventPage": {
         "type": "object",
@@ -2665,17 +2401,11 @@
             }
           },
           "next_cursor": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 400
           }
         },
-        "required": [
-          "items",
-          "next_cursor"
-        ]
+        "required": ["items", "next_cursor"]
       },
       "Timeline": {
         "type": "object",
@@ -2695,11 +2425,7 @@
             }
           }
         },
-        "required": [
-          "session_id",
-          "resolution_ms",
-          "buckets"
-        ]
+        "required": ["session_id", "resolution_ms", "buckets"]
       },
       "PolicyPage": {
         "type": "object",
@@ -2712,9 +2438,7 @@
             }
           }
         },
-        "required": [
-          "items"
-        ]
+        "required": ["items"]
       }
     }
   },

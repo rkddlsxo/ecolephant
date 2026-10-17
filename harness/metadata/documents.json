@@ -5,595 +5,651 @@
       "path": "AGENTS.md",
       "status": "active",
       "owner": "project-maintainer",
-      "sha256": "69b72056e24ae461411b3ab364653301e1098b91c11124ecac068209247d972f",
+      "sha256": "7690564b73d548bba1c92cad63dd24fd25bf29d27ebba3d3c8a1dc5c58ff55c1",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "ai/README.md",
       "status": "draft",
       "owner": "ai",
-      "sha256": "c477e4a1592ac6d064d0b8d7a8cdc6e9ff81e24a22ecbf06750aadbb2c0f594e",
+      "sha256": "a68c8eec46379581e9a666271a066830e10896399bcc2d761ae5e86e24c9b893",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "ARCHITECTURE.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "9bcf0b8865bd29597446b0c44f2b18439ced071a79b4a846f8eafa661652aa45",
+      "sha256": "c8ed89636fe61807a046945c43b45f97860189362bdd402ce8091ba83200fff6",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "backend/README.md",
       "status": "draft",
       "owner": "backend",
-      "sha256": "3f75c28734d7f57f7a4dff825055cf4acdfdcd02edac57432d422403bcbdb37d",
+      "sha256": "a664ef3109a855563394ab822d1e6f84e0849fb4abf1da581b75dc0a79caadcb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/api/airpods-websocket.md",
       "status": "draft",
       "owner": "backend",
-      "sha256": "e032cd57c1ba814e26ac1fdab810dee0a26ea76be40d5aa869412a3a27085a47",
+      "sha256": "78a698031127d68e24d77650c217ed1ad8c647910ea0e9a72f7cc56859a27369",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/api/README.md",
       "status": "draft",
       "owner": "backend",
-      "sha256": "d859171ebd28f7914f6ddbfd3ff570464ab92efc4c6556707c27fda6693732ca",
+      "sha256": "755ba4a2860422c4668b73eb14494436218ea944ee07c04bf5145783ed8da227",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/data/model.md",
       "status": "draft",
       "owner": "backend",
-      "sha256": "a19368d4535dc46a23b6217e6031480d85420d86b5443a681ef6dc118cff1c88",
+      "sha256": "0ce97f2dc5f42db5fb7b3b1e21c9525294cd0b14a5a52abf0dcb2a99cb2e135f",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/data/statistics.md",
       "status": "draft",
       "owner": "backend",
-      "sha256": "a194beefa197e44d5bedb42bbcd181dcb3ad8609373a52f8d90801367a8e6d98",
+      "sha256": "5ccd6359b6eb06db1811877fb2972c5a0b8fab68ef690102b51777e31ac64133",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/decisions/adr-0001-browser-analysis.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "8b18c1d901d6ee781072556d3adfd00970a064855465a0dddcc6abcd5180a03f",
+      "sha256": "2725160fe86ad97530c34fe3e12452503d78f1867f6d10566f5d815ba40f302e",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "docs/decisions/adr-0002-first-mvp-stack.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "47b03de79469758ad485985fb102aa575a4f5aef9d16728bfbc28ab86f80c5f6",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/decisions/open-decisions.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "908c3e50b26e90505001808b8590f52da0d2b08ae1b72e8ff16e50da48c6376f",
+      "sha256": "5c3ea51b83e12d8d9a1757fb8af4ed14648de00ad1fe7fb3a75d917e0ca5d304",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "docs/development/index.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "49b40281b67948ec64b50734f296131bc640ede0508487310a2a84d36564c57b",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "docs/development/local.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "44ab9c80d83339e7165cb56d2320c3d728b56f4b1467673bdb61a0c6d876c7ad",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "docs/development/mvp-status.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "90d3a6de9cfbdf3753c81fb31d230d908d2c2b8fde873107bfa6010d24f9da52",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/index.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "8719b3e48b76b687ab0aaaa3a2fe1531d162d45de0f2406bc781919a8cf902ea",
+      "sha256": "7b4654241fbd7bd6979eca1517a85a669888330e94a13ab5fde661dae97823e7",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/measurement/decision-rules.md",
       "status": "draft",
       "owner": "ai",
-      "sha256": "b45f1eaf7ac02359cc43cca4c65f649596fa3c74774ba7cba4ffc5365814052c",
+      "sha256": "086f0c44488ea4dc66b61b69ef18423e59278b51148149b145c0bf73a5aae2ec",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/measurement/notifications.md",
       "status": "draft",
       "owner": "ai",
-      "sha256": "512c76476c8c3444a3b116b2f8b717e9a979c3601e0bed4db5b7745e18e46e48",
+      "sha256": "f990e3fbd72e80ccf41b533c3884517b88d3e7b97b5afb57fce244e11637b487",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/measurement/signal-pipeline.md",
       "status": "draft",
       "owner": "ai",
-      "sha256": "2759cfb68956508cb029765ef9ebf5903b53e7af7273074878b92b7cfef6989c",
+      "sha256": "c203058ca80c212fb525094f695351a34317b66e01476d56cb59fd687efc8073",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/product/requirements.md",
       "status": "draft",
       "owner": "product",
-      "sha256": "9c56c934b1e4e084c162e7636c8771701925995abdb005d91100f211e6473b73",
+      "sha256": "15d36cb30433bc6b285c9926653d14e8e69d03ea802c354d32dedbc0bf079132",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/product/scope-and-journeys.md",
       "status": "draft",
       "owner": "product",
-      "sha256": "3e2aaca0bc1ab8a089234da0fb313b2a53ae2aeeb7ef0bf919a26ad75a604db5",
+      "sha256": "6ca6fc4bbbd38e6e077c441ffebb5dc8a6a625de7b6c51c5f3a0c1a394ea38e0",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/quality/acceptance.md",
       "status": "draft",
       "owner": "reviewer",
-      "sha256": "5ff481fbe32274ad55679fb7ebb4869239ebcffbaf3a1ce77ab32c360b129b9f",
+      "sha256": "dc7c439e8d96397b4d7edb2bc937ac17823722bf01481441f71c194e236bd2eb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/quality/measurement-validation.md",
       "status": "draft",
       "owner": "reviewer",
-      "sha256": "67d13038a6c29b3617770cf2bf3313d8b8e7ca47cb41c497db76d8d02716cf59",
+      "sha256": "3db1911772731737d01682580f3fe701ec4e60b1245881a2f68ee7800ac8c2db",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "docs/references/cloud-plan.md",
+      "status": "reference",
+      "owner": "product",
+      "sha256": "46d4211aff504d10f30448b6302abd2d191fb74bb2aa034160bf2c94c80db90e",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/references/evidence-register.md",
       "status": "reference",
       "owner": "product",
-      "sha256": "4c7f5c581434207f88c529ea710b46d997342b758f301bf426c2a2ac7f2e4e7b",
+      "sha256": "85ed6b0ad18fba80bc07efbe32b5b964b9f9a84e09a8d979e3a9b3d6dd7d7abd",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/references/README.md",
       "status": "reference",
       "owner": "product",
-      "sha256": "b05f622ff38ae003e2ed570ab09bca8725870d2c6fecd148d36b7b7eebf5697b",
+      "sha256": "54c6f5fe3bc88e4f038e283b785bb8690e31954ef69de03072d18edddfe8cff7",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/security/privacy-and-security.md",
       "status": "draft",
       "owner": "security",
-      "sha256": "c2f722a44beeb7c5d6ff6ccc6273ad7bad0bda3b46a9c13d608e7651489f29f2",
+      "sha256": "27b6600a3ac1a4b70b4ee43aab34c8f29af7d44e9fbb029e70dbb6a3fe5c8d80",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/ui/screens.md",
       "status": "draft",
       "owner": "frontend",
-      "sha256": "52a1e8a19020aa2d49aa1184f12dfe900b11eda9f6ea569e7a9e6a1ec663b0c0",
+      "sha256": "50f52a5eabbcf3ea087dc00a974d298d16f36ca03f9c4b576b01676e18cc1120",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "docs/ui/state-machine.md",
       "status": "draft",
       "owner": "frontend",
-      "sha256": "67e0fcc14b9dea5f0531c7ed8ece33958e7e9963e30966159e13ef85d19963ad",
+      "sha256": "b57c0346be8e51bea2fb00ad2600979b2807240745d4578899fdb260ec973bce",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "frontend/README.md",
       "status": "draft",
       "owner": "frontend",
-      "sha256": "0df9527da78085936a031d376a4f5eb8a1ac8fc0efd0e32dfdfba2a90e3f6817",
+      "sha256": "dd5435e6b9f00d80883f962bd9dfa155f2dfeaa192e62abb4e2ba9ae43cb7059",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/AGENTS.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "3afcfe5720b9bfce87904f9ba5de90cece8379849240a1b0eb2e5daf968d8a86",
+      "sha256": "acf09e8641051b942479af39d9e5219a77cfaf7a9732ed1dc47181549fede858",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/ARCHITECTURE.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "3f1fa6d87249db0c01a16922818519947d8e538adff1d3b53df9808bc8cb29fd",
+      "sha256": "aea340437a0d00eb87678421ac8ce69f9ac8a95c03ba330aa2ed5158ced3b4c2",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/architecture/boundaries.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "fdd033d4710e82f58304e50de667e6b35722af84882a1dc328ab39d7c227c36e",
+      "sha256": "e6d5250199c442f638e92d6b88b05d8161297ea27be1fe5599972abed9b460fb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/architecture/dependencies.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "990cac291d24ad835a8fdad5ec6cba604441432e2dcaac6e9d32fc63416e90f5",
+      "sha256": "be4f6a252fe2cb1f064399bba18f75e6e11b672638914442a7029e53d1665e18",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/architecture/document-ownership.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "9ce4430559c3b5a83b09e3bacfcc3b83958f17bf8353ca0842caa9ac1d7e2aae",
+      "sha256": "bad36a1a8300a18544086e519f3f40d98d344225e694e3e98cb31956bb16d5c0",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/architecture/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "d0d148da37eebe08ed931a113557a3f2a69d530b43d73e7345a64aca51153da7",
+      "sha256": "e322169bf9992ec5112de58dd1a56972dfd20128784e7f8641f8c2438122b048",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "harness/docs/architecture/runtime.md",
+      "status": "active",
+      "owner": "harness-maintainer",
+      "sha256": "4a7cfdf90233747470095e27d0e1aea7ef9d6e6ffe4737e6abff75ddfd2a4f5b",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/decisions/harness-layout.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "d9f8a5ab4b1ff8fa389fb1412dd6b108bb8fe2abf4aa86c16f7d3536c4bd1233",
+      "sha256": "17856324f37960c17f2e5061a0b93be56d9c8608e805b2140f1665b99e3dbc82",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/decisions/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "12af2389beb2ebe7189bfa25a00a19bf6c116acc24b9c146c39bca1e789d023b",
+      "sha256": "8ecfbb43bc01e84c2d8d4b3a70352f1cec7b8887c7d9e2de9a793ac605417e6d",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/design/frontend.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "dea04746b15fc4934a9d71fdd50b3fb782ca99e18f2daddefaa1d4ca0dec2a2b",
+      "sha256": "164d58bdd76363e47ff6f7ca88922b4a8c519e0ec1dbbc7145dcc7723c567ad5",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/design/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "4b60ace68b298750374c2ab466f5112c1c876f44aea9980d3dc5fee26d0029e4",
+      "sha256": "1bc91cb1df714a114c64e8bc7c15668916a5a816e84592eb9b2c21af131b26c2",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/design/measurement.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "872efb73620081247851cb05f41ec06068e5577a110db9c90b82be8c2d1b7ed9",
+      "sha256": "f222b6efde76d2ee88b052df2feebf25217b57d907eb15673697a3889cfd6853",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/design/principles.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "e28926476431bc3b096f258df83551feb53e536400d850804cb036280501243c",
+      "sha256": "80042f4301f4344afb06d72d7af5a762da573c96c404d48e316c7286ad10a9d0",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "b55f3acc050fc4f5f964413476db162a5f305513e8442325001c19a7aea8ea96",
+      "sha256": "3877213bbe83e316b3c92a1bda377c502ae79049c870a8cf2c70f4390078bed2",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/active/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "b4339df0974bb610715f02e18ab347d4f76c51a759e33899a8cf5e7a80398e73",
+      "sha256": "8b035ebdf10ea000c7935a9b00612015288c0b9d4c41bd8d61853451b1682892",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/active/product-kickoff.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "0e88ae4bf119df3d0b4681dcdf4128a1b3c9e00133e91e7c7ccf9c765fd48db6",
+      "sha256": "2331ce30ec65b7008b0a017b549c91e763e1d22e5aeea91c48abbcf4794b7471",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "harness/docs/plans/active/sensor-and-cloud.md",
+      "status": "active",
+      "owner": "harness-maintainer",
+      "sha256": "bd6cf823a25ec892fecb8ef570117241e2ac625a6714f53da6d763df37287dde",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "harness/docs/plans/completed/first-local-mvp.md",
+      "status": "historical",
+      "owner": "harness-maintainer",
+      "sha256": "180bde11d71b308ff5526c9ae742b783838f821229df35e611654cb5afc1aee6",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/completed/harness-layout.md",
       "status": "historical",
       "owner": "harness-maintainer",
-      "sha256": "943f5d019030aaa2f013cce0d1f0ef3c616e070d60dd2fa94de7390391831212",
+      "sha256": "741daac401ce952bc6f32a8f32b45a7dc3a16f10412ed9c12ff86aef4853c032",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/completed/index.md",
       "status": "historical",
       "owner": "harness-maintainer",
-      "sha256": "655bc3a41594c980aa747744ae4402bdfbad481d10cad69bdfe30f5fade53eae",
+      "sha256": "337cca67312bcdd72b96e479454f61883945a11c305428b7eeefc1c64bdc6209",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "f706651d16f6a4bad6addadba36056db01654018c3b8cf508e3d29e35170360b",
+      "sha256": "e002390a1fccfef544d9bb84049e6361b38dbee31d206bfa30174ebabedfff54",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/mvp-roadmap.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "5cc4cbae8d63fc585d2c462a02dd5a5eeceed297f4c2149e0d63167831dc7117",
+      "sha256": "89628979c30ade487b4706dfdfae4ec9f9d8d62dabd3bf647e11d5b087fd89f3",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/plans/tech-debt.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "f04c4caf3eefe8011b889542c4ec79a2b920dd722e435eaaafb2eb18d4228a18",
+      "sha256": "8629548bbc92517bc34959ae7d4a88faf10a75112335bc649193577054a243b3",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/product/change-scope.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "805797c5bf4f1b1d2186b9d27f7174ce7e3eac3cb4557bb413f4890d65d7f240",
+      "sha256": "edc3785402224e58e30206c7b94d93038d878b15c24ea513fba867acbb67d0ba",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/product/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "f94df9a847fef179deee02f885561d4a580473a578aba4b7153f6688327f595a",
+      "sha256": "b541a5569dc7cc76927d6ccea06303bd1a85e75cdcf3fcfa3122f0428a9b5da7",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/product/overview.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "4024803ead4bed00c89cd1856a9efbfd339b8103cd89fe0a67b7927e7e7a6455",
+      "sha256": "41f4d13d572c037671f1b2cd5ae40f3418ad98a05b33add696b24bd6993c67a7",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/contracts.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "55bacf3992e4597bbfbf1b1d3581a891e4afcb7c5a709a7a7a1d965d3603ff60",
+      "sha256": "7430eafaf7d4f675e996796cf18e4051c40b0c28d33e8a3790a586f2f7dabbad",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/freshness.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "59401aaae50646365f62d8009ae6ab2cd449c3f13689bc085c568f2c87979692",
+      "sha256": "c81f5aa1a5f2aeaa862e4c7eb7a0b3e169935a9559ecef784dabab59f4a90cba",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/gates.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "f71ef31483ab004e75cf6a9c19fab86cc3fafa7cfc9f7992c86d26368f5c67da",
+      "sha256": "6a1983508313d668cf65e6dec67d836a65c7d09c57084a70bc375816ba47920b",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "d96a2909f7348f3cb3e2062a18dea448ea78904e03031798aa02f838f7ce3d80",
+      "sha256": "64884c30700980fccb8b0fbd9367f69dc07b78045541e6211c0decb0a4b0b7c4",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/risk-register.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "3153cb0d3b833a0789d36d4880d8be166151631ce3f7400c5494730b8b28ca8e",
+      "sha256": "674e3a082d6885458694fdf3f99a7f0a383eee2263de8de158211114af970486",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/quality/scorecard.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "7a77bafcbacafc898c47f6017526244022134203ba93c27ee240e5af17c9b636",
+      "sha256": "15f5d3e2305b3669e26db4f195bde8f33cd0a525bec48c4fb2a86d1a7e63bb40",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/references/harness-pattern.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "968e80ceecbc2e948e7aeae59b09891e960e374f7dea43f58334152541a960a9",
+      "sha256": "e25fb2c3425368526bc9ff686ad2bef9164674aa5b7656fc5cda7de927558755",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/references/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "ced4b321572139dee0db4f6846b2cc1966a7a77da47087c66e0fe3d72c9ad505",
+      "sha256": "4dfcd994ade642e9abfde2466cfb20d3c32631ef613b3ce6b0a2b41ed9a10ae7",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/reliability/failure-modes.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "46068f530368e3aee6bf48570bd164fc05614d87a25c1aded4c71f0e7f43250f",
+      "sha256": "c61b3d46685f5386053bbcf670f10ceda1b79ceff6e6c35a74829681cdd6b230",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/reliability/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "cd33aa71d04b413ec2bbffc33821045d35608082092e7adb172860d32445659a",
+      "sha256": "35b0c910340f0b8bf0595e4f5bd9f06f02e1f3778dc906746959b40c364e396a",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/reliability/observability.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "14339ba2743f8c1ff8049059c67e6ac0538ac0ea7d1571596d4f0826bc6edee6",
+      "sha256": "4b067cdd91b1c9012af3a58c69719a37ce1ef0968282465f2d1b10ff66c738cb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/reliability/recovery.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "16fe82053ed04ce541dd79ae74c44c1d251723726b798a007eaf513b6293b2d1",
+      "sha256": "ef078e5172d4606625fbbdc9145789147ec108e0f60496c8089f34f7315704a1",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/architect.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "5fa245209e57b03acbbdd158ff9369fb37793c20dda143b404e0e77797e79b84",
+      "sha256": "97b4e60323f912988364dcba3bae456614c1373a44490cc26f87268458eec1ae",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/committer.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "d89adfd918f5293cef4b9505dab9427426d3a0c5186b9781c9b8ac10b8722622",
+      "sha256": "4cdba1d07ea7b1a11ee0138b1b976a5c696872f78b5c37f63e89d0f82a6fbff6",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/deployer.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "393cbb5c1a1f2371fbd157b9147e6fa13c922e8ad811b3e06287a623723262c5",
+      "sha256": "bdef90d11dd3861214bc3730c518686bb6b3518e823c3cf4afc0ca4f087e97eb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/implementer.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "45b96a3752f25c18e92a8ac393502f128137946f0504f354edfbd9101a35adb3",
+      "sha256": "cadda6da9ad513a85e1c7a1671b2d99279a622dd3cbafe6af3fd851469df0bcb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "7bcd9b10032fcd55a2157dee8365134932dd656fc598cfc04759ca776a350419",
+      "sha256": "5dbdd9997a8ac97bea5c64970016018bffc0e93ee59678a76b8cdd5802eeaf6e",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/planner.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "4dcb49819ea1ba84383c2b81dca01249eaaa8132fa43c2877c11eded4b6f6f8d",
+      "sha256": "a5ba897852d17678135885466b9b777f0cd38b02e85f8f4909685de19e7faf78",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/reviewer.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "95397b0e67cd5ad4f50214bef3ffe525f083a81315dcd491b647fd9e00036e0f",
+      "sha256": "43efb6154672e6b0af144bf4c83b8edfe1cc098d5b4c99bef5f642fb447a1463",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/roles/security.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "e53a4505bfe4b13fdaf47afd023b9a043442349f8e626083e13b35417b69ea35",
+      "sha256": "653b1841b46fc1358f11e57822a35f50362bc01fe10aa6fd288aa8ce7ad1b95d",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/security/data-boundaries.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "be1944253e6251ff86f4ac6231263b896023976944184f505c39ab604e156548",
+      "sha256": "6fb2b97f93b28117892bd1c0f6473867564828f298fc298c2608ac31fefc7070",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/security/helper.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "f4ce5f4abca85706f3997df634f2ca9aa5e9db8366c91d4d63d570c56f292ee3",
+      "sha256": "0f1008f6f9d36e0b1870d6a5a3c12763afe562ece69e8ad80e45c3d9b3f1f15a",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/security/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "7bcd1ae32b7ede1c8b6d0931d1a55bf77a1201a48d92ef1a1ae0328bb01e0a99",
+      "sha256": "727687bcbe2453eba219ba685c7c265960dbdbe9c23541cd21fe9fe1791432be",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/security/ownership.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "86be622dbafea57fc23dd82b9eed06f9f8df6077657cc8db81fd7f6826f18126",
+      "sha256": "e9dcc438458f7b46251585905ea8220e03b94093fa365ed69c35a39856eb557a",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/security/secrets.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "48485875b450fcac6dfc1195a8dcdda414d019d4590877f005a3e7868756cb9b",
+      "sha256": "5c1bb9fad5778ca79ace988acc55ec7a48dd45b088c2c78b951a27c038cdb107",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/templates/decision.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "9dd468c59a504f921666a79ffd67755eb1409bf3cf2c72218f7df702de75e21d",
+      "sha256": "159d3167dae1976b0cb9e1857d55ef203cfbd474f11cc629845ade53e11a4d08",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/templates/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "0c6ed64f88ce17bb2d538c626f2137693b66d38bdc32269dcb7d05b0fb934965",
+      "sha256": "2c12684029233ad60d24f28a21298f7200b2e5e937b3746a6116587ad6fa2da8",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/templates/review.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "c52698dd8ae9602360ce0088df6ed4f5d6511417be53d4b0e5e1d7fae0c5a2d4",
+      "sha256": "38ba8e010ca8569f47d910f392eb8b857e4f3fadacd07bcfb8028d3c81f9af3e",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/templates/task.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "9bc5c265ed536c34b208284743842a55541b49558bef9057a946aa46283630fd",
+      "sha256": "7e6015e2c7377de43dc3117f3d24af87d582ffd7d151fb890d9c9c7a31303519",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/templates/verification.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "b372611960b6bb62df41846d175171ec3b5308f98cf8ac69cea56ba0bddac6f2",
+      "sha256": "886d1459e6f85be4bba07c5759d4d3a0ebd2fec4c37f2f6a4fd9f024f53a6adc",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/bug-fix.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "ab5807fbc08c9c647a840f9f6ef43d15d35f7e1dadfa3cd57ce9c5009a631c42",
+      "sha256": "9f4049d54366ea6d81f8905c432d9dcc063d9cd22e8294a8a1135193b9221025",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/change.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "1c079e480f9f4422b91646307c61aab4e99515b1a24f2faaecc924945ed070ab",
+      "sha256": "04df6b9df2f23dc7c81285977a981b81ef84d48ab7fa12bba44bf77431c8ba70",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/commit-and-push.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "7213ec462fa4ca07189cc30a633ef4ae772a26959acbf38bf245ec805e589699",
+      "sha256": "5b45c865f7da56815b13bdfaa1f14bce2fb355b945dcd365142dc76c078cfc19",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/documentation-change.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "76ae26e59b5e60f76e006f0341a5d588076712ce1590b6399fa55c65a87c75bd",
+      "sha256": "b45ed3547daa956a2c6a90434a243890e4672145fe0ebd8ff323e5c8eb6738eb",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/feature-change.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "c64acb6d14342c8030dfa9b07d7d104eb26cc3affd8ca1e622fbd8c6ff580d64",
+      "sha256": "71b6d1a71f504db525897bcab00d88db9e7aa598fb225137a48bf0610b336877",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/index.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "6e9d64fb93affc377fce5e3c536326e87c5138f636b8a1737f6ed83e3a76babc",
+      "sha256": "cf3b9cda7a2954018b6c92da2ee489424e55bfe9f9ad07ca94ebc11eb1e4d399",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/release.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "506785cc0ab700300ba86d710dbcb647e9e9d8a34c2b2a233a1a84bbedd22c22",
+      "sha256": "677e0b7e042c4d8cc513de61a77f0fe78a903573d3f7e3a87ee274019a658803",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/docs/workflows/review.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "af266115d0e019e571fff6f4d00dff97557fe2dd6409b83ffe1bab80b030787d",
+      "sha256": "a1131f54264181abf5bedb6600e8cbc8a384de1ec01bd61d191d0a9599cc7bb7",
       "reviewed_on": "2026-10-17"
     },
     {
@@ -635,14 +691,14 @@
       "path": "harness/generated/document-map.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "313fc872e410954ea7141decee324bf492fddda390387855ab9034ae03177fe5",
+      "sha256": "4c8b610896ecc4f17c1a1b08d487c704796fe88644338ac135168f75b729e436",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/generated/README.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "c66b1f881aa96ab7131d75eba0d61fc4d8337a90f056f585bf49e3fe467dc86d",
+      "sha256": "4aa811f4db5b4d723a1ea609f25a79f1ec972702a01e795a8cbb6078efaf5526",
       "reviewed_on": "2026-10-17"
     },
     {
@@ -656,28 +712,28 @@
       "path": "harness/NAVIGATOR.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "a039c8ec76e26b3f56f988473515030cfa8a9233785a5bab5bad3dacd7bd2d15",
+      "sha256": "f4c011ee78b3a07a4bba74492e84611106fbbbc0ec2a2746b0f9f38019abf7c9",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/README.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "72e72eedb4871fc4904ebabac1567d57870f5d668ab86db0bb458982a7950696",
+      "sha256": "744f6ab9a3453f2b9deb5fac93d5cfc3cb3e387541888697a1d6fc0c315eaa06",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/reports/docs-bootstrap.md",
       "status": "historical",
       "owner": "harness-maintainer",
-      "sha256": "8d7b37083e4c981a07681bd86ff781d75a4ada623ccf74cba657c1bf7088a817",
+      "sha256": "ba043660d8c7832c4491552ea955a97b3886fcc872560a2ded63a14302e96813",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/reports/harness-restructure.md",
       "status": "historical",
       "owner": "harness-maintainer",
-      "sha256": "a406938d8ec5d49f6caa238ef18d8a1dd7883e7baa6af1abdd0789a6e7fdf295",
+      "sha256": "ca20b38404472f1a7041e89688c84da7cf0dab045d616973112220d520733506",
       "reviewed_on": "2026-10-17"
     },
     {
@@ -691,28 +747,42 @@
       "path": "harness/scripts/README.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "ac73a6e6aa6e7c8e080ad25be12db59a4afcac4aa81e53feacc4778e717c6c89",
+      "sha256": "f1b7ac22f012daa9f2f4e160e5a7a8cc5c1969923e6641ed27a6529954984c28",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "harness/tests/README.md",
       "status": "active",
       "owner": "harness-maintainer",
-      "sha256": "5d1efa255d3204ff9a5eedb176bc4bf0e5421e741101aba36adfb590234ce0ea",
+      "sha256": "6794f0fb86c0b71ba77f99cd669e7d735550e56a5c0b0dd20fbb68c8fb2a6dcf",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "infra/README.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "1653fcef92477fc5ade6ad7204bfd5b3dcfddba635bbafb1b024dd0661eedf75",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "PRD.md",
       "status": "draft",
       "owner": "product",
-      "sha256": "691b1182182b1dbbdcae04dca38216386e3c22fe06ac7e7b3679dea3265ba143",
+      "sha256": "3416c76d1b9356735ddee14815176dd21413b88de395e154c65145dda0fdd5c9",
       "reviewed_on": "2026-10-17"
     },
     {
       "path": "README.md",
       "status": "draft",
       "owner": "project-maintainer",
-      "sha256": "ed3e5f0dffc4f4f22f2cb262d7d0579cc91a51a99945d665d7bdbbc496c323af",
+      "sha256": "748c4e5e1d0abd26fde702999bf8ccda7f3b3c2c3889b90e5ac47649a83e6486",
+      "reviewed_on": "2026-10-17"
+    },
+    {
+      "path": "tools/simulator/README.md",
+      "status": "draft",
+      "owner": "project-maintainer",
+      "sha256": "2f7759a355825ff27012f796360cb756450d7ece81569ccd67c25c3ea9c002c5",
       "reviewed_on": "2026-10-17"
     }
   ]

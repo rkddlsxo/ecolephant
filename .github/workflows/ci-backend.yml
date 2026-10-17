@@ -5,56 +5,30 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'docs/api/**'
+      - 'harness/fixtures/policy/**'
       - '.github/workflows/ci-backend.yml'
   pull_request:
     paths:
       - 'backend/**'
+      - 'docs/api/**'
+      - 'harness/fixtures/policy/**'
       - '.github/workflows/ci-backend.yml'
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: backend
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Gradle build & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # 아직 코드가 없는 단계에서도 CI가 실패하지 않도록 가드
-      - name: Check for Gradle project
-        id: check
-        run: |
-          if [ -f gradlew ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::backend/gradlew 가 없어 빌드를 건너뜁니다."
-          fi
-
-      - name: Set up JDK 17
-        if: steps.check.outputs.exists == 'true'
-        uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: temurin
-
-      - name: Setup Gradle
-        if: steps.check.outputs.exists == 'true'
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build & test
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon build
-
-      - name: Upload test report
-        if: always() && steps.check.outputs.exists == 'true'
-        uses: actions/upload-artifact@v4
+          persist-credentials: false
+      - uses: actions/setup-python@v5
         with:
-          name: backend-test-report
-          path: backend/build/reports/tests/test
-          if-no-files-found: ignore
+          python-version: '3.12'
+      - run: pip install -r backend/requirements-dev.txt
+      - run: ruff check backend
+      - run: python -m compileall -q backend/ecolephant backend/lambda_handler.py

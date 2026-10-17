@@ -1,6 +1,6 @@
 # 브라우저 분석과 결과 저장 구조
 
-영상과 센서 원본은 로컬에서 처리하고, 백엔드는 소유자별 파생 결과와 집계를 관리합니다. 프레임워크·DB·배포 제품은 DEC-008에서 선택합니다.
+영상과 센서 원본은 로컬에서 처리하고, 백엔드는 소유자별 파생 결과와 집계를 관리합니다. 실행 스택은 ADR-0002에 반영했고 운영 DB·호스팅은 DEC-008에서 확정합니다.
 
 ```mermaid
 flowchart LR
@@ -39,3 +39,9 @@ flowchart LR
 분석에는 브라우저 단조 시계를 사용합니다. 다른 프로세스의 단조 시계는 [도우미 계약](docs/api/airpods-websocket.md)에 따라 정렬합니다. 서버 저장 시각은 UTC이며, 창별 상대 시각은 세션 시작 기준 밀리초입니다. UI와 기간 집계에는 선택한 IANA 시간대를 적용합니다.
 
 [분석 파이프라인](docs/measurement/signal-pipeline.md), [데이터 모델](docs/data/model.md), [정책 결정 기록](docs/decisions/adr-0001-browser-analysis.md)을 함께 참조합니다.
+
+## 1차 MVP 실행 구조
+
+사용자 지정 스택은 [ADR-0002](docs/decisions/adr-0002-first-mvp-stack.md)에 기록했습니다.
+frontend와 ai는 npm workspace이며 backend는 Flask입니다. 최초 실행 저장소는 SQLite이고 DynamoDB 어댑터는 실환경 검증 대기입니다.
+모든 저장 세션은 data_source=demo입니다. [현재 범위](docs/development/mvp-status.md)는 실제 센서 출시 범위와 구분합니다.

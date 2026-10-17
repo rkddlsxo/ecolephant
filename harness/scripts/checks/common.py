@@ -1,6 +1,9 @@
 from pathlib import Path
 from urllib.parse import unquote
 import json
+import os
+
+EXCLUDED = {'__pycache__', '.gradle', 'node_modules', 'build', '.tools', 'playwright-report', 'coverage', '.codex', '.agents', '.venv', '.git', 'tmp', 'test-results', '.ruff_cache', '.data', 'cdk.out', '.pytest_cache', '.build', 'dist'}
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -41,5 +44,14 @@ def check_refs(document):
             key=unquote(part).replace('~1','/').replace('~0','~')
             current=current[int(key)] if isinstance(current,list) else current[key]
 
+def source_files(root=None):
+    root = root or ROOT
+    for directory, folders, files in os.walk(root):
+        folders[:] = [name for name in folders if name not in EXCLUDED and not (Path(directory).name == '.husky' and name == '_')]
+        for name in files:
+            if name == '.env' or (name.startswith('.env.') and name != '.env.example'):
+                continue
+            yield Path(directory) / name
+
 def markdown_files():
-    return [p for p in ROOT.rglob("*.md") if not any(part in {".git", ".venv", "node_modules", "tmp", "__pycache__"} for part in p.relative_to(ROOT).parts)]
+    return [path for path in source_files() if path.suffix == '.md']

@@ -10,3 +10,14 @@ coverage/
 tmp/
 .DS_Store
 Thumbs.db
+.tools/
+.data/
+.build/
+.gradle/
+.pytest_cache/
+.ruff_cache/
+cdk.out/
+build/
+playwright-report/
+test-results/
+.husky/_/

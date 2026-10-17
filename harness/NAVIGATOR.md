@@ -16,3 +16,7 @@
 | 다음 작업·기술 부채 | [계획](docs/plans/index.md) | [템플릿](docs/templates/index.md) |
 | 검사·문서 정비 | [검사 안내](scripts/README.md) | [검사 보고서](reports/harness-restructure.md) |
 | 참고 구조·전체 위치 | [참고](docs/references/index.md) | [전체 문서 지도](generated/document-map.md) |
+
+## 실행 코드
+
+[로컬 실행](../docs/development/local.md) · [현재 구현 상태](../docs/development/mvp-status.md) · [스택 경계](docs/architecture/runtime.md).

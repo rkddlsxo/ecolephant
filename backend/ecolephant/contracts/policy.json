@@ -1,0 +1,72 @@
+{
+  "policy_id": "draft-web-v0",
+  "revision": "0.1",
+  "release_approved": false,
+  "camera_mapping_status": "unvalidated",
+  "status": "설계·실측 대기, 운영 사용 금지",
+  "thresholds_deg": {
+    "caution": 15,
+    "high": 30
+  },
+  "fusion_weights": {
+    "webcam": 0.5,
+    "airpods": 0.5
+  },
+  "calibration": {
+    "stable_duration_ms": 3000,
+    "landmark_confidence_min": 0.7,
+    "stability_tolerance": "DEC-007에서 특징별 허용 편차 확정"
+  },
+  "quality": {
+    "window_ms": 1000,
+    "min_valid_coverage": 0.8,
+    "max_sample_age_ms": 500,
+    "max_pair_skew_ms": 250,
+    "recovery_stable_ms": 3000,
+    "rotation_rate_limit_rad_s": 1.5
+  },
+  "alerts": {
+    "first_after_ms": 20000,
+    "second_after_first_ms": 30000,
+    "cooldown_ms": 300000,
+    "correction_stable_ms": 3000,
+    "correction_observation_ms": 120000,
+    "adaptive_reduction_enabled": false
+  },
+  "transport": {
+    "upload_every_ms": 5000,
+    "batch_max_items": 60,
+    "batch_max_bytes": 65536,
+    "memory_queue_windows": 600,
+    "helper_target_hz": 20
+  },
+  "provenance": {
+    "source_initial_values": [
+      "thresholds_deg",
+      "fusion_weights",
+      "calibration.stable_duration_ms",
+      "quality.window_ms",
+      "alerts.first_after_ms",
+      "alerts.second_after_first_ms",
+      "alerts.cooldown_ms"
+    ],
+    "design_proposals": [
+      "calibration.landmark_confidence_min",
+      "quality.min_valid_coverage",
+      "quality.max_sample_age_ms",
+      "quality.max_pair_skew_ms",
+      "quality.recovery_stable_ms",
+      "quality.rotation_rate_limit_rad_s",
+      "alerts.correction_stable_ms",
+      "alerts.correction_observation_ms",
+      "transport"
+    ],
+    "decisions": [
+      "DEC-002",
+      "DEC-003",
+      "DEC-004",
+      "DEC-007",
+      "DEC-010"
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-17",
+  "scope": "local_synthetic_first_mvp",
+  "implemented": [
+    "prepare_measure_history_ui",
+    "pure_browser_analysis",
+    "screen_alert_lifecycle",
+    "flask_12_operations",
+    "sqlite_persistence",
+    "server_aggregation",
+    "retry_queue",
+    "camera_preview_only"
+  ],
+  "scaffold_only": [
+    "dynamodb_adapter",
+    "docker_compose",
+    "lambda_handler",
+    "cognito_jwt_path",
+    "cdk_stack",
+    "amplify_build_config",
+    "simulator_cli"
+  ],
+  "pending": [
+    "real_webcam_model_and_mapping",
+    "real_calibration",
+    "airpods_helper",
+    "device_validation",
+    "cognito_frontend_login",
+    "aws_deployment",
+    "design_system_package",
+    "system_and_sound_alerts",
+    "durable_offline_queue",
+    "retention_and_abandonment_policy"
+  ],
+  "verification": {
+    "node": "22.23.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "build": "passed",
+    "eslint": "passed",
+    "ruff": "passed",
+    "contract_generation": "passed",
+    "static_documentation": "passed",
+    "product_tests": "not_run",
+    "harness_regression_tests": "not_run",
+    "browser_scenarios": "not_run",
+    "device_measurements": "not_run",
+    "cloud_deployment": "not_run"
+  },
+  "report": "docs/development/mvp-status.md"
+}

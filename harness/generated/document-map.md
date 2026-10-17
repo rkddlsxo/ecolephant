@@ -5,15 +5,19 @@
 | 문서 | 경로 | 상태 |
 |---|---|---|
 | [프로젝트 작업 안내](../../AGENTS.md) | `AGENTS.md` | active |
-| [브라우저에서 실행하는 자세 분석 모듈](../../ai/README.md) | `ai/README.md` | draft |
+| [브라우저 분석 모듈](../../ai/README.md) | `ai/README.md` | draft |
 | [브라우저 분석과 결과 저장 구조](../../ARCHITECTURE.md) | `ARCHITECTURE.md` | draft |
-| [결과 저장과 기록 API](../../backend/README.md) | `backend/README.md` | draft |
+| [Flask 결과 저장 API](../../backend/README.md) | `backend/README.md` | draft |
 | [AirPods 도우미와 웹의 로컬 통신](../../docs/api/airpods-websocket.md) | `docs/api/airpods-websocket.md` | draft |
 | [HTTP 결과 저장 API](../../docs/api/README.md) | `docs/api/README.md` | draft |
 | [세션과 파생 결과 데이터 모델](../../docs/data/model.md) | `docs/data/model.md` | draft |
 | [시간과 자세 기록의 집계 정의](../../docs/data/statistics.md) | `docs/data/statistics.md` | draft |
 | [브라우저 분석과 서버 결과 저장 경계](../../docs/decisions/adr-0001-browser-analysis.md) | `docs/decisions/adr-0001-browser-analysis.md` | draft |
+| [ADR-0002 · 사용자 지정 스택과 1차 데모](../../docs/decisions/adr-0002-first-mvp-stack.md) | `docs/decisions/adr-0002-first-mvp-stack.md` | draft |
 | [미확정 결정과 검증 항목](../../docs/decisions/open-decisions.md) | `docs/decisions/open-decisions.md` | draft |
+| [개발과 현재 상태](../../docs/development/index.md) | `docs/development/index.md` | draft |
+| [로컬 실행 안내](../../docs/development/local.md) | `docs/development/local.md` | draft |
+| [1차 MVP 구현 현황](../../docs/development/mvp-status.md) | `docs/development/mvp-status.md` | draft |
 | [개발 문서 색인](../../docs/index.md) | `docs/index.md` | draft |
 | [센서 결합과 판정 규칙](../../docs/measurement/decision-rules.md) | `docs/measurement/decision-rules.md` | draft |
 | [지속 자세 알림과 교정 기록](../../docs/measurement/notifications.md) | `docs/measurement/notifications.md` | draft |
@@ -22,18 +26,20 @@
 | [사용자 여정과 지원 범위](../../docs/product/scope-and-journeys.md) | `docs/product/scope-and-journeys.md` | draft |
 | [MVP 인수 시나리오](../../docs/quality/acceptance.md) | `docs/quality/acceptance.md` | draft |
 | [측정 정확도와 장치 호환성 검증 계획](../../docs/quality/measurement-validation.md) | `docs/quality/measurement-validation.md` | draft |
+| [클라우드·인프라 작업 계획 (ecolephant 기준)](../../docs/references/cloud-plan.md) | `docs/references/cloud-plan.md` | reference |
 | [원문에 수록된 연구와 기술 근거](../../docs/references/evidence-register.md) | `docs/references/evidence-register.md` | reference |
 | [UI 설계 원문과 페이지 지도](../../docs/references/README.md) | `docs/references/README.md` | reference |
 | [영상 개인정보와 통신 보안](../../docs/security/privacy-and-security.md) | `docs/security/privacy-and-security.md` | draft |
 | [준비와 측정과 기록 화면](../../docs/ui/screens.md) | `docs/ui/screens.md` | draft |
 | [측정 상태 전이와 복구](../../docs/ui/state-machine.md) | `docs/ui/state-machine.md` | draft |
-| [웹 화면과 장치 수명주기](../../frontend/README.md) | `frontend/README.md` | draft |
+| [프론트엔드](../../frontend/README.md) | `frontend/README.md` | draft |
 | [하네스 작업 안내](../AGENTS.md) | `harness/AGENTS.md` | active |
 | [하네스 지식과 검사 구조](../ARCHITECTURE.md) | `harness/ARCHITECTURE.md` | active |
 | [입력 경계와 Provider 책임](../docs/architecture/boundaries.md) | `harness/docs/architecture/boundaries.md` | active |
 | [제품 폴더의 의존 방향](../docs/architecture/dependencies.md) | `harness/docs/architecture/dependencies.md` | active |
 | [문서의 기준 위치](../docs/architecture/document-ownership.md) | `harness/docs/architecture/document-ownership.md` | active |
 | [구조와 경계 문서](../docs/architecture/index.md) | `harness/docs/architecture/index.md` | active |
+| [선택된 실행 스택](../docs/architecture/runtime.md) | `harness/docs/architecture/runtime.md` | active |
 | [하네스 세분화 구조 결정](../docs/decisions/harness-layout.md) | `harness/docs/decisions/harness-layout.md` | active |
 | [결정 기록 문서](../docs/decisions/index.md) | `harness/docs/decisions/index.md` | active |
 | [화면 변경의 설계 확인](../docs/design/frontend.md) | `harness/docs/design/frontend.md` | active |
@@ -43,6 +49,8 @@
 | [하네스 지식 색인](../docs/index.md) | `harness/docs/index.md` | active |
 | [진행하거나 대기하는 계획](../docs/plans/active/index.md) | `harness/docs/plans/active/index.md` | active |
 | [제품 구현 시작 계획](../docs/plans/active/product-kickoff.md) | `harness/docs/plans/active/product-kickoff.md` | active |
+| [실제 센서와 운영 연결](../docs/plans/active/sensor-and-cloud.md) | `harness/docs/plans/active/sensor-and-cloud.md` | active |
+| [1차 로컬 MVP 구현](../docs/plans/completed/first-local-mvp.md) | `harness/docs/plans/completed/first-local-mvp.md` | historical |
 | [하네스 세분화 완료 기록](../docs/plans/completed/harness-layout.md) | `harness/docs/plans/completed/harness-layout.md` | historical |
 | [완료 계획](../docs/plans/completed/index.md) | `harness/docs/plans/completed/index.md` | historical |
 | [실행 계획 문서](../docs/plans/index.md) | `harness/docs/plans/index.md` | active |
@@ -104,5 +112,7 @@
 | [검사를 실행한 기록](../reports/README.md) | `harness/reports/README.md` | historical |
 | [독립 검사 실행 안내](../scripts/README.md) | `harness/scripts/README.md` | active |
 | [검사기 회귀 사례](../tests/README.md) | `harness/tests/README.md` | active |
+| [AWS 인프라 초안](../../infra/README.md) | `infra/README.md` | draft |
 | [자세 측정 웹 MVP 요구사항](../../PRD.md) | `PRD.md` | draft |
-| [Ecolephant 자세 측정 웹 MVP](../../README.md) | `README.md` | draft |
+| [ecolephant](../../README.md) | `README.md` | draft |
+| [합성 입력 생성기](../../tools/simulator/README.md) | `tools/simulator/README.md` | draft |

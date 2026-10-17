@@ -5,65 +5,39 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'ai/**'
+      - 'docs/api/**'
+      - 'package*.json'
+      - 'eslint.config.mjs'
+      - 'scripts/contracts.mjs'
       - '.github/workflows/ci-frontend.yml'
   pull_request:
     paths:
       - 'frontend/**'
+      - 'ai/**'
+      - 'docs/api/**'
+      - 'package*.json'
+      - 'eslint.config.mjs'
+      - 'scripts/contracts.mjs'
       - '.github/workflows/ci-frontend.yml'
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: frontend
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Lint & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # 아직 코드가 없는 단계에서도 CI가 실패하지 않도록 가드
-      - name: Check for npm project
-        id: check
-        run: |
-          if [ -f package.json ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::frontend/package.json 이 없어 빌드를 건너뜁니다."
-          fi
-          if [ -f package-lock.json ]; then
-            echo "lock=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "lock=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up Node.js 20
-        if: steps.check.outputs.exists == 'true'
-        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: ${{ steps.check.outputs.lock == 'true' && 'npm' || '' }}
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Lint
-        if: steps.check.outputs.exists == 'true'
-        run: npm run lint --if-present
-
-      - name: Build
-        if: steps.check.outputs.exists == 'true'
-        run: npm run build --if-present
-
-      - name: Test
-        if: steps.check.outputs.exists == 'true'
-        run: npm test --if-present
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run contracts:check
+      - run: npm run lint
+      - run: npm run build
