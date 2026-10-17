@@ -107,8 +107,8 @@ curl localhost:5000/health  # {"status":"ok"}
 - [ ] 경계 사례: 최소 지속 시간 미만/이상, 복귀 확인 시간 미만/이상, 센서 누락 중 발생 닫기, 재보정 구간 제외, 동시 발생 중복 제거, 분모 0 → "산출 불가", 알림 실패·보류·중복 제외
 
 #### A-5. IaC 선행 작성
-- [ ] `infra/` CDK(Python) 스택 — DynamoDB, Lambda, HTTP API, Cognito
-- [ ] **`cdk synth`는 자격증명 없이 실행 가능** → CI에서 합성 성공 여부만 검사
+- [x] `infra/` CDK(Python) 스택 — DynamoDB, Lambda, HTTP API, Cognito
+- [x] **`cdk synth`는 자격증명 없이 실행 가능** → `ci-infra.yml`에서 검사. 2026-10-17 합성 성공 확인(리소스 17종)
 - [ ] `cdk bootstrap` / `cdk deploy`는 계정 발급 후
 
 #### A-6. CI 확장 (이미 머지된 3종 위에)
@@ -118,7 +118,7 @@ curl localhost:5000/health  # {"status":"ok"}
 | `ci-backend.yml` | Python 3.12 + ruff + pytest (가드 상태) | 가드 제거, DynamoDB Local 서비스 컨테이너로 통합 테스트, 계약 검증 |
 | `ci-frontend.yml` | Node 20 + lint/build | 액션 버전 v7 통일, `permissions` 추가 |
 | `ci-ai.yml` | **Python 기준 — 수정 필요** | 브라우저 모듈이면 Node 기준으로 교체 |
-| `ci-infra.yml` (신규) | — | `cdk synth` 검사 |
+| `ci-infra.yml` | `compileall` + **`cdk synth`** | 계정 발급 후 `cdk deploy` 워크플로를 별도로 추가 |
 | `harness.yml` | 팀 소유 | 건드리지 않음 |
 
 - [ ] main 브랜치 보호 + required status checks 등록
@@ -195,7 +195,7 @@ cdk deploy --profile <프로필>
 | 도구 | 필요 | 판단 |
 |---|---|---|
 | **IaC** (CDK Python) | ⭕ **필요** | 리소스가 6종이면 콘솔 클릭으로는 재현이 안 됩니다. 프로그램 등록용 소스에 인프라 코드가 포함되고(H 항목), 학기 말 리소스 정리도 `cdk destroy` 한 줄로 끝납니다 |
-| **CI/CD** (GitHub Actions) | ⭕ **필요 · 이미 구축** | CI 3종 머지 완료. 남은 건 `cdk synth` 검사와 배포 워크플로 |
+| **CI/CD** (GitHub Actions) | ⭕ **필요 · 이미 구축** | CI 3종 + `ci-infra.yml`의 `cdk synth` 검사까지 완료. 남은 건 배포 워크플로 |
 | **Docker** | 🔸 **로컬 개발용만** | `docker-compose`로 Flask + DynamoDB Local을 띄우는 용도는 가치 있음. 단 **Lambda 배포에는 컨테이너 이미지가 불필요**합니다(zip 패키지가 더 빠르고 쌈). EC2 대체안으로 가면 그때 배포용으로도 사용 |
 | **Kubernetes** | ❌ **불필요** | 아래 설명 |
 | **GitOps · ArgoCD** | ❌ **불필요** | 아래 설명 |
