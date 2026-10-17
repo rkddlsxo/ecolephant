@@ -18,6 +18,8 @@ defaults:
 
 jobs:
   build:
+    # 코드 정적 분석 도구
+    # 소스 코드를 실행하지 않고 분석하여 문법 오류, 잠재적 버그, 지켜지지 않은 코딩 스타일(관례)을 찾아 경고해 주는 자동화 도구
     name: Lint & test
     
     # 자동 생성 및 삭제: GitHub Actions가 실행(Push 등)되는 순간, GitHub의 Cloud 인프라에서 우분투 가상 머신(Runner)을 자동으로 1대 새로 생성합니다.
