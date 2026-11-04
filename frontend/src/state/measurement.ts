@@ -18,6 +18,7 @@ interface Measurement {
   saved: number;
   saving: boolean;
   memoryFull: boolean;
+  missingSession: boolean;
   error: string | null;
   alert: { key: number; stage: 1 | 2; elapsedMs: number } | null;
 }
@@ -36,6 +37,7 @@ export const initialMeasurement: Measurement = {
   saved: 0,
   saving: false,
   memoryFull: false,
+  missingSession: false,
   error: null,
   alert: null,
 };

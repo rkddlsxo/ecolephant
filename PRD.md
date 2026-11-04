@@ -40,7 +40,7 @@
 6. 영상·관절점·원시 IMU가 서버와 로그에 전송되지 않는 것을 실제 네트워크로 확인합니다.
 7. 문서·OpenAPI·스키마 검사를 통과하고 선택한 출시 범위의 미확정 항목을 해소합니다.
 
-요구사항별 책임과 근거는 [상세 목록](docs/product/requirements.md), 구현 순서는 [로드맵](harness/docs/plans/mvp-roadmap.md)을 따릅니다.
+요구사항별 책임과 근거는 [상세 목록](docs/product/requirements.md), 구현 순서는 [로드맵](docs/development/mvp-roadmap.md)을 따릅니다.
 
 ## 1차 구현의 현재 범위
 
@@ -49,5 +49,6 @@
 
 ## 최신 작업 범위
 
-사용자는 AI 모델을 추후 가져오고, 우선 카메라를 켜는 부분까지만 요청했습니다.
-현재 기본 화면은 실제 웹캠 미리보기이며 측정 시작은 비활성입니다. [범위 결정](docs/decisions/adr-0003-camera-preview-scope.md)을 따릅니다.
+사용자는 AI 모델을 추후 연결하고, 그 외의 백엔드와 간결한 프론트 흐름을 요청했습니다.
+기본 화면은 실제 웹캠 미리보기이며 별도의 합성 입력 테스트에서 세션·저장·기록을 확인합니다.
+테스트 결과는 실제 자세 측정이 아닙니다. [범위 결정](docs/decisions/adr-0003-camera-preview-scope.md)과 [ML 인계](docs/measurement/ml-handoff.md)를 따릅니다.

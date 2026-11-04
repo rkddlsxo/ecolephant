@@ -10,6 +10,11 @@ on:
       - 'package*.json'
       - 'eslint.config.mjs'
       - 'scripts/contracts.mjs'
+      - 'scripts/check-build-secrets.mjs'
+      - 'scripts/setup*.mjs'
+      - 'scripts/runtime.mjs'
+      - 'backend/.env.example'
+      - 'backend/requirements-lock.txt'
       - '.github/workflows/ci-frontend.yml'
   pull_request:
     paths:
@@ -19,6 +24,11 @@ on:
       - 'package*.json'
       - 'eslint.config.mjs'
       - 'scripts/contracts.mjs'
+      - 'scripts/check-build-secrets.mjs'
+      - 'scripts/setup*.mjs'
+      - 'scripts/runtime.mjs'
+      - 'backend/.env.example'
+      - 'backend/requirements-lock.txt'
       - '.github/workflows/ci-frontend.yml'
   workflow_dispatch:
 
@@ -37,7 +47,16 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci --ignore-scripts
+      - run: python -m pip install -c backend/requirements-lock.txt python-dotenv
+      - run: node --test scripts/setup-env.test.mjs
+        env:
+          ECOLEPHANT_SETUP_TEST_PYTHON: python
       - run: npm run contracts:check
       - run: npm run lint
+      - run: npm run test:run --workspace frontend
       - run: npm run build
+      - run: node scripts/check-build-secrets.mjs

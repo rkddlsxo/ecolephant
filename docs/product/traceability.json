@@ -1,0 +1,185 @@
+{
+  "version": "0.1",
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "title": "노트북 웹의 준비·실시간·기록 흐름",
+      "origin": "원문",
+      "owner": "frontend",
+      "source_pages": [1, 4, 5, 6, 7, 8],
+      "specs": ["docs/ui/screens.md"],
+      "scenarios": ["AC-001", "AC-002"],
+      "operations": []
+    },
+    {
+      "id": "REQ-002",
+      "title": "세 가지 측정 방식과 품질 기반 자동 전환",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/ai",
+      "source_pages": [2, 3],
+      "specs": ["docs/ui/state-machine.md"],
+      "scenarios": ["AC-005", "AC-006", "AC-007"],
+      "operations": ["ingestEventBatch"]
+    },
+    {
+      "id": "REQ-003",
+      "title": "영상·관절점·원시 센서의 서버 전송 금지",
+      "origin": "원문+확장",
+      "owner": "전체",
+      "source_pages": [1, 3, 4],
+      "specs": ["docs/security/privacy-and-security.md"],
+      "scenarios": ["AC-026"],
+      "operations": []
+    },
+    {
+      "id": "REQ-004",
+      "title": "기준 자세 보정·실패·재보정",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/ai",
+      "source_pages": [2, 5],
+      "specs": ["docs/measurement/signal-pipeline.md"],
+      "scenarios": ["AC-002", "AC-003", "AC-004", "AC-007", "AC-013"],
+      "operations": []
+    },
+    {
+      "id": "REQ-005",
+      "title": "웹캠 특징과 검증된 각도 매핑 분리",
+      "origin": "원문+설계 제안",
+      "owner": "ai",
+      "source_pages": [1, 3, 9, 10],
+      "specs": ["docs/measurement/signal-pipeline.md"],
+      "scenarios": ["AC-008"],
+      "operations": []
+    },
+    {
+      "id": "REQ-006",
+      "title": "AirPods 도우미 연결과 메시지 계약",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/helper",
+      "source_pages": [3, 4, 9],
+      "specs": ["docs/api/airpods-websocket.md"],
+      "scenarios": ["AC-007", "AC-027", "AC-028"],
+      "operations": []
+    },
+    {
+      "id": "REQ-007",
+      "title": "시간 정렬·인식 품질·움직임 구간 처리",
+      "origin": "원문+설계 제안",
+      "owner": "ai",
+      "source_pages": [2, 3, 9],
+      "specs": ["docs/measurement/signal-pipeline.md"],
+      "scenarios": ["AC-004", "AC-005", "AC-006", "AC-009", "AC-028"],
+      "operations": []
+    },
+    {
+      "id": "REQ-008",
+      "title": "센서별 값·종합값·판정 이유의 일관성",
+      "origin": "원문+설계 제안",
+      "owner": "ai/frontend",
+      "source_pages": [1, 2, 6, 7],
+      "specs": ["docs/measurement/decision-rules.md"],
+      "scenarios": ["AC-010", "AC-011"],
+      "operations": []
+    },
+    {
+      "id": "REQ-009",
+      "title": "센서별 값과 품질을 색·숫자·문구로 표시",
+      "origin": "원문",
+      "owner": "frontend",
+      "source_pages": [4, 6, 7],
+      "specs": ["docs/ui/screens.md"],
+      "scenarios": ["AC-001", "AC-012"],
+      "operations": []
+    },
+    {
+      "id": "REQ-010",
+      "title": "측정 중 정지·재개·재보정·종료",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/backend",
+      "source_pages": [6, 7],
+      "specs": ["docs/ui/state-machine.md"],
+      "scenarios": ["AC-013", "AC-020", "AC-021", "AC-029"],
+      "operations": ["createSession", "ingestSampleBatch", "ingestEventBatch", "completeSession"]
+    },
+    {
+      "id": "REQ-011",
+      "title": "최근 30분의 1분 단위 상태 흐름",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/backend",
+      "source_pages": [4, 6],
+      "specs": ["docs/data/statistics.md"],
+      "scenarios": ["AC-014"],
+      "operations": ["getSessionTimeline"]
+    },
+    {
+      "id": "REQ-012",
+      "title": "지속 조건·단계·쿨다운·채널별 알림",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/ai",
+      "source_pages": [7, 9, 10],
+      "specs": ["docs/measurement/notifications.md"],
+      "scenarios": ["AC-015", "AC-016", "AC-017", "AC-018", "AC-029"],
+      "operations": []
+    },
+    {
+      "id": "REQ-013",
+      "title": "중복에 안전한 세션·결과·이벤트 저장",
+      "origin": "원문+설계 제안",
+      "owner": "backend/frontend",
+      "source_pages": [3, 8],
+      "specs": ["docs/api/README.md"],
+      "scenarios": ["AC-019", "AC-020", "AC-021"],
+      "operations": ["createSession", "ingestSampleBatch", "ingestEventBatch", "completeSession"]
+    },
+    {
+      "id": "REQ-014",
+      "title": "핵심 지표와 요일·시간대 집계",
+      "origin": "원문+설계 제안",
+      "owner": "backend/frontend",
+      "source_pages": [4, 8],
+      "specs": ["docs/data/statistics.md"],
+      "scenarios": ["AC-014", "AC-017", "AC-022", "AC-023", "AC-024"],
+      "operations": ["getStatistics", "getSession"]
+    },
+    {
+      "id": "REQ-015",
+      "title": "세션 목록·상세·기간 필터",
+      "origin": "원문+설계 제안",
+      "owner": "backend/frontend",
+      "source_pages": [8],
+      "specs": ["docs/api/README.md"],
+      "scenarios": ["AC-024", "AC-025"],
+      "operations": ["listSessions", "getSession", "listSessionEvents"]
+    },
+    {
+      "id": "REQ-016",
+      "title": "소유자별 접근·삭제·도우미 보안",
+      "origin": "설계 제안",
+      "owner": "전체",
+      "source_pages": [4, 9],
+      "specs": ["docs/security/privacy-and-security.md"],
+      "scenarios": ["AC-025", "AC-026", "AC-027"],
+      "operations": ["deleteSession", "getSession"]
+    },
+    {
+      "id": "REQ-017",
+      "title": "정책·보정 버전과 측정 타당성 추적",
+      "origin": "원문+설계 제안",
+      "owner": "ai/backend",
+      "source_pages": [2, 9, 10],
+      "specs": ["docs/quality/measurement-validation.md"],
+      "scenarios": ["AC-008", "AC-011", "AC-023", "AC-028", "AC-030"],
+      "operations": ["listPolicies"]
+    },
+    {
+      "id": "REQ-018",
+      "title": "센서의 한계와 비의료적 표현",
+      "origin": "원문+설계 제안",
+      "owner": "frontend/전체",
+      "source_pages": [1, 2, 4, 9, 10],
+      "specs": ["docs/ui/screens.md"],
+      "scenarios": ["AC-012", "AC-030"],
+      "operations": []
+    }
+  ]
+}

@@ -6,13 +6,13 @@ on:
     paths:
       - 'backend/**'
       - 'docs/api/**'
-      - 'harness/fixtures/policy/**'
+      - 'backend/harness/fixtures/policy/**'
       - '.github/workflows/ci-backend.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'docs/api/**'
-      - 'harness/fixtures/policy/**'
+      - 'backend/harness/fixtures/policy/**'
       - '.github/workflows/ci-backend.yml'
   workflow_dispatch:
 
@@ -22,6 +22,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:2.6.1
+        ports:
+          - '8000:8000'
+        env:
+          DDB_LOCAL_TELEMETRY: '0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,3 +39,6 @@ jobs:
       - run: pip install -r backend/requirements-dev.txt
       - run: ruff check backend
       - run: python -m compileall -q backend/ecolephant backend/lambda_handler.py
+      - run: python -m unittest discover -s backend/tests -p 'test_*.py'
+        env:
+          ECOLEPHANT_TEST_DYNAMO_ENDPOINT: http://127.0.0.1:8000

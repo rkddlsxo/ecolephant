@@ -15,6 +15,7 @@ dnd kit·Motion·Axios·OpenAPI 타입 생성·Vitest/Testing Library·ESLint/Pr
 
 - ai는 기존 ADR의 브라우저 경계를 유지하는 TypeScript 순수 함수 패키지입니다. 실제 모델 선택은 미정입니다.
 - 실제 센서·각도 매핑을 꾸미지 않고 data_source=demo인 합성 입력만 저장합니다.
+- 이후 API에 real 출처를 준비하되 승인된 정책과 카메라 매핑 검증 전에는 저장을 차단합니다. 제공된 정책은 여전히 미승인입니다.
 - 첫 실행은 AWS·Docker 없이 가능한 Flask + SQLite입니다. 이는 운영 DB 확정이 아닙니다.
 - 로컬 전용 무작위 토큰으로 기록 소유자를 분리합니다. Cognito 로그인 출시 결정을 대신하지 않습니다.
 - DynamoDB Local/AWS 어댑터, CDK, Amplify 설정은 후속 통합용 초안으로 추가합니다.

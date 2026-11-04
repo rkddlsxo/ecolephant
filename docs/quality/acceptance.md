@@ -1,6 +1,6 @@
 # MVP 인수 시나리오
 
-아래 30개는 제품 구현 후 실행할 **계획**입니다. 현재 완료·통과로 간주하지 않습니다. 상세 Given·When·Then과 상태는 [시나리오 JSON](../../harness/fixtures/acceptance/scenarios.json)에 있습니다. [HTTP·도우미 계약 fixture](../../harness/README.md) 검사는 이 제품 시나리오 실행과 별개입니다.
+아래 30개는 제품 구현 후 실행할 **계획**입니다. 현재 완료·통과로 간주하지 않습니다. 상세 Given·When·Then과 상태는 [시나리오 JSON](scenarios.json)에 있습니다. [HTTP 계약 fixture](../../backend/harness/README.md) 검사는 이 제품 시나리오 실행과 별개입니다.
 
 | ID | 시나리오 | 확인할 결과 | 검증 경계 |
 |---|---|---|---|
