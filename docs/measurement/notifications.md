@@ -1,6 +1,6 @@
 # 지속 자세 알림과 교정 기록
 
-수치는 원문 시작값이며 [예시 정책](../../harness/fixtures/policy/example.json)에 모았습니다. 알림 빈도 자동 감소의 구체 알고리즘은 DEC-007 결정 전 사용하지 않습니다.
+수치는 원문 시작값이며 [예시 정책](../../backend/harness/fixtures/policy/example.json)에 모았습니다. 알림 빈도 자동 감소의 구체 알고리즘은 DEC-007 결정 전 사용하지 않습니다.
 
 ## 조건과 단계
 

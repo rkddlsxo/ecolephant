@@ -61,12 +61,6 @@
       "alerts.correction_observation_ms",
       "transport"
     ],
-    "decisions": [
-      "DEC-002",
-      "DEC-003",
-      "DEC-004",
-      "DEC-007",
-      "DEC-010"
-    ]
+    "decisions": ["DEC-002", "DEC-003", "DEC-004", "DEC-007", "DEC-010"]
   }
 }

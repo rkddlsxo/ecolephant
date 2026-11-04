@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
+import type { SessionEvent } from '../api/client';
+import type { components } from '../api/generated';
+import { useMeasurement } from '../state/measurement';
 import {
   Button,
   ErrorState,
@@ -15,29 +17,124 @@ import {
 } from '../components/ui';
 
 const eventNames = {
-  mode_changed: '측정 방식 변경',
+  mode_changed: '방식 변경',
   paused: '일시정지',
   resumed: '재개',
-  calibration_started: '기준 재설정 시작',
-  calibration_completed: '기준 재설정 완료',
-  calibration_failed: '기준 재설정 실패',
-  alert_delivery: '알림 전달',
-  correction_observed: '교정 관찰',
+  calibration_started: '기준 설정',
+  calibration_completed: '설정 완료',
+  calibration_failed: '설정 실패',
+  alert_delivery: '알림',
+  correction_observed: '변화 확인',
 };
+
+type Timeline = components['schemas']['Timeline'];
+
+function isCurrentMeasurement(sessionId: string, state = useMeasurement.getState()) {
+  return (
+    state.session?.id === sessionId &&
+    ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase)
+  );
+}
+
+async function readTimelinePage(
+  sessionId: string,
+  from: number,
+  signal: AbortSignal,
+): Promise<Timeline> {
+  const page = await api.timeline(sessionId, from, signal);
+  if (signal.aborted) throw new Error('조회가 취소되었습니다.');
+  if (page.session_id !== sessionId || page.resolution_ms !== 60000)
+    throw new Error('타임라인을 확인해 주세요.');
+  let end = from;
+  for (const bucket of page.buckets) {
+    if (
+      bucket.elapsed_start_ms !== end ||
+      !Number.isSafeInteger(bucket.duration_ms) ||
+      bucket.duration_ms < 1 ||
+      bucket.duration_ms > 60000
+    )
+      throw new Error('타임라인을 확인해 주세요.');
+    end += bucket.duration_ms;
+  }
+  if (
+    page.next_from_elapsed_ms !== null &&
+    (!Number.isSafeInteger(page.next_from_elapsed_ms) ||
+      page.next_from_elapsed_ms !== end ||
+      end <= from)
+  )
+    throw new Error('타임라인을 확인해 주세요.');
+  return page;
+}
+
+async function readAllTimeline(sessionId: string, signal: AbortSignal): Promise<Timeline> {
+  const buckets: Timeline['buckets'] = [];
+  let from = 0;
+  while (true) {
+    if (signal.aborted) throw new Error('내보내기가 취소되었습니다.');
+    const page = await readTimelinePage(sessionId, from, signal);
+    buckets.push(...page.buckets);
+    if (page.next_from_elapsed_ms === null)
+      return { session_id: sessionId, resolution_ms: 60000, buckets, next_from_elapsed_ms: null };
+    from = page.next_from_elapsed_ms;
+  }
+}
+
+async function readAllEvents(sessionId: string, signal: AbortSignal): Promise<SessionEvent[]> {
+  const result: SessionEvent[] = [];
+  const cursors = new Set<string>();
+  const identities = new Set<string>();
+  let cursor: string | undefined;
+  while (true) {
+    if (signal.aborted) throw new Error('내보내기가 취소되었습니다.');
+    const page = await api.eventList(sessionId, cursor, signal);
+    if (signal.aborted) throw new Error('내보내기가 취소되었습니다.');
+    for (const event of page.items) {
+      if (identities.has(event.event_id)) throw new Error('이벤트가 중복되었습니다.');
+      identities.add(event.event_id);
+      result.push(event);
+    }
+    if (page.next_cursor === null) return result;
+    if (!page.next_cursor || cursors.has(page.next_cursor))
+      throw new Error('페이지를 확인해 주세요.');
+    cursors.add(page.next_cursor);
+    cursor = page.next_cursor;
+  }
+}
+
 export function SessionPage() {
   const { sessionId } = useParams({ strict: false }) as { sessionId: string };
-  const navigate = useNavigate(),
-    cache = useQueryClient();
-  const [confirm, setConfirm] = useState(false);
+  const navigate = useNavigate();
+  const cache = useQueryClient();
+  const [confirmFor, setConfirmFor] = useState<string | null>(null);
+  const confirm = confirmFor === sessionId;
+  const measuring = useMeasurement((state) => isCurrentMeasurement(sessionId, state));
+  const exportRequest = useRef<AbortController | null>(null);
+  const [exportState, setExportState] = useState<{
+    sessionId: string;
+    loading: boolean;
+    error: boolean;
+  } | null>(null);
+  const exporting = exportState?.sessionId === sessionId && exportState.loading;
+  const exportFailed = exportState?.sessionId === sessionId && exportState.error;
+  useEffect(
+    () => () => {
+      exportRequest.current?.abort();
+      exportRequest.current = null;
+    },
+    [sessionId],
+  );
   const session = useQuery({
     queryKey: ['session', sessionId],
     queryFn: () => api.session(sessionId),
   });
-  const timeline = useQuery({
+  const timeline = useInfiniteQuery({
     queryKey: ['timeline', sessionId],
-    queryFn: () => api.timeline(sessionId),
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => readTimelinePage(sessionId, pageParam, signal),
+    getNextPageParam: (last) => last.next_from_elapsed_ms ?? undefined,
     enabled: !!session.data,
   });
+  const timelineBuckets = timeline.data?.pages.flatMap((page) => page.buckets) ?? [];
   const events = useInfiniteQuery({
     queryKey: ['events', sessionId],
     initialPageParam: undefined as string | undefined,
@@ -47,7 +144,10 @@ export function SessionPage() {
   });
   const eventItems = events.data?.pages.flatMap((page) => page.items) ?? [];
   const remove = useMutation({
-    mutationFn: () => api.remove(sessionId),
+    mutationFn: () => {
+      if (isCurrentMeasurement(sessionId)) throw new Error('측정을 종료한 뒤 삭제해 주세요.');
+      return api.remove(sessionId);
+    },
     onSuccess: async () => {
       await cache.invalidateQueries();
       await navigate({ to: '/history' });
@@ -58,222 +158,208 @@ export function SessionPage() {
     return <ErrorState error={errorMessage(session.error)} retry={() => void session.refetch()} />;
   if (!session.data) return null;
   const data = session.data;
-  function download() {
-    const content = {
-      session: data,
-      timeline: timeline.data,
-      events: { items: eventItems, next_cursor: events.data?.pages.at(-1)?.next_cursor ?? null },
-      data_source: 'demo',
-    };
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }),
-    );
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `ecolephant-${sessionId}.json`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  async function download() {
+    if (exportRequest.current || !timeline.data) return;
+    const controller = new AbortController();
+    exportRequest.current = controller;
+    setExportState({ sessionId, loading: true, error: false });
+    try {
+      const allTimeline = await readAllTimeline(sessionId, controller.signal);
+      const allEvents = await readAllEvents(sessionId, controller.signal);
+      if (controller.signal.aborted) return;
+      const content = { session: data, timeline: allTimeline, events: allEvents };
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }),
+      );
+      const revoke = URL.revokeObjectURL.bind(URL);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `ecolephant-${sessionId}.json`;
+      try {
+        anchor.click();
+      } finally {
+        setTimeout(() => revoke(url), 1000);
+      }
+    } catch {
+      if (!controller.signal.aborted) setExportState({ sessionId, loading: false, error: true });
+    } finally {
+      if (exportRequest.current === controller) exportRequest.current = null;
+      if (!controller.signal.aborted)
+        setExportState((state) =>
+          state?.sessionId === sessionId ? { ...state, loading: false } : state,
+        );
+    }
   }
+
   return (
     <div>
       <Link to="/history" className="back-link">
-        <ArrowLeft size={16} />
-        기록으로 돌아가기
+        ← 기록
       </Link>
       <div className="page-heading">
-        <div>
-          <span className="eyebrow">한 번의 측정, 하나의 기록</span>
-          <h1>{formatDate(data.started_at)}</h1>
-          <p>
-            {modeLabel[data.requested_mode]} ·{' '}
-            {data.ended_at
-              ? formatDuration(Date.parse(data.ended_at) - Date.parse(data.started_at))
-              : '미완료 세션'}
-          </p>
-        </div>
-        <span className="badge neutral">가상 입력 기록</span>
+        <h1>{formatDate(data.started_at)}</h1>
+        <span className="badge neutral">{data.data_source === 'real' ? '실제' : '테스트'}</span>
       </div>
-      {data.status !== 'completed' && (
-        <Notice>
-          아직 종료 승인되지 않은 기록입니다. 미전송 결과는 원래 측정 창에만 남아 있을 수 있어요.
-        </Notice>
-      )}
-      <section className="panel">
-        <div className="section-heading">
-          <h2>방식별 요약</h2>
-          <span className="badge outline">{data.policy_id}</span>
-        </div>
+      {data.status !== 'completed' && <Notice>미완료 세션</Notice>}
+      <section className="panel service-panel">
+        <h2>요약 · {modeLabel[data.requested_mode]}</h2>
         {data.summaries.length ? (
-          data.summaries.map((s) => (
-            <div key={s.active_mode} className="summary-group">
-              <h3>{modeLabel[s.active_mode]}</h3>
-              <div className="summary-grid">
-                <div>
-                  <span>유효 시간</span>
-                  <strong>{formatDuration(s.metrics.valid_duration_ms)}</strong>
-                </div>
-                <div>
-                  <span>기준 범위 비율</span>
-                  <strong>
-                    {s.metrics.within_range_percent == null
-                      ? '—'
-                      : `${s.metrics.within_range_percent.toFixed(1)}%`}
-                  </strong>
-                </div>
-                <div>
-                  <span>평균 참고 각도</span>
-                  <strong>
-                    {s.metrics.mean_display_angle_deg == null
-                      ? '—'
-                      : `${s.metrics.mean_display_angle_deg.toFixed(1)}°`}
-                  </strong>
-                </div>
-                <div>
-                  <span>높은 신호 시간</span>
-                  <strong>{formatDuration(s.metrics.high_duration_ms)}</strong>
-                </div>
-                <div>
-                  <span>전달된 1차 알림</span>
-                  <strong>{s.metrics.first_stage_alert_count}회</strong>
-                </div>
-                <div>
-                  <span>평균 교정 소요</span>
-                  <strong>
-                    {s.metrics.mean_correction_ms == null
-                      ? '—'
-                      : formatDuration(s.metrics.mean_correction_ms)}
-                  </strong>
-                  <small>
-                    확인 {s.metrics.corrected_alert_count}건 · 미확인{' '}
-                    {s.metrics.unknown_correction_count}건
-                  </small>
-                </div>
-              </div>
+          data.summaries.map((summary) => (
+            <div key={summary.active_mode} className="service-summary">
+              <strong>{modeLabel[summary.active_mode]}</strong>
+              <span>유효 {formatDuration(summary.metrics.valid_duration_ms)}</span>
+              <span>
+                정상{' '}
+                {summary.metrics.within_range_percent == null
+                  ? '—'
+                  : `${summary.metrics.within_range_percent.toFixed(1)}%`}
+              </span>
+              <span>알림 {summary.metrics.first_stage_alert_count}회</span>
             </div>
           ))
         ) : (
-          <p className="muted">아직 저장된 창이 없습니다.</p>
+          <p className="service-note">기록 없음</p>
         )}
-        <p className="muted">
-          방식 미지정 판단 불가: {formatDuration(data.unassigned_unknown_duration_ms)}
-        </p>
       </section>
-      <section className="panel">
-        <div className="section-heading">
-          <div>
-            <h2>1분 단위 타임라인</h2>
-            <p>판단 불가를 포함한 시간 구성입니다.</p>
-          </div>
-        </div>
-        {timeline.isError ? (
+      <section className="panel service-panel">
+        <h2>타임라인</h2>
+        {timeline.isError && !timeline.data ? (
           <ErrorState error={errorMessage(timeline.error)} retry={() => void timeline.refetch()} />
         ) : timeline.isLoading ? (
           <Loading />
-        ) : timeline.data?.buckets.length ? (
-          <div className="timeline-rows">
-            {timeline.data.buckets.map((b) => (
-              <div className="bar-row" key={b.elapsed_start_ms}>
-                <span>{formatDuration(b.elapsed_start_ms)}</span>
-                <div className="stacked-bar">
-                  {(['normal', 'caution', 'high', 'unknown'] as const).map((level) => (
-                    <i
-                      key={level}
-                      className={level}
-                      style={{ width: `${(b[`${level}_ms`] / b.duration_ms) * 100}%` }}
-                      title={`${level}: ${formatDuration(b[`${level}_ms`])}`}
-                    />
-                  ))}
-                </div>
-                <small>{formatDuration(b.duration_ms)}</small>
-              </div>
-            ))}
+        ) : timelineBuckets.length ? (
+          <div className="service-table-wrap">
+            <table className="service-table">
+              <thead>
+                <tr>
+                  <th>시작</th>
+                  <th>정상</th>
+                  <th>주의</th>
+                  <th>높음</th>
+                  <th>판단 불가</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timelineBuckets.map((bucket) => (
+                  <tr key={bucket.elapsed_start_ms}>
+                    <td>{formatDuration(bucket.elapsed_start_ms)}</td>
+                    <td>{formatDuration(bucket.normal_ms)}</td>
+                    <td>{formatDuration(bucket.caution_ms)}</td>
+                    <td>{formatDuration(bucket.high_ms)}</td>
+                    <td>{formatDuration(bucket.unknown_ms)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <p className="muted">타임라인이 없습니다.</p>
+          <p className="service-note">기록 없음</p>
         )}
-        <div className="legend">
-          <span className="legend-normal">기준 범위</span>
-          <span className="legend-caution">주의</span>
-          <span className="legend-high">높음</span>
-          <span className="legend-unknown">판단 불가</span>
-        </div>
+        {timeline.isFetchNextPageError ? (
+          <ErrorState
+            error={errorMessage(timeline.error)}
+            retry={() => void timeline.fetchNextPage()}
+          />
+        ) : (
+          timeline.hasNextPage && (
+            <Button
+              variant="secondary"
+              disabled={timeline.isFetchingNextPage}
+              onClick={() => void timeline.fetchNextPage()}
+            >
+              타임라인 더 보기
+            </Button>
+          )
+        )}
       </section>
-      <section className="panel">
-        <div className="section-heading">
-          <h2>상태·알림 이벤트</h2>
-          <span className="badge neutral">{eventItems.length}개 불러옴</span>
-        </div>
-        {events.isError ? (
+      <section className="panel service-panel">
+        <h2>이벤트</h2>
+        {events.isError && !events.data ? (
           <ErrorState error={errorMessage(events.error)} retry={() => void events.refetch()} />
+        ) : events.isLoading ? (
+          <Loading />
         ) : eventItems.length ? (
-          <div className="event-list">
-            {eventItems.map((e) => (
-              <div key={e.event_id}>
-                <time>{formatDuration(e.elapsed_ms)}</time>
-                <strong>{eventNames[e.type]}</strong>
-                <span>
-                  {e.type === 'alert_delivery'
-                    ? `${e.data.stage}차 · ${e.data.result}`
-                    : e.type === 'correction_observed'
-                      ? e.data.outcome === 'corrected'
-                        ? '변화 확인'
-                        : '확인하지 못함'
-                      : e.type === 'mode_changed'
-                        ? `${modeLabel[e.data.previous_mode]} → ${modeLabel[e.data.current_mode]}`
-                        : ''}
-                </span>
+          <div className="service-list">
+            {eventItems.map((event) => (
+              <div key={event.event_id} className="service-list-row">
+                <span>{formatDuration(event.elapsed_ms)}</span>
+                <strong>{eventNames[event.type]}</strong>
               </div>
             ))}
           </div>
         ) : (
-          <p className="muted">기록된 이벤트가 없습니다.</p>
+          <p className="service-note">기록 없음</p>
         )}
-        {events.hasNextPage && (
-          <Button
-            variant="secondary"
-            disabled={events.isFetchingNextPage}
-            onClick={() => void events.fetchNextPage()}
-          >
-            이벤트 더 보기
-          </Button>
+        {events.isFetchNextPageError ? (
+          <ErrorState
+            error={errorMessage(events.error)}
+            retry={() => void events.fetchNextPage()}
+          />
+        ) : (
+          events.hasNextPage && (
+            <Button
+              variant="secondary"
+              disabled={events.isFetchingNextPage}
+              onClick={() => void events.fetchNextPage()}
+            >
+              더 보기
+            </Button>
+          )
         )}
       </section>
-      <div className="measurement-footer">
-        <span className="muted">데모 정책 · 실측 검증 전</span>
-        <div className="button-row">
-          <Button
-            variant="secondary"
-            onClick={download}
-            disabled={
-              timeline.isLoading ||
-              events.isLoading ||
-              timeline.isError ||
-              events.isError ||
-              events.hasNextPage
-            }
-          >
-            <Download size={16} />
-            JSON 내보내기
-          </Button>
-          <Button variant="danger" onClick={() => setConfirm(true)}>
-            <Trash2 size={16} />
-            기록 삭제
-          </Button>
-        </div>
+      <div className="button-row service-actions">
+        {exportFailed && <Notice kind="error">내보내기를 완료하지 못했습니다.</Notice>}
+        <Button
+          variant="secondary"
+          onClick={() => void download()}
+          disabled={
+            timeline.isLoading ||
+            timeline.isError ||
+            !timeline.data ||
+            exporting ||
+            confirm ||
+            remove.isPending
+          }
+        >
+          {exporting ? '내보내는 중' : '내보내기'}
+        </Button>
+        <Button
+          variant="danger"
+          disabled={exporting || measuring}
+          onClick={() => setConfirmFor(sessionId)}
+        >
+          삭제
+        </Button>
+        {measuring && (
+          <Link to="/measure" className="button button-secondary">
+            측정 화면
+          </Link>
+        )}
       </div>
+      {measuring && <Notice>측정을 종료한 뒤 삭제할 수 있습니다.</Notice>}
       <Modal
         open={confirm}
-        onOpenChange={setConfirm}
-        title="이 기록을 삭제할까요?"
-        description="세션과 연결된 파생 결과·이벤트를 삭제합니다. 삭제한 기록은 복구할 수 없습니다."
+        onOpenChange={(open) => setConfirmFor(open ? sessionId : null)}
+        title="기록 삭제"
+        description={
+          data.status === 'active'
+            ? '다른 탭이나 기기에서 측정 중일 수 있습니다. 삭제하면 저장할 수 없습니다.'
+            : '이 세션과 결과를 삭제합니다.'
+        }
       >
         {remove.isError && <Notice kind="error">{errorMessage(remove.error)}</Notice>}
+        {measuring && <Notice>측정을 종료한 뒤 삭제할 수 있습니다.</Notice>}
         <div className="button-row modal-actions">
-          <Button variant="secondary" onClick={() => setConfirm(false)}>
+          <Button variant="secondary" onClick={() => setConfirmFor(null)}>
             취소
           </Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
-            {remove.isPending ? '삭제 중…' : '삭제하기'}
+          <Button
+            variant="danger"
+            disabled={remove.isPending || measuring}
+            onClick={() => remove.mutate()}
+          >
+            삭제
           </Button>
         </div>
       </Modal>

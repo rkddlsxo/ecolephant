@@ -29,7 +29,10 @@ class DynamoRepository:
         return self.table.get_item(Key={"pk": pk, "sk": sk}, ConsistentRead=True).get("Item")
 
     def query(self, pk, prefix=""):
-        args = {"KeyConditionExpression": Key("pk").eq(pk) & Key("sk").begins_with(prefix), "ConsistentRead": True}
+        condition = Key("pk").eq(pk)
+        if prefix:
+            condition &= Key("sk").begins_with(prefix)
+        args = {"KeyConditionExpression": condition, "ConsistentRead": True}
         items = []
         while True:
             page = self.table.query(**args)
@@ -49,7 +52,19 @@ class DynamoRepository:
                 raise ApiError(409, "concurrent_write", "이미 사용된 식별자이거나 기록이 변경되었습니다.") from None
             raise ApiError(503, "storage_unavailable", "저장소 연결을 다시 시도해 주세요.") from None
 
-    def create(self, owner, key, payload, record):
+    def ensure_policy(self, policy):
+        pk, body = "policy#" + policy["policy_id"], canonical(policy)
+        try:
+            self.table.put_item(Item={"pk": pk, "sk": "snapshot", "body": body},
+                                ConditionExpression="attribute_not_exists(pk)")
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise ApiError(503, "storage_unavailable", "저장소 연결을 다시 시도해 주세요.") from None
+            existing = self.get(pk, "snapshot")
+            if not existing or existing["body"] != body:
+                raise ApiError(409, "policy_id_conflict", "이미 등록된 정책 ID의 내용이 다릅니다.") from None
+
+    def find_create(self, owner, key, payload):
         pk = "owner#" + owner
         matches = [self.get(pk, "client#" + payload["client_session_id"]), self.get(pk, "idem#" + key)]
         ids = {item["session_id"] for item in matches if item}
@@ -57,11 +72,20 @@ class DynamoRepository:
             if len(ids) != 1:
                 raise ApiError(409, "idempotency_conflict", "시작 식별자가 충돌합니다.")
             try:
-                existing = self.load(owner, ids.pop())
-            except ApiError:
-                raise ApiError(409, "deleted_session", "이미 삭제된 시작 식별자입니다.") from None
+                existing = self.load_metadata(owner, ids.pop())
+            except ApiError as error:
+                if error.status == 404 and error.code == "not_found":
+                    raise ApiError(409, "deleted_session", "이미 삭제된 시작 식별자입니다.") from None
+                raise
             if existing["create"] != payload:
                 raise ApiError(409, "idempotency_conflict", "시작 요청 내용이 다릅니다.")
+            return existing
+        return None
+
+    def create(self, owner, key, payload, record):
+        pk = "owner#" + owner
+        existing = self.find_create(owner, key, payload)
+        if existing is not None:
             return existing
         session_id = record["session"]["id"]
         self.transact([
@@ -71,10 +95,54 @@ class DynamoRepository:
         ])
         return record
 
-    def load(self, owner, session_id):
+    def _live_metadata(self, owner, session_id):
         meta = self.get("owner#" + owner, "session#" + session_id)
         if not meta or meta.get("deleted"):
             raise ApiError(404, "not_found", "기록을 찾을 수 없습니다.")
+        return meta
+
+    def _check_revision(self, owner, session_id, meta):
+        fresh = self._live_metadata(owner, session_id)
+        if fresh["revision"] != meta["revision"]:
+            raise ApiError(409, "concurrent_write", "기록이 변경되었습니다. 다시 시도해 주세요.")
+
+    def load_metadata(self, owner, session_id):
+        return json.loads(self._live_metadata(owner, session_id)["body"])
+
+    def load_events(self, owner, session_id):
+        meta = self._live_metadata(owner, session_id)
+        record = json.loads(meta["body"])
+        record["events"] = {}
+        for item in self.query("session#" + session_id, "event-batch#"):
+            events = json.loads(item["body"])
+            record["events"].update({event["event_seq"]: event for event in events})
+        self._check_revision(owner, session_id, meta)
+        return record
+
+    def timeline_rows(self, session_id, low, high):
+        if low >= high:
+            return []
+        condition = (Key("pk").eq("session#" + session_id)
+                     & Key("sk").between(f"timeline#{low:016d}", f"timeline#{high - 1:016d}"))
+        args = {"KeyConditionExpression": condition, "ConsistentRead": True}
+        rows = []
+        while True:
+            page = self.table.query(**args)
+            rows.extend(json.loads(item["body"]) for item in page["Items"])
+            if "LastEvaluatedKey" not in page:
+                return rows
+            args["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+    def load_timeline_buckets(self, owner, session_id, low, high, revision):
+        meta = self._live_metadata(owner, session_id)
+        if meta["revision"] != revision:
+            raise ApiError(409, "concurrent_write", "기록이 변경되었습니다. 다시 시도해 주세요.")
+        rows = self.timeline_rows(session_id, low, high)
+        self._check_revision(owner, session_id, meta)
+        return rows
+
+    def load(self, owner, session_id):
+        meta = self._live_metadata(owner, session_id)
         record = json.loads(meta["body"])
         record["samples"], record["events"] = {}, {}
         for item in self.query("session#" + session_id):
@@ -84,17 +152,13 @@ class DynamoRepository:
             elif item["sk"].startswith("event-batch#"):
                 record["events"].update({e["event_seq"]: e for e in body})
         # Metadata may change while querying rows; never commit an inconsistent snapshot.
-        fresh = self.get("owner#" + owner, "session#" + session_id)
-        if not fresh or fresh.get("deleted"):
-            raise ApiError(404, "not_found", "기록을 찾을 수 없습니다.")
-        if fresh["revision"] != meta["revision"]:
-            raise ApiError(409, "concurrent_write", "기록이 변경되었습니다. 다시 시도해 주세요.")
+        self._check_revision(owner, session_id, meta)
         return record
 
     def list(self, owner):
         return [json.loads(item["body"])["session"] for item in self.query("owner#" + owner, "session#") if not item.get("deleted")]
 
-    def commit(self, owner, record, samples=(), events=()):
+    def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session_id, revision = record["session"]["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}
         stored["revision"] = revision + 1
@@ -104,6 +168,10 @@ class DynamoRepository:
                                    ExpressionAttributeValues={":revision": {"N": str(revision)}})]
         for sample in samples:
             actions.append(self.put_action({"pk": "session#" + session_id, "sk": f"sample#{sample['seq']:012d}", "body": canonical(sample)}))
+        for bucket in timeline_buckets:
+            actions.append(self.put_action({"pk": "session#" + session_id,
+                                            "sk": f"timeline#{bucket['elapsed_start_ms']:016d}",
+                                            "body": canonical(bucket)}))
         if events:
             actions.append(self.put_action({"pk": "session#" + session_id, "sk": "event-batch#" + str(uuid4()), "body": canonical(list(events))}))
             for event in events:
@@ -126,5 +194,15 @@ class DynamoRepository:
             for row in rows:
                 if row["sk"].startswith("event-batch#"):
                     for event in json.loads(row["body"]):
-                        writer.delete_item(Key={"pk": "event#" + event["event_id"], "sk": "identity"})
+                        try:
+                            # A previously removed ID may now belong to a different session.
+                            self.table.delete_item(
+                                Key={"pk": "event#" + event["event_id"], "sk": "identity"},
+                                ConditionExpression="#session = :session",
+                                ExpressionAttributeNames={"#session": "session_id"},
+                                ExpressionAttributeValues={":session": session_id},
+                            )
+                        except ClientError as error:
+                            if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                                raise ApiError(503, "storage_unavailable", "저장소 연결을 다시 시도해 주세요.") from None
                 writer.delete_item(Key={"pk": row["pk"], "sk": row["sk"]})

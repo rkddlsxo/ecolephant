@@ -10,18 +10,76 @@ export type EventPayload = {
 }[SessionEvent['type']];
 export type Metrics = components['schemas']['MetricSummary'];
 export type Statistics = components['schemas']['StatisticsResponse'];
-let token = import.meta.env.DEV ? (import.meta.env.VITE_LOCAL_TOKEN ?? '') : '';
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: '',
   timeout: 10000,
 });
-http.interceptors.request.use((config) => {
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+type TokenProvider = () => Promise<string | null>;
+let tokenProvider: TokenProvider | null = null;
+let authFailureHandler: (() => void) | null = null;
+let authGeneration = 0;
+const requestGenerations = new WeakMap<object, number>();
+
+export function setApiBaseUrl(value: string) {
+  http.defaults.baseURL = value;
+}
+
+export function setTokenProvider(value: TokenProvider | null) {
+  tokenProvider = value;
+  authGeneration += 1;
+}
+
+export function setAuthFailureHandler(value: (() => void) | null) {
+  authFailureHandler = value;
+}
+
+http.interceptors.request.use(async (config) => {
+  const allowedOrigin = new URL(http.defaults.baseURL || '/', window.location.origin).origin;
+  const requestOrigin = new URL(config.url || '/', config.baseURL || window.location.origin).origin;
+  if (requestOrigin !== allowedOrigin) throw new Error('서버 주소를 확인해 주세요.');
+  if (config.url === '/health') return config;
+  const requestGeneration = authGeneration;
+  const provider = tokenProvider;
+  let token: string | null = null;
+  try {
+    token = (await provider?.()) ?? null;
+  } catch {
+    if (requestGeneration === authGeneration) authFailureHandler?.();
+    throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  }
+  if (requestGeneration !== authGeneration) throw new Error('로그인 상태가 변경되었습니다.');
+  if (!token) {
+    authFailureHandler?.();
+    throw new Error('서버 인증 설정을 확인해 주세요.');
+  }
+  requestGenerations.set(config, requestGeneration);
+  config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
-export function setAccessToken(value: string) {
-  token = value;
-}
+http.interceptors.response.use(
+  (response) => {
+    const generation = requestGenerations.get(response.config);
+    if (generation !== undefined && generation !== authGeneration)
+      throw new Error('로그인 상태가 변경되었습니다.');
+    return response;
+  },
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.config) {
+      const generation = requestGenerations.get(error.config);
+      if (generation !== undefined && generation !== authGeneration)
+        return Promise.reject(new Error('로그인 상태가 변경되었습니다.'));
+    }
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      error.config?.url !== '/health' &&
+      error.config &&
+      requestGenerations.get(error.config) === authGeneration
+    )
+      authFailureHandler?.();
+    return Promise.reject(error);
+  },
+);
 export function errorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return '서버에 연결되지 않았어요. 연결되면 다시 저장할 수 있습니다.';
@@ -29,11 +87,21 @@ export function errorMessage(error: unknown): string {
   }
   return error instanceof Error ? error.message : '처리 중 문제가 발생했어요.';
 }
+export function isMissingSession(error: unknown): boolean {
+  return (
+    axios.isAxiosError(error) &&
+    error.response?.status === 404 &&
+    error.response.data?.code === 'not_found'
+  );
+}
 export async function retry<T>(operation: () => Promise<T>): Promise<T> {
+  const generation = authGeneration;
   for (let attempt = 0; ; attempt++) {
+    if (generation !== authGeneration) throw new Error('로그인 상태가 변경되었습니다.');
     try {
       return await operation();
     } catch (error) {
+      if (generation !== authGeneration) throw new Error('로그인 상태가 변경되었습니다.');
       const retryable =
         axios.isAxiosError(error) &&
         (!error.response ||
@@ -76,12 +144,21 @@ export const api = {
       .get<components['schemas']['SessionPage']>('/api/v1/sessions', { params })
       .then((r) => r.data),
   session: (id: string) => http.get<Session>(sessionUrl(id)).then((r) => r.data),
-  timeline: (id: string) =>
-    http.get<components['schemas']['Timeline']>(`${sessionUrl(id)}/timeline`).then((r) => r.data),
-  eventList: (id: string, cursor?: string) =>
+  timeline: (id: string, from = 0, signal?: AbortSignal) =>
+    http
+      .get<components['schemas']['Timeline']>(`${sessionUrl(id)}/timeline`, {
+        params: {
+          from_elapsed_ms: from,
+          to_elapsed_ms: Math.min(from + 6 * 60 * 60 * 1000, Number.MAX_SAFE_INTEGER),
+        },
+        signal,
+      })
+      .then((r) => r.data),
+  eventList: (id: string, cursor?: string, signal?: AbortSignal) =>
     http
       .get<components['schemas']['EventPage']>(`${sessionUrl(id)}/events`, {
         params: { limit: 100, cursor },
+        signal,
       })
       .then((r) => r.data),
   remove: (id: string) => http.delete(sessionUrl(id)),

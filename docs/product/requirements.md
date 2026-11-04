@@ -1,6 +1,6 @@
 # 요구사항과 추적 기준
 
-원문 페이지는 [사용자 제공 PDF](../references/README.md)를 가리킵니다. 우선순위와 출시 범위는 [PRD](../../PRD.md)를 따릅니다. 상세 인수 조건은 [시나리오 목록](../quality/acceptance.md), 기계가 검사하는 연결은 [추적표](../../harness/metadata/traceability.json)입니다.
+원문 페이지는 [사용자 제공 PDF](../references/README.md)를 가리킵니다. 우선순위와 출시 범위는 [PRD](../../PRD.md)를 따릅니다. 상세 인수 조건은 [시나리오 목록](../quality/acceptance.md), 기계가 검사하는 연결은 [추적표](traceability.json)입니다.
 
 | ID | 요구사항 | 상태 | 담당 경계 | 원문 쪽 |
 |---|---|---|---|---|

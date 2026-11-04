@@ -106,6 +106,7 @@ export function ErrorState({ error, retry }: { error: string; retry: () => void 
   );
 }
 export function formatDuration(ms: number) {
+  if (ms > 0 && ms < 1000) return '1초 미만';
   const seconds = Math.floor(ms / 1000);
   return seconds >= 3600
     ? `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`

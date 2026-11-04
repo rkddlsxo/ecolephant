@@ -8,11 +8,33 @@ import {
   policy,
 } from '@ecolephant/ai';
 import type { ActiveMode, AlertCommand, DerivedWindow, Mode } from '@ecolephant/ai';
-import { api, errorMessage } from '../../api/client';
-import type { EventPayload, Sample, SessionCreate, SessionEvent } from '../../api/client';
+import { api, errorMessage, isMissingSession } from '../../api/client';
+import type { EventPayload, Sample, Session, SessionCreate, SessionEvent } from '../../api/client';
 import { queryClient } from '../../api/query';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 import { usePreferences } from '../../state/preferences';
+
+function confirmedBatch(
+  value: unknown,
+  count: number,
+  lastSequence: number,
+  acknowledgement: 'acknowledged_through_seq' | 'acknowledged_through_event_seq',
+) {
+  const receipt = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const validNumber = (number: unknown): number is number =>
+    typeof number === 'number' && Number.isSafeInteger(number) && number >= 0;
+  const accepted = receipt.accepted_count;
+  const duplicate = receipt.duplicate_count;
+  const through = receipt[acknowledgement];
+  if (
+    !validNumber(accepted) ||
+    !validNumber(duplicate) ||
+    !validNumber(through) ||
+    accepted + duplicate !== count ||
+    through < lastSequence
+  )
+    throw new Error('저장 확인에 실패했습니다. 다시 시도해 주세요.');
+}
 
 class MeasurementController {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -27,14 +49,66 @@ class MeasurementController {
   private confirmed = new Set<string>();
   private lastMode: ActiveMode = 'combined';
   private flushPromise: Promise<void> | null = null;
+  private finishPromise: Promise<Session | undefined> | null = null;
   private finalTarget: number | null = null;
+  private endingFrom: 'active' | 'paused' | 'recalibrating' | null = null;
   private calibrationUntil: number | null = null;
   private starting: { body: SessionCreate; key: string; origin: number } | null = null;
   private flushAt = 0;
   private unavailableUntil = 0;
 
+  reset({ preservePendingStart = false }: { preservePendingStart?: boolean } = {}) {
+    const { phase, saving } = useMeasurement.getState();
+    if (!['idle', 'completed'].includes(phase) || saving || this.flushPromise || this.finishPromise)
+      return false;
+    return this.clear(preservePendingStart);
+  }
+
+  discardMissing() {
+    const { phase, missingSession, saving } = useMeasurement.getState();
+    if (phase !== 'ending' || !missingSession || saving || this.flushPromise || this.finishPromise)
+      return false;
+    return this.clear(false);
+  }
+
+  private clear(preservePendingStart: boolean) {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.origin = 0;
+    this.cursor = 0;
+    this.sequence = 0;
+    this.eventSequence = 0;
+    this.samples = [];
+    this.events = [];
+    this.alerts = initialAlerts();
+    this.alertIds.clear();
+    this.confirmed.clear();
+    this.lastMode = 'combined';
+    this.finalTarget = null;
+    this.endingFrom = null;
+    this.calibrationUntil = null;
+    if (!preservePendingStart) this.starting = null;
+    this.flushAt = 0;
+    this.unavailableUntil = 0;
+    useMeasurement.setState({ ...initialMeasurement, recent: [] }, true);
+    return true;
+  }
+
+  private markMissing() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    useMeasurement.setState({
+      phase: 'ending',
+      saving: false,
+      missingSession: true,
+      alert: null,
+      error: '기록을 찾을 수 없어 저장할 수 없습니다.',
+    });
+  }
+
   async start(mode: Mode) {
     const current = useMeasurement.getState();
+    if (this.finishPromise) return;
     if (['active', 'paused', 'recalibrating', 'ending', 'starting'].includes(current.phase)) return;
     if (!this.starting || this.starting.body.requested_mode !== mode) {
       this.starting = {
@@ -50,7 +124,14 @@ class MeasurementController {
         origin: performance.now(),
       };
     }
-    useMeasurement.setState({ ...initialMeasurement, phase: 'starting', mode });
+    useMeasurement.setState({
+      ...initialMeasurement,
+      phase: 'starting',
+      mode,
+      scenario: current.scenario,
+      camera: current.camera,
+      head: current.head,
+    });
     try {
       const session = await api.create(this.starting.body, this.starting.key);
       this.origin = this.starting.origin;
@@ -63,6 +144,7 @@ class MeasurementController {
       this.alertIds.clear();
       this.confirmed.clear();
       this.finalTarget = null;
+      this.endingFrom = null;
       this.calibrationUntil = null;
       this.lastMode = mode;
       this.unavailableUntil = Math.ceil(performance.now() - this.origin);
@@ -85,6 +167,7 @@ class MeasurementController {
       elapsed_ms: elapsedMs,
     } as SessionEvent;
     this.events.push(event);
+    useMeasurement.setState({ pending: this.samples.length + this.events.length });
   }
 
   private commands(commands: AlertCommand[]) {
@@ -169,7 +252,11 @@ class MeasurementController {
       });
       if (stale) observation.quality = 'no_sensor';
       else if (isCalibrating) observation.quality = 'calibrating';
-      else if (store.phase === 'paused') observation.quality = 'paused';
+      else if (
+        store.phase === 'paused' ||
+        (store.phase === 'ending' && this.endingFrom === 'paused')
+      )
+        observation.quality = 'paused';
       const sample = deriveWindow(store.mode, observation, {
         seq: ++this.sequence,
         elapsed_start_ms: this.cursor,
@@ -214,16 +301,23 @@ class MeasurementController {
   pause() {
     const phase = useMeasurement.getState().phase;
     if (phase !== 'active' && phase !== 'paused') return;
-    this.advance(Math.floor(performance.now() - this.origin));
+    const target = Math.floor(performance.now() - this.origin);
+    this.advance(target);
+    if (this.cursor < target) this.unavailableUntil = Math.max(this.unavailableUntil, target);
     this.close();
-    this.addEvent({ type: phase === 'paused' ? 'resumed' : 'paused', data: {} });
+    this.addEvent({ type: phase === 'paused' ? 'resumed' : 'paused', data: {} }, target);
     useMeasurement.setState({ phase: phase === 'paused' ? 'active' : 'paused' });
   }
 
   recalibrate(mode?: Mode) {
     const store = useMeasurement.getState();
     if (!['active', 'paused'].includes(store.phase) || store.pending > 550) return;
-    this.advance(Math.floor(performance.now() - this.origin));
+    const target = Math.floor(performance.now() - this.origin);
+    this.advance(target);
+    if (this.cursor < target) {
+      useMeasurement.setState({ error: '저장 연결을 확인한 후 기준을 재설정해 주세요.' });
+      return;
+    }
     this.close();
     const nextMode = mode ?? store.mode;
     const epoch = store.epoch + 1;
@@ -234,6 +328,8 @@ class MeasurementController {
 
   flush(): Promise<void> {
     if (this.flushPromise) return this.flushPromise;
+    if (useMeasurement.getState().missingSession)
+      return Promise.reject(new Error('기록을 찾을 수 없어 저장할 수 없습니다.'));
     this.flushPromise = this.upload().finally(() => {
       this.flushPromise = null;
     });
@@ -248,38 +344,71 @@ class MeasurementController {
       while (this.samples.length || this.events.length) {
         if (this.samples.length) {
           const batch = this.samples.slice(0, 60);
-          await api.samples(session.id, batch as Sample[]);
+          const receipt = await api.samples(session.id, batch as Sample[]);
+          confirmedBatch(
+            receipt,
+            batch.length,
+            batch[batch.length - 1].seq,
+            'acknowledged_through_seq',
+          );
           this.samples.splice(0, batch.length);
-          useMeasurement.setState((s) => ({ saved: s.saved + batch.length }));
+          useMeasurement.setState((s) => ({
+            saved: s.saved + batch.length,
+            pending: this.samples.length + this.events.length,
+          }));
         }
         if (this.events.length) {
           const batch = this.events.slice(0, 60);
-          await api.events(session.id, batch);
+          const receipt = await api.events(session.id, batch);
+          confirmedBatch(
+            receipt,
+            batch.length,
+            batch[batch.length - 1].event_seq,
+            'acknowledged_through_event_seq',
+          );
           this.events.splice(0, batch.length);
+          useMeasurement.setState({ pending: this.samples.length + this.events.length });
         }
-        useMeasurement.setState({ pending: this.samples.length + this.events.length });
       }
       useMeasurement.setState({ error: null });
     } catch (error) {
-      useMeasurement.setState({ error: errorMessage(error) });
+      if (isMissingSession(error)) this.markMissing();
+      else useMeasurement.setState({ error: errorMessage(error) });
       throw error;
     } finally {
-      useMeasurement.setState({ saving: false });
+      if (!this.finishPromise || useMeasurement.getState().phase !== 'ending')
+        useMeasurement.setState({ saving: false });
     }
   }
 
-  async finish() {
+  finish(): Promise<Session | undefined> {
+    if (this.finishPromise) return this.finishPromise;
+    if (useMeasurement.getState().missingSession) return Promise.resolve(undefined);
     const session = useMeasurement.getState().session;
     if (
       !session ||
       !['active', 'paused', 'recalibrating', 'ending'].includes(useMeasurement.getState().phase)
     )
-      return;
+      return Promise.resolve(undefined);
+    const operation = Promise.resolve().then(() => this.finishSession(session));
+    const shared = operation.finally(() => {
+      if (this.finishPromise === shared) this.finishPromise = null;
+    });
+    this.finishPromise = shared;
+    return shared;
+  }
+
+  private async finishSession(session: Session) {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
     }
-    this.finalTarget ??= Math.floor(performance.now() - this.origin);
+    if (this.finalTarget === null) {
+      const phase = useMeasurement.getState().phase;
+      if (phase === 'active' || phase === 'paused' || phase === 'recalibrating')
+        this.endingFrom = phase;
+      this.finalTarget = Math.floor(performance.now() - this.origin);
+    }
     this.advance(this.finalTarget);
     this.close();
     useMeasurement.setState({ phase: 'ending', saving: true });
@@ -294,6 +423,15 @@ class MeasurementController {
         final_seq: this.sequence,
         final_event_seq: this.eventSequence,
       });
+      if (
+        !completed ||
+        completed.id !== session.id ||
+        completed.status !== 'completed' ||
+        completed.ended_at !== endedAt ||
+        completed.final_seq !== this.sequence ||
+        completed.final_event_seq !== this.eventSequence
+      )
+        throw new Error('종료 확인에 실패했습니다. 다시 시도해 주세요.');
       useMeasurement.setState({
         phase: 'completed',
         session: completed,
@@ -301,10 +439,13 @@ class MeasurementController {
         saving: false,
         memoryFull: false,
       });
-      await queryClient.invalidateQueries();
+      void Promise.resolve()
+        .then(() => queryClient.invalidateQueries())
+        .catch(() => undefined);
       return completed;
     } catch (error) {
-      useMeasurement.setState({ phase: 'ending', error: errorMessage(error), saving: false });
+      if (isMissingSession(error)) this.markMissing();
+      else useMeasurement.setState({ phase: 'ending', error: errorMessage(error), saving: false });
       throw error;
     }
   }

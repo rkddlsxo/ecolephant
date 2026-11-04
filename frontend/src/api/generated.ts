@@ -53,13 +53,13 @@ export interface paths {
         };
         /**
          * 소유자 세션 목록
-         * @description 설계 제안. 서버 구현 전 합의 대상입니다.
+         * @description 시작 시각과 세션 ID로 정렬합니다. 다음 페이지는 같은 기간·방식·상태·정렬 조건을 유지합니다.
          */
         get: operations["listSessions"];
         put?: never;
         /**
          * 보정 후 세션 생성
-         * @description 소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 정책은 서버 등록·승인된 프로필이어야 합니다.
+         * @description 소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 테스트는 등록된 미승인 예시를 허용하며, 실측은 승인된 정책과 카메라 매핑 검증이 필요합니다. 정책 ID의 내용은 불변입니다.
          */
         post: operations["createSession"];
         delete?: never;
@@ -181,7 +181,7 @@ export interface paths {
         };
         /**
          * 1분 단위 상태 타임라인
-         * @description 설계 제안. 서버 구현 전 합의 대상입니다.
+         * @description 구간당 최대 24시간. 저장된 결과 끝까지만 반환하며 다음 구간은 next_from_elapsed_ms로 조회합니다.
          */
         get: operations["getSessionTimeline"];
         put?: never;
@@ -216,6 +216,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Format: date-time
+         * @description 시간대가 포함된 RFC3339 시각. 밀리초보다 작은 0이 아닌 자릿수와 윤초 60초는 거부하며 뒤에 붙은 0은 허용합니다.
+         */
+        MillisecondTimestamp: string;
         Problem: {
             code: string;
             message: string;
@@ -244,18 +249,17 @@ export interface components {
         SessionCreate: {
             /** Format: uuid */
             client_session_id: string;
-            /** Format: date-time */
-            started_at: string;
+            started_at: components["schemas"]["MillisecondTimestamp"];
             /** @enum {string} */
             requested_mode: "webcam" | "airpods" | "combined";
             policy_id: string;
             initial_calibration_epoch: number;
             /**
-             * @description 1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다.
+             * @description demo는 합성 데이터입니다. real은 승인된 정책과 카메라 사용 시 검증된 매핑이 필요합니다. 누락 시 demo입니다.
              * @default demo
              * @enum {string}
              */
-            data_source: "demo";
+            data_source: "demo" | "real";
         };
         SampleWindow: {
             seq: number;
@@ -290,8 +294,7 @@ export interface components {
             acknowledged_through_event_seq: number;
         };
         SessionComplete: {
-            /** Format: date-time */
-            ended_at: string;
+            ended_at: components["schemas"]["MillisecondTimestamp"];
             final_seq: number;
             final_event_seq: number;
         };
@@ -331,6 +334,11 @@ export interface components {
             metrics: components["schemas"]["MetricSummary"];
         };
         StatisticsGroup: {
+            /**
+             * @description 합성 데이터와 실측 통계를 분리합니다.
+             * @enum {string}
+             */
+            data_source: "demo" | "real";
             /** @enum {string} */
             active_mode: "webcam" | "airpods" | "combined";
             policy_id: string;
@@ -466,11 +474,11 @@ export interface components {
             final_event_seq: number | null;
             acknowledged_through_event_seq: number;
             /**
-             * @description 1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다.
+             * @description demo는 합성 데이터입니다. real은 승인된 정책과 카메라 사용 시 검증된 매핑이 필요합니다. 누락 시 demo입니다.
              * @default demo
              * @enum {string}
              */
-            data_source: "demo";
+            data_source: "demo" | "real";
         };
         SessionPage: {
             items: components["schemas"]["Session"][];
@@ -486,6 +494,8 @@ export interface components {
             /** @constant */
             resolution_ms: 60000;
             buckets: components["schemas"]["TimelineBucket"][];
+            /** @description 다음 구간의 시작 경과 시간. 마지막 구간이면 null */
+            next_from_elapsed_ms: number | null;
         };
         PolicyPage: {
             items: components["schemas"]["PolicySummary"][];
@@ -579,13 +589,15 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 포함되는 시작 시각. to와 함께 사용 */
-                from?: string;
+                from?: components["schemas"]["MillisecondTimestamp"];
                 /** @description 제외되는 끝 시각. from보다 뒤 */
-                to?: string;
+                to?: components["schemas"]["MillisecondTimestamp"];
                 cursor?: string;
                 limit?: number;
                 mode?: "webcam" | "airpods" | "combined";
                 status?: "active" | "completed" | "abandoned";
+                /** @description 시작 시각과 ID의 오름차순 또는 내림차순 */
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -700,7 +712,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description 중복 내용·상태·연속성 충돌 */
+            /** @description 중복 내용·정책 승인 또는 ID·상태·연속성 충돌 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1228,7 +1240,9 @@ export interface operations {
     getSessionTimeline: {
         parameters: {
             query?: {
+                /** @description 포함되는 시작 경과 시간. 다음 페이지는 직전 next_from_elapsed_ms 사용 */
                 from_elapsed_ms?: number;
+                /** @description 제외되는 끝 경과 시간. 시작과의 차이는 최대 86400000ms */
                 to_elapsed_ms?: number;
                 resolution_ms?: number;
             };
@@ -1308,8 +1322,8 @@ export interface operations {
     getStatistics: {
         parameters: {
             query: {
-                from: string;
-                to: string;
+                from: components["schemas"]["MillisecondTimestamp"];
+                to: components["schemas"]["MillisecondTimestamp"];
                 /** @description 유효한 IANA 시간대 */
                 timezone?: string;
                 group_by: "day" | "hour";

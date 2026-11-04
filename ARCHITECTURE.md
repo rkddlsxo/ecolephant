@@ -29,8 +29,9 @@ flowchart LR
 
 ## 신뢰 경계
 
-- 브라우저 입력은 서버에서 다시 검증합니다. 집계는 서버의 승인된 창과 이벤트로 재계산합니다.
+- 브라우저 입력은 서버에서 다시 검증합니다. 집계는 서버가 승인한 창과 이벤트로 계산하고 재생성할 수 있습니다.
 - 세션 소유자는 인증 문맥에서 정합니다. 요청 본문의 사용자 ID로 소유권을 정하지 않습니다.
+- 선택형 Cognito 로그인은 브라우저 메모리의 액세스 토큰을 설정된 API에만 전송합니다. 실제 계정 검증은 대기입니다.
 - 도우미는 루프백에만 바인딩하며 허용 Origin·페어링 인증이 필요합니다. HTTPS 웹과 로컬 연결의 실제 허용 여부는 DEC-003 검증 대상입니다.
 - 로컬 보정 기준 좌표와 원시 IMU는 세션 종료·재보정 때 폐기합니다. 서버에는 적용 정책 ID와 허용된 결과 메타데이터를 보관합니다.
 
@@ -44,10 +45,13 @@ flowchart LR
 
 사용자 지정 스택은 [ADR-0002](docs/decisions/adr-0002-first-mvp-stack.md)에 기록했습니다.
 frontend와 ai는 npm workspace이며 backend는 Flask입니다. 최초 실행 저장소는 SQLite이고 DynamoDB 어댑터는 실환경 검증 대기입니다.
-모든 저장 세션은 data_source=demo입니다. [현재 범위](docs/development/mvp-status.md)는 실제 센서 출시 범위와 구분합니다.
+현재 제공된 정책에서는 data_source=demo인 합성 세션만 저장됩니다. 실측은 승인된 불변 정책과 카메라 매핑 검증이 필요하며, 테스트와 통계가 분리됩니다.
+[현재 범위](docs/development/mvp-status.md)는 실제 센서 출시 범위와 구분합니다.
 
 ## 현재 카메라 연결 단계
 
 실제 미리보기는 frontend의 getUserMedia와 video 요소로 처리합니다.
 AI 모델 어댑터는 null입니다. 카메라 경로에서 분석·알림·세션 저장은 호출하지 않습니다.
+별도 테스트 화면은 합성 입력만 사용하여 기존 Flask 세션 API와 기록 화면을 연결합니다.
+[ML 인계](docs/measurement/ml-handoff.md)의 모델 출력은 기기 내부에서만 사용합니다.
 [범위 결정](docs/decisions/adr-0003-camera-preview-scope.md)과 [사용 안내](docs/development/camera-preview.md)를 확인하세요.

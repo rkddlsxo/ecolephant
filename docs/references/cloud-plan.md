@@ -10,7 +10,7 @@
 
 | 항목 | 원안 (CLOUD_PLAN.md) | 개정 (ecolephant 기준) | 근거 |
 |---|---|---|---|
-| 저장소 구조 | `apps/mobile` `packages/*` `services/api` `infra` `tools/simulator` | **`ai/` `backend/` `frontend/`** + `docs/` `harness/` 유지, `infra/` `tools/simulator/` 추가 | 현 저장소 구조 |
+| 저장소 구조 | `apps/mobile` `packages/*` `services/api` `infra` `tools/simulator` | **`ai/` `backend/` `frontend/`** + `docs/`와 `backend/harness/` 유지, `infra/` `tools/simulator/` 추가 | 현 저장소 구조 |
 | 클라이언트 | React Native 모바일 앱 | **웹 브라우저** | ADR-0001, PRD "자세 측정 웹 MVP" |
 | 백엔드 | Lambda **Node.js + TypeScript** | **Flask (Python 3.12)** | 팀 결정 (2026-10-17) |
 | 분석 모듈 | 항목 없음 | `ai/` = **브라우저 실행 모듈**, 서버 아님 | ADR-0001 |
@@ -48,7 +48,7 @@ ecolephant/
 ├── infra/            # AWS CDK (Python) 스택            ← 신규
 ├── tools/simulator/  # 세션·창·이벤트 생성기 + 업로드 CLI  ← 신규
 ├── docs/             # 기존 문서 (OpenAPI가 API 기준)
-└── harness/          # 기존 문서·계약 검사
+└── backend/harness/  # 백엔드 문서·계약 검사
 ```
 
 ### 기술 선택 근거

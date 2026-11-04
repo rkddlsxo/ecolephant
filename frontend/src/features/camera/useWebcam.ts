@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type CameraStatus = 'idle' | 'requesting' | 'playing' | 'stopped' | 'error';
 const initialMessage = '카메라 켜기를 누르면 브라우저에서 권한을 요청합니다.';
 
+function trackEnded(track: MediaStreamTrack): boolean {
+  return track.readyState === 'ended';
+}
+
 function cameraError(error: unknown) {
   const name = error instanceof DOMException ? error.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError')
@@ -89,8 +93,13 @@ export function useWebcam() {
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
-      if (!mounted.current || request !== generation.current || document.hidden) {
+      if (!mounted.current || request !== generation.current) {
         acquired.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      if (document.hidden) {
+        acquired.getTracks().forEach((track) => track.stop());
+        stop('화면이 비활성화되어 카메라를 껐어요. 다시 켜려면 버튼을 눌러 주세요.');
         return;
       }
       const video = videoRef.current;
@@ -103,13 +112,31 @@ export function useWebcam() {
       streamRef.current = acquired;
       const track = acquired.getVideoTracks()[0];
       if (!track) throw new DOMException('No video track', 'NotFoundError');
-      const ended = () => stop('카메라 연결이 종료되었어요. 연결과 권한을 확인해 주세요.');
+      const ended = () => {
+        if (!mounted.current || request !== generation.current) return;
+        release();
+        setStatus('error');
+        setMessage('카메라 연결이 종료되었어요. 연결과 권한을 확인해 주세요.');
+        setResolution('');
+      };
       track.addEventListener('ended', ended);
       removeTrackListener.current = () => track.removeEventListener('ended', ended);
+      if (trackEnded(track)) {
+        ended();
+        return;
+      }
       video.srcObject = acquired;
       await video.play();
-      if (!mounted.current || request !== generation.current || document.hidden) {
+      if (!mounted.current || request !== generation.current) {
         acquired.getTracks().forEach((item) => item.stop());
+        return;
+      }
+      if (document.hidden) {
+        stop('화면이 비활성화되어 카메라를 껐어요. 다시 켜려면 버튼을 눌러 주세요.');
+        return;
+      }
+      if (trackEnded(track)) {
+        ended();
         return;
       }
       const settings = track.getSettings();

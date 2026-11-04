@@ -1,6 +1,6 @@
 # 개발 문서 색인
 
-제품 범위는 [PRD](../PRD.md), 처리 경계는 [ARCHITECTURE](../ARCHITECTURE.md), 작업 순서는 [내비게이터](../harness/NAVIGATOR.md)에서 확인합니다.
+제품 범위는 [PRD](../PRD.md), 처리 경계는 [ARCHITECTURE](../ARCHITECTURE.md), 작업 순서는 [내비게이터](../backend/harness/NAVIGATOR.md)에서 확인합니다.
 
 | 주제 | 문서 | 기준으로 삼는 내용 |
 |---|---|---|
@@ -22,11 +22,12 @@
 - **결정 대기:** `DEC-xxx`에서 선택과 이유를 기록해야 하는 항목입니다.
 - **검증 대기:** 기기·카메라·브라우저 또는 기준 측정과 대조해야 하는 항목입니다.
 
-충돌 시 출처와 결정 기록을 확인하고 문서를 함께 수정합니다. HTTP 필드 정의는 OpenAPI, 도우미 메시지는 JSON Schema, 숫자 시작값은 [예시 정책](../harness/fixtures/policy/example.json)이 단일 진입점입니다.
+충돌 시 출처와 결정 기록을 확인하고 문서를 함께 수정합니다. HTTP 필드 정의는 OpenAPI, 도우미 메시지는 JSON Schema, 숫자 시작값은 [예시 정책](../backend/harness/fixtures/policy/example.json)이 단일 진입점입니다.
 
-개발 운영 지식은 [하네스 지식 색인](../harness/docs/index.md)에 주제별로 있습니다.
+개발 운영 지식은 [하네스 지식 색인](../backend/harness/NAVIGATOR.md)에 주제별로 있습니다.
 
 - [개발·실행·구현 현황](development/index.md)
 - [1차 MVP 스택 결정](decisions/adr-0002-first-mvp-stack.md)
 
 - [현재 카메라 미리보기](development/camera-preview.md) · [모델 연결 보류 결정](decisions/adr-0003-camera-preview-scope.md)
+- [ML 담당자 인계](measurement/ml-handoff.md)
