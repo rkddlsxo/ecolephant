@@ -32,4 +32,4 @@
 
 OS pitch/roll 축·부호·회전 순서는 실측 전 가정하지 않습니다. 도우미는 원시 단위와 시각만 제공하고 웹의 분석 모듈이 승인된 축 프로필로 해석합니다. 원시 모션 메시지는 백엔드에 전달하지 않습니다. rotationRate의 ±100rad/s 범위는 전송 오류 차단용 제안 한계이며 판정 임계값은 정책의 별도 설정입니다.
 
-유효·무효 예시는 [도우미 fixture](../../harness/fixtures/helper/contract-cases.json), 보안 요구는 [개인정보와 보안](../security/privacy-and-security.md)을 참고합니다.
+유효·무효 예시는 [도우미 fixture](helper-contract-cases.json), 보안 요구는 [개인정보와 보안](../security/privacy-and-security.md)을 참고합니다.

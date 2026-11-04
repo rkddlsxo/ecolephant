@@ -25,6 +25,7 @@ class EcolephantStack(Stack):
                                 removal_policy=RemovalPolicy.RETAIN)
         client = pool.add_client("WebClient", generate_secret=False,
                                  auth_flows=cognito.AuthFlow(user_srp=True),
+                                 disable_o_auth=True,
                                  prevent_user_existence_errors=True)
         group = logs.LogGroup(self, "BackendLogs", retention=logs.RetentionDays.TWO_WEEKS,
                               removal_policy=RemovalPolicy.DESTROY)

@@ -2,8 +2,8 @@
 
 ## 진입점
 
-- 하네스 지식은 [작은 주제별 문서](harness/docs/index.md)와 [하네스 규칙](harness/AGENTS.md)을 따릅니다.
-- 작업을 시작할 때 [하네스 내비게이터](harness/NAVIGATOR.md)에서 관련 문서만 읽습니다.
+- 하네스 지식은 [작은 주제별 문서](backend/harness/NAVIGATOR.md)와 [하네스 규칙](backend/harness/AGENTS.md)을 따릅니다.
+- 작업을 시작할 때 [하네스 내비게이터](backend/harness/NAVIGATOR.md)에서 관련 문서만 읽습니다.
 - 범위는 [PRD](PRD.md), 구성 책임은 [ARCHITECTURE](ARCHITECTURE.md), HTTP 계약은 [OpenAPI](docs/api/openapi.json)를 기준으로 합니다.
 - 원문 요구와 설계 제안, 검증 결과를 구분합니다. `DEC-xxx`를 확인 없이 확정 처리하지 않습니다.
 
@@ -17,9 +17,9 @@
 
 ## 변경과 완료
 
-- [변경 절차](harness/docs/workflows/change.md)에 따라 요구사항 ID, 영향 문서, 검증 결과를 연결합니다.
+- [변경 절차](backend/harness/docs/workflows/change.md)에 따라 요구사항 ID, 영향 문서, 검증 결과를 연결합니다.
 - API·스키마를 바꾸면 예시, 오류 규칙, 추적표를 함께 갱신합니다.
-- `harness/scripts/check.ps1`을 실행하고 실패를 수정합니다. 문서 검사와 실제 제품 검증 결과를 구분해 보고합니다.
+- `backend/harness/scripts/check.ps1`을 실행하고 실패를 수정합니다. 문서 검사와 실제 제품 검증 결과를 구분해 보고합니다.
 - 새 라이브러리·배포 방식·미확정 수치 선택은 해당 결정 항목의 상태와 근거를 갱신합니다.
 - 외부 전송·게시·Git 푸시는 사용자의 해당 작업 범위에 대한 지시를 따릅니다.
 

@@ -121,7 +121,7 @@
         "operationId": "createSession",
         "summary": "보정 후 세션 생성",
         "tags": ["세션"],
-        "description": "소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 정책은 서버 등록·승인된 프로필이어야 합니다.",
+        "description": "소유자+client_session_id가 유일합니다. 같은 idempotency key·본문은 같은 세션을 반환합니다. 테스트는 등록된 미승인 예시를 허용하며, 실측은 승인된 정책과 카메라 매핑 검증이 필요합니다. 정책 ID의 내용은 불변입니다.",
         "responses": {
           "201": {
             "description": "성공",
@@ -164,7 +164,7 @@
             }
           },
           "409": {
-            "description": "중복 내용·상태·연속성 충돌",
+            "description": "중복 내용·정책 승인 또는 ID·상태·연속성 충돌",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -240,7 +240,7 @@
         "operationId": "listSessions",
         "summary": "소유자 세션 목록",
         "tags": ["세션"],
-        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "description": "시작 시각과 세션 ID로 정렬합니다. 다음 페이지는 같은 기간·방식·상태·정렬 조건을 유지합니다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -309,8 +309,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "$ref": "#/components/schemas/MillisecondTimestamp"
             },
             "description": "포함되는 시작 시각. to와 함께 사용"
           },
@@ -319,8 +318,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "$ref": "#/components/schemas/MillisecondTimestamp"
             },
             "description": "제외되는 끝 시각. from보다 뒤"
           },
@@ -361,6 +359,17 @@
               "type": "string",
               "enum": ["active", "completed", "abandoned"]
             }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "asc"
+            },
+            "description": "시작 시각과 ID의 오름차순 또는 내림차순"
           }
         ]
       }
@@ -967,7 +976,7 @@
         "operationId": "getSessionTimeline",
         "summary": "1분 단위 상태 타임라인",
         "tags": ["기록"],
-        "description": "설계 제안. 서버 구현 전 합의 대상입니다.",
+        "description": "구간당 최대 24시간. 저장된 결과 끝까지만 반환하며 다음 구간은 next_from_elapsed_ms로 조회합니다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -1054,9 +1063,11 @@
             "name": "from_elapsed_ms",
             "in": "query",
             "required": false,
+            "description": "포함되는 시작 경과 시간. 다음 페이지는 직전 next_from_elapsed_ms 사용",
             "schema": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 9007199254740991,
               "default": 0
             }
           },
@@ -1064,9 +1075,11 @@
             "name": "to_elapsed_ms",
             "in": "query",
             "required": false,
+            "description": "제외되는 끝 경과 시간. 시작과의 차이는 최대 86400000ms",
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 9007199254740991
             }
           },
           {
@@ -1157,8 +1170,7 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "$ref": "#/components/schemas/MillisecondTimestamp"
             }
           },
           {
@@ -1166,8 +1178,7 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "$ref": "#/components/schemas/MillisecondTimestamp"
             }
           },
           {
@@ -1233,6 +1244,12 @@
       }
     },
     "schemas": {
+      "MillisecondTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-5][0-9](?:\\.[0-9]{1,3}0*)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})$",
+        "description": "시간대가 포함된 RFC3339 시각. 밀리초보다 작은 0이 아닌 자릿수와 윤초 60초는 거부하며 뒤에 붙은 0은 허용합니다."
+      },
       "Problem": {
         "type": "object",
         "additionalProperties": false,
@@ -1339,8 +1356,7 @@
             "format": "uuid"
           },
           "started_at": {
-            "type": "string",
-            "format": "date-time"
+            "$ref": "#/components/schemas/MillisecondTimestamp"
           },
           "requested_mode": {
             "type": "string",
@@ -1358,9 +1374,9 @@
           },
           "data_source": {
             "type": "string",
-            "enum": ["demo"],
+            "enum": ["demo", "real"],
             "default": "demo",
-            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
+            "description": "demo는 합성 데이터입니다. real은 승인된 정책과 카메라 사용 시 검증된 매핑이 필요합니다. 누락 시 demo입니다."
           }
         },
         "required": [
@@ -1751,8 +1767,7 @@
         "additionalProperties": false,
         "properties": {
           "ended_at": {
-            "type": "string",
-            "format": "date-time"
+            "$ref": "#/components/schemas/MillisecondTimestamp"
           },
           "final_seq": {
             "type": "integer",
@@ -1921,6 +1936,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "data_source": {
+            "type": "string",
+            "enum": ["demo", "real"],
+            "description": "합성 데이터와 실측 통계를 분리합니다."
+          },
           "active_mode": {
             "type": "string",
             "enum": ["webcam", "airpods", "combined"]
@@ -1941,7 +1961,7 @@
             }
           }
         },
-        "required": ["active_mode", "policy_id", "summary", "buckets"]
+        "required": ["data_source", "active_mode", "policy_id", "summary", "buckets"]
       },
       "StatisticsResponse": {
         "type": "object",
@@ -2352,9 +2372,9 @@
           },
           "data_source": {
             "type": "string",
-            "enum": ["demo"],
+            "enum": ["demo", "real"],
             "default": "demo",
-            "description": "1차 MVP는 합성 데이터만 지원. 누락된 이전 초안 요청도 demo로 기록합니다."
+            "description": "demo는 합성 데이터입니다. real은 승인된 정책과 카메라 사용 시 검증된 매핑이 필요합니다. 누락 시 demo입니다."
           }
         },
         "required": [
@@ -2423,9 +2443,14 @@
             "items": {
               "$ref": "#/components/schemas/TimelineBucket"
             }
+          },
+          "next_from_elapsed_ms": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "다음 구간의 시작 경과 시간. 마지막 구간이면 null"
           }
         },
-        "required": ["session_id", "resolution_ms", "buckets"]
+        "required": ["session_id", "resolution_ms", "buckets", "next_from_elapsed_ms"]
       },
       "PolicyPage": {
         "type": "object",

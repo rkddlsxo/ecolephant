@@ -6,8 +6,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const files = [
   ['docs/api/openapi.json', 'backend/ecolephant/contracts/openapi.json'],
-  ['harness/fixtures/policy/example.json', 'backend/ecolephant/contracts/policy.json'],
-  ['harness/fixtures/policy/example.json', 'ai/src/policy.json'],
+  ['backend/harness/fixtures/policy/example.json', 'backend/ecolephant/contracts/policy.json'],
+  ['backend/harness/fixtures/policy/example.json', 'ai/src/policy.json'],
 ];
 for (const [source, target] of files) {
   const input = fs.readFileSync(path.join(root, source));

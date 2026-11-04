@@ -24,11 +24,13 @@ def create_app(config=None):
         ENDPOINT=os.getenv("AWS_ENDPOINT_URL_DYNAMODB"),
         JWT_ISSUER=os.getenv("ECOLEPHANT_JWT_ISSUER", ""),
         JWT_CLIENT_ID=os.getenv("ECOLEPHANT_JWT_CLIENT_ID", ""),
-        ALLOWED_ORIGIN=os.getenv("ECOLEPHANT_ALLOWED_ORIGIN", "http://localhost:5173"),
+        ALLOWED_ORIGIN=os.getenv("ECOLEPHANT_ALLOWED_ORIGIN", "http://127.0.0.1:5173"),
         MAX_CONTENT_LENGTH=65536,
     )
     if config:
         app.config.update(config)
+    from .policies import load_catalog
+    app.extensions["policies"] = load_catalog(app.config.get("POLICIES"))
     if app.config["AUTH_MODE"] not in {"local", "cognito"}:
         raise RuntimeError("Unsupported authentication mode")
     if app.config["AUTH_MODE"] == "local":
