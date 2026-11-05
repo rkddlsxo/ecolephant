@@ -36,7 +36,7 @@ describe('MediaPipe pose adapter', () => {
     await Promise.all([adapter.load(), adapter.load()]);
     await adapter.load();
     expect(factory).toHaveBeenCalledTimes(1);
-    expect(factory).toHaveBeenCalledWith('GPU');
+    expect(factory).toHaveBeenCalledWith('GPU', 'lite');
     expect(adapter.delegate).toBe('GPU');
 
     const result = await adapter.analyze(video(), 1234.5);
@@ -45,6 +45,18 @@ describe('MediaPipe pose adapter', () => {
     expect(Object.keys(result).sort()).toEqual(
       ['frameHeight', 'frameWidth', 'landmarks', 'quality', 'timestampMs'].sort(),
     );
+  });
+
+  it('passes the model variant and exposes raw points only to the debug hook', async () => {
+    const fake = fakeLandmarker();
+    const factory = vi.fn(async () => fake.landmarker);
+    const onRawPose = vi.fn();
+    const adapter = createMediaPipeAdapter({ factory, variant: 'full', onRawPose });
+    await adapter.load();
+    expect(factory).toHaveBeenCalledWith('GPU', 'full');
+    const result = await adapter.analyze(video(), 10);
+    expect(onRawPose.mock.calls[0][0]).toHaveLength(33);
+    expect(JSON.stringify(result)).not.toContain('"z"');
   });
 
   it('falls back to CPU when GPU initialisation fails', async () => {
@@ -94,7 +106,7 @@ describe('MediaPipe pose adapter', () => {
     const first = fakeLandmarker();
     const second = fakeLandmarker();
     const factory = vi
-      .fn<(d: 'GPU' | 'CPU') => Promise<PoseLandmarkerLike>>()
+      .fn<(d: 'GPU' | 'CPU', v: string) => Promise<PoseLandmarkerLike>>()
       .mockResolvedValueOnce(first.landmarker)
       .mockResolvedValueOnce(second.landmarker);
     const adapter = createMediaPipeAdapter({ factory });

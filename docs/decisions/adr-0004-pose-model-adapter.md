@@ -36,6 +36,11 @@ ADR-0003에서 `model-adapter`는 모델 선택 전까지 비워 두었습니다
 - 약 14fps (화면 분석 상한 15fps), 프레임당 추론 18~22ms, 브라우저 CPU 약 6%
 - 바른 자세 valid, 빠른 움직임 motion, 어깨가 화면 밖 low_confidence, 화면 이탈 no_pose(점 없음) 확인
 - 다른 팀원 노트북·CPU 위임 환경은 아직 측정하지 않았습니다.
+- 관찰된 한계(lite): 어깨를 일부러 올리거나 내리면 어깨 점이 잘 따라가지 않고,
+  정면에서 귀 점이 귀보다 광대뼈 쪽에 찍힙니다. 귀–어깨 높이 차 `h`와 얼굴 폭 `face_width`에 영향을 줄 수 있어
+  lite/full/heavy 비교가 필요합니다.
+- 비교 방법: `npm run pose:assets -- --model all` 후 `?pose-debug&model=full&all`
+  (`model`은 lite·full·heavy, `all`은 33개 점 전체 표시).
 
 ## 결정과 영향
 

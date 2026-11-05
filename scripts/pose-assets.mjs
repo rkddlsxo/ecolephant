@@ -9,10 +9,15 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = path.join(root, 'frontend/public/mediapipe');
-const modelFile = path.join(target, 'pose_landmarker_lite.task');
-const modelUrl =
-  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
+// --model lite|full|heavy|all (default lite). full/heavy are for accuracy comparison.
+const modelArg = argv.includes('--model') ? argv[argv.indexOf('--model') + 1] : 'lite';
+const variants = modelArg === 'all' ? ['lite', 'full', 'heavy'] : [modelArg];
+if (!variants.every((name) => ['lite', 'full', 'heavy'].includes(name))) {
+  console.error(`Unknown --model ${modelArg}. Use lite, full, heavy or all.`);
+  process.exit(1);
+}
 
 const require = createRequire(path.join(root, 'frontend/package.json'));
 // package.json is not in the package's "exports", so resolve the CJS entry and use its folder.
@@ -31,17 +36,30 @@ fs.writeFileSync(path.join(target, 'VERSION'), `@mediapipe/tasks-vision ${versio
 console.log(`Copied MediaPipe WASM ${version} to ${path.relative(root, target)}/wasm`);
 
 if (args.has('--skip-model')) process.exit(0);
-if (fs.existsSync(modelFile) && !args.has('--force')) {
-  console.log(`Model already present: ${path.relative(root, modelFile)}`);
-  process.exit(0);
+let failed = false;
+for (const variant of variants) {
+  const name = `pose_landmarker_${variant}.task`;
+  const modelFile = path.join(target, name);
+  const modelUrl = `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${variant}/float16/1/${name}`;
+  if (fs.existsSync(modelFile) && !args.has('--force')) {
+    console.log(`Model already present: ${path.relative(root, modelFile)}`);
+    continue;
+  }
+  const response = await fetch(modelUrl).catch((error) => ({
+    ok: false,
+    status: error.cause?.code ?? error.message,
+  }));
+  if (!response.ok) {
+    console.error(`Model download failed (${response.status}). Download manually:\n  ${modelUrl}`);
+    console.error(`and save it as ${path.relative(root, modelFile)}`);
+    failed = true;
+    continue;
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  fs.writeFileSync(`${modelFile}.tmp`, bytes);
+  fs.renameSync(`${modelFile}.tmp`, modelFile);
+  console.log(
+    `Downloaded ${path.relative(root, modelFile)} (${(bytes.length / 1e6).toFixed(1)} MB)`,
+  );
 }
-const response = await fetch(modelUrl);
-if (!response.ok) {
-  console.error(`Model download failed (${response.status}). Download manually:\n  ${modelUrl}`);
-  console.error(`and save it as ${path.relative(root, modelFile)}`);
-  process.exit(1);
-}
-const bytes = Buffer.from(await response.arrayBuffer());
-fs.writeFileSync(`${modelFile}.tmp`, bytes);
-fs.renameSync(`${modelFile}.tmp`, modelFile);
-console.log(`Downloaded ${path.relative(root, modelFile)} (${(bytes.length / 1e6).toFixed(1)} MB)`);
+if (failed) process.exit(1);

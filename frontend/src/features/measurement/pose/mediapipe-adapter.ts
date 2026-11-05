@@ -9,9 +9,12 @@ import {
 } from './pose-result';
 
 /** Self-hosted assets (see scripts/pose-assets.mjs). Nothing is fetched from third parties. */
+export const POSE_MODELS = ['lite', 'full', 'heavy'] as const;
+export type PoseModelVariant = (typeof POSE_MODELS)[number];
+
 export const POSE_ASSETS = {
   wasmBase: '/mediapipe/wasm',
-  model: '/mediapipe/pose_landmarker_lite.task',
+  model: (variant: PoseModelVariant = 'lite') => `/mediapipe/pose_landmarker_${variant}.task`,
 } as const;
 
 /** Minimal surface of MediaPipe PoseLandmarker that the adapter uses. */
@@ -20,19 +23,26 @@ export interface PoseLandmarkerLike {
   close(): void;
 }
 
-export type LandmarkerFactory = (delegate: 'GPU' | 'CPU') => Promise<PoseLandmarkerLike>;
+export type LandmarkerFactory = (
+  delegate: 'GPU' | 'CPU',
+  variant: PoseModelVariant,
+) => Promise<PoseLandmarkerLike>;
 
 export interface MediaPipeAdapterOptions {
   factory?: LandmarkerFactory;
   quality?: QualityOptions;
+  /** Default lite. full/heavy are for accuracy comparison (ADR-0004). */
+  variant?: PoseModelVariant;
+  /** Debug only: all 33 raw points of the first pose, for local drawing. Never store or send. */
+  onRawPose?: (pose: readonly RawLandmark[] | undefined) => void;
 }
 
 /** Default factory: lazy import keeps the 13 MB WASM out of the initial bundle. */
-export const mediaPipeFactory: LandmarkerFactory = async (delegate) => {
+export const mediaPipeFactory: LandmarkerFactory = async (delegate, variant) => {
   const { FilesetResolver, PoseLandmarker } = await import('@mediapipe/tasks-vision');
   const fileset = await FilesetResolver.forVisionTasks(POSE_ASSETS.wasmBase);
   return PoseLandmarker.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: POSE_ASSETS.model, delegate },
+    baseOptions: { modelAssetPath: POSE_ASSETS.model(variant), delegate },
     runningMode: 'VIDEO',
     numPoses: 1,
     outputSegmentationMasks: false,
@@ -51,6 +61,7 @@ export function createMediaPipeAdapter(
 ): PostureModelAdapter & { readonly delegate: 'GPU' | 'CPU' | null } {
   const factory = options.factory ?? mediaPipeFactory;
   const quality = options.quality ?? draftQualityOptions;
+  const variant = options.variant ?? 'lite';
   let landmarker: PoseLandmarkerLike | null = null;
   let loading: Promise<void> | null = null;
   let delegate: 'GPU' | 'CPU' | null = null;
@@ -76,10 +87,10 @@ export function createMediaPipeAdapter(
         let created: PoseLandmarkerLike;
         let used: 'GPU' | 'CPU' = 'GPU';
         try {
-          created = await factory('GPU');
+          created = await factory('GPU', variant);
         } catch {
           used = 'CPU';
-          created = await factory('CPU');
+          created = await factory('CPU', variant);
         }
         if (request !== generation) {
           created.close();
@@ -104,6 +115,7 @@ export function createMediaPipeAdapter(
       const modelTimestamp = Math.max(Math.round(timestampMs), lastModelTimestamp + 1);
       lastModelTimestamp = modelTimestamp;
       const output = landmarker.detectForVideo(video, modelTimestamp);
+      options.onRawPose?.(output.landmarks[0]);
       const converted = toCameraModelResult(
         { timestampMs, frameWidth, frameHeight, pose: output.landmarks[0] },
         history,

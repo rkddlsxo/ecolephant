@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { CameraModelResult } from '../model-adapter';
-import { createMediaPipeAdapter } from './mediapipe-adapter';
+import { POSE_MODELS, createMediaPipeAdapter, type PoseModelVariant } from './mediapipe-adapter';
+import type { RawLandmark } from './pose-result';
 
 /**
  * Development-only check that real landmarks come out of the webcam.
@@ -8,6 +9,16 @@ import { createMediaPipeAdapter } from './mediapipe-adapter';
  */
 export function poseDebugEnabled(search = window.location.search) {
   return import.meta.env.DEV && new URLSearchParams(search).has('pose-debug');
+}
+
+/** `?pose-debug&model=full` picks the model, `&all` also draws all 33 raw points. */
+export function poseDebugSettings(search = window.location.search) {
+  const params = new URLSearchParams(search);
+  const model = params.get('model');
+  const variant: PoseModelVariant = POSE_MODELS.includes(model as PoseModelVariant)
+    ? (model as PoseModelVariant)
+    : 'lite';
+  return { variant, showAll: params.has('all') };
 }
 
 const colors: Record<CameraModelResult['quality'], string> = {
@@ -24,6 +35,7 @@ interface Stats {
   fps?: number;
   inferenceMs?: number;
   delegate?: string | null;
+  variant?: PoseModelVariant;
 }
 
 /** Target analysis rate for the overlay only; the measurement loop decides its own rate. */
@@ -44,7 +56,12 @@ export function PoseDebugOverlay({
   useEffect(() => {
     if (!active) return;
     const canvasElement = canvasRef.current;
-    const adapter = createMediaPipeAdapter();
+    const { variant, showAll } = poseDebugSettings();
+    let raw: readonly RawLandmark[] | undefined;
+    const adapter = createMediaPipeAdapter({
+      variant,
+      onRawPose: showAll ? (pose) => (raw = pose) : undefined,
+    });
     let frame = 0;
     let stopped = false;
     let last = 0;
@@ -69,6 +86,15 @@ export function PoseDebugOverlay({
       const dh = result.frameHeight * scale;
       const ox = (w - dw) / 2;
       const oy = (h - dh) / 2;
+      if (showAll && raw) {
+        context.fillStyle = '#ffffff';
+        for (const point of raw) {
+          context.globalAlpha = 0.25 + 0.6 * Math.max(0, Math.min(1, point.visibility ?? 0));
+          context.beginPath();
+          context.arc(ox + point.x * dw, oy + point.y * dh, 3, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
       context.fillStyle = colors[result.quality];
       for (const point of Object.values(result.landmarks)) {
         if (!point) continue;
@@ -99,6 +125,7 @@ export function PoseDebugOverlay({
               fps: times.length,
               inferenceMs: Math.round(inference * 10) / 10,
               delegate: adapter.delegate,
+              variant,
             });
           }
         } catch (error) {
@@ -118,7 +145,7 @@ export function PoseDebugOverlay({
         if (!stopped)
           setStats({
             status: 'error',
-            message: `모델을 불러오지 못했어요. npm run pose:assets 실행 여부를 확인해 주세요. (${String(error)})`,
+            message: `${variant} 모델을 불러오지 못했어요. npm run pose:assets -- --model ${variant} 실행 여부를 확인해 주세요. (${String(error)})`,
           });
       });
 
@@ -163,7 +190,7 @@ export function PoseDebugOverlay({
         {stats.status === 'loading' && '포즈 모델 불러오는 중…'}
         {stats.status === 'error' && stats.message}
         {stats.status === 'running' &&
-          `${stats.quality} · ${stats.fps} fps · ${stats.inferenceMs} ms · ${stats.delegate}`}
+          `${stats.variant} · ${stats.quality} · ${stats.fps} fps · ${stats.inferenceMs} ms · ${stats.delegate}`}
       </p>
     </>
   );
