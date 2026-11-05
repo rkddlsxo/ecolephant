@@ -22,3 +22,5 @@ export {
   median,
 } from './calibration';
 export type { CalibrationOptions, CalibrationRestart, CalibrationState } from './calibration';
+export { headFlexionDeg } from './head-motion';
+export type { FlexionFailure, FlexionResult } from './head-motion';
