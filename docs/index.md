@@ -29,5 +29,5 @@
 - [개발·실행·구현 현황](development/index.md)
 - [1차 MVP 스택 결정](decisions/adr-0002-first-mvp-stack.md)
 
-- [현재 카메라 미리보기](development/camera-preview.md) · [모델 연결 보류 결정](decisions/adr-0003-camera-preview-scope.md)
+- [현재 카메라 미리보기](development/camera-preview.md) · [모델 연결 보류 결정](decisions/adr-0003-camera-preview-scope.md) · [관절점 모델 후보(제안)](decisions/adr-0004-pose-model-adapter.md)
 - [ML 담당자 인계](measurement/ml-handoff.md)
