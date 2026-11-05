@@ -21,3 +21,6 @@ build/
 playwright-report/
 test-results/
 .husky/_/
+
+# Self-hosted MediaPipe assets (npm run pose:assets)
+frontend/public/mediapipe/

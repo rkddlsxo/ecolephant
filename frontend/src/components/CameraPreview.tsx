@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useWebcam } from '../features/camera/useWebcam';
+import { PoseDebugOverlay, poseDebugEnabled } from '../features/measurement/pose/PoseDebugOverlay';
 import { Button } from './ui';
 
 export function CameraPreview() {
   const camera = useWebcam();
   const [mirrored, setMirrored] = useState(true);
+  const [poseDebug] = useState(() => poseDebugEnabled());
   const playing = camera.status === 'playing';
   const requesting = camera.status === 'requesting';
   return (
@@ -22,6 +24,9 @@ export function CameraPreview() {
           className={mirrored ? 'mirrored' : ''}
           aria-label="실시간 웹캠 미리보기"
         />
+        {poseDebug && (
+          <PoseDebugOverlay videoRef={camera.videoRef} mirrored={mirrored} active={playing} />
+        )}
         {!playing && (
           <div className="webcam-empty">{requesting ? '권한 요청 중' : '카메라 꺼짐'}</div>
         )}
