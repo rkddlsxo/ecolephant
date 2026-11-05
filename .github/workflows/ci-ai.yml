@@ -44,3 +44,5 @@ jobs:
       # 소스 코드를 실행하지 않고 분석하여 문법 오류, 잠재적 버그, 지켜지지 않은 코딩 스타일(관례)을 찾아 경고해 주는 자동화 도구
       # ai 는 TypeScript 라서 빌드(tsc)가 타입 검사를 겸해 정적 분석 역할을 합니다.
       - run: npm run build --workspace ai
+      # 순수 함수 단위 테스트 (특징값·보정 등). 브라우저·카메라 없이 실행됩니다.
+      - run: npm run test --workspace ai
