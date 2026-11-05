@@ -14,8 +14,8 @@ ADR-0003에서 `model-adapter`는 모델 선택 전까지 비워 두었습니다
 - `@mediapipe/tasks-vision` `PoseLandmarker` (Apache-2.0). 33개 점에 코 0, 귀 7·8, 어깨 11·12가 있어
   계약 점을 그대로 제공합니다. VIDEO 모드, GPU/CPU 위임을 지원합니다.
 - 버전은 1.1.1로 고정했습니다. 1.2.2는 2026-11-03 배포라 2주 이상 지난 버전을 택했습니다.
-- 모델은 `pose_landmarker_lite.task`(float16, 버전 1)입니다. 속도 우선 선택이며 full/heavy와의
-  정확도·속도 비교는 검증 실험에서 합니다.
+- 모델은 `pose_landmarker_lite.task`(float16, 버전 1)입니다. full/heavy와의 눈 비교 결과는 아래
+  로컬 확인 결과에 있고, 정량 비교는 검증 실험에서 합니다.
 - 다른 후보(MoveNet, BlazePose TF.js 등)의 성능·속도 비교는 아직 하지 않았습니다.
 
 ## 구현 선택
@@ -41,6 +41,16 @@ ADR-0003에서 `model-adapter`는 모델 선택 전까지 비워 두었습니다
   lite/full/heavy 비교가 필요합니다.
 - 비교 방법: `npm run pose:assets -- --model all` 후 `?pose-debug&model=full&all`
   (`model`은 lite·full·heavy, `all`은 33개 점 전체 표시).
+- 모델 비교 (같은 노트북, GPU, 화면 분석 상한 15fps):
+
+  | 모델 | fps | 프레임당 추론 | 브라우저 CPU | 점 위치 (눈으로 비교) |
+  |---|---|---|---|---|
+  | lite | 약 14 | 18~22ms | 약 6% | 기준 |
+  | full | 약 14 | 약 23ms | 약 6% | 눈에 띄는 차이 없음 |
+  | heavy | 약 14 | 약 40ms | 약 7% | 눈에 띄는 차이 없음 |
+
+  어깨·귀 위치 한계는 세 모델 공통이었습니다. 정확도 이득이 보이지 않아 기본값은 lite로 제안합니다.
+  정량 비교(측면 CVA 대비 오차·누락률)는 검증 실험에서 합니다.
 
 ## 결정과 영향
 
