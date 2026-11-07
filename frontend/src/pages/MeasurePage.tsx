@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { Level, Mode, Scenario } from '@ecolephant/ai';
-import { Button, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
+import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
+import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
+import { Select } from '../components/Select';
 import { measurement } from '../features/measurement/controller';
+import { usePolicyCheck } from '../features/measurement/policy';
 import { useMeasurement } from '../state/measurement';
 import { usePreferences } from '../state/preferences';
 
@@ -22,6 +25,14 @@ const scenarioLabel: Partial<Record<Scenario, string>> = {
   motion: '움직임',
 };
 
+const modeOptions = (['webcam', 'airpods', 'combined'] as const).map((mode) => ({
+  value: mode,
+  label: modeLabel[mode],
+}));
+const scenarioOptions = (Object.entries(scenarioLabel) as [Scenario, string][]).map(
+  ([value, label]) => ({ value, label }),
+);
+
 export function MeasurePage() {
   const state = useMeasurement();
   const muted = usePreferences((value) => value.muted);
@@ -29,6 +40,7 @@ export function MeasurePage() {
   const [selectedMode, setSelectedMode] = useState<Mode>('webcam');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
+  const policyCheck = usePolicyCheck(selectedMode);
 
   useEffect(() => {
     if (!state.alert || document.hidden) return;
@@ -40,64 +52,112 @@ export function MeasurePage() {
   }, [state.alert]);
 
   return (
-    <div>
+    <div className="measure-page">
       <div className="page-heading">
-        <h1>테스트 측정</h1>
-        <span className="badge neutral">가상 입력</span>
+        <div>
+          <div className="title-with-status">
+            <h1>테스트 측정</h1>
+            <span className="measure-badge">가상 입력</span>
+          </div>
+          <p className="page-description">
+            가상 입력으로 측정·알림·저장 흐름이 잘 이어지는지 확인하는 화면이에요.
+          </p>
+        </div>
       </div>
-      <Notice>AI 모델 연결 전 테스트입니다.</Notice>
+      <Notice>
+        AI 모델 연결 전 테스트입니다.
+        {policyCheck.status === 'ok' &&
+          (!policyCheck.server.release_approved ||
+            policyCheck.server.camera_mapping_status !== 'validated') &&
+          ' 판정 기준은 검증 전 초안이에요.'}
+      </Notice>
       {state.error && <Notice kind="error">{state.error}</Notice>}
+      {!running && policyCheck.status === 'error' && (
+        <ErrorState error={policyCheck.message} retry={policyCheck.retry} />
+      )}
+      {!running && policyCheck.status === 'blocked' && (
+        <Notice kind="error">{policyCheck.message}</Notice>
+      )}
       {state.alert && <Notice>자세 확인 · {state.alert.stage}차 알림</Notice>}
-      <section className="panel service-panel">
+      {state.phase === 'recalibrating' && (
+        <Notice>기준 자세를 다시 잡고 있어요. 편한 자세로 3초 동안 가만히 있어 주세요.</Notice>
+      )}
+      <section className="panel service-panel measure-panel">
         <div className="service-controls">
-          <label>
-            측정 방식
-            <select
-              value={running ? state.mode : selectedMode}
-              disabled={running}
-              onChange={(event) => setSelectedMode(event.target.value as Mode)}
+          <Select<Mode>
+            label="측정 방식"
+            value={running ? state.mode : selectedMode}
+            disabled={running}
+            onChange={setSelectedMode}
+            options={modeOptions}
+          />
+          <Select<Scenario>
+            label="테스트 입력"
+            value={state.scenario}
+            onChange={(scenario) => useMeasurement.setState({ scenario })}
+            options={scenarioOptions}
+          />
+          {/* 항상 기록으로 갈 수 있게 선택 칸 줄 오른쪽 끝에 고정. 방금 저장한 세션이 있으면 그 상세로 */}
+          {state.phase === 'completed' && state.session ? (
+            <Link
+              to="/history/$sessionId"
+              params={{ sessionId: state.session.id }}
+              className="button button-secondary measure-record-link"
             >
-              {(['webcam', 'airpods', 'combined'] as const).map((mode) => (
-                <option key={mode} value={mode}>
-                  {modeLabel[mode]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            테스트 입력
-            <select
-              value={state.scenario}
-              onChange={(event) =>
-                useMeasurement.setState({ scenario: event.target.value as Scenario })
-              }
-            >
-              {Object.entries(scenarioLabel).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <History size={16} aria-hidden="true" />
+              저장된 기록 보러가기
+            </Link>
+          ) : (
+            <Link to="/history" className="button button-secondary measure-record-link">
+              <History size={16} aria-hidden="true" />
+              저장된 기록 보러가기
+            </Link>
+          )}
         </div>
         <div className="service-metrics">
-          <div>
-            <span>상태</span>
-            <strong>{state.latest ? levelLabel[state.latest.posture_level] : '대기'}</strong>
+          <div
+            className={`measure-metric level-${state.phase === 'paused' || state.phase === 'recalibrating' ? 'idle' : (state.latest?.posture_level ?? 'idle')}`}
+          >
+            <span>
+              <Gauge size={16} aria-hidden="true" />
+              상태
+            </span>
+            <strong>
+              <i className="measure-level-dot" aria-hidden="true" />
+              {state.phase === 'paused'
+                ? '일시정지'
+                : state.phase === 'recalibrating'
+                  ? '기준 재설정 중'
+                  : state.latest
+                    ? levelLabel[state.latest.posture_level]
+                    : '대기'}
+            </strong>
           </div>
-          <div>
-            <span>시간</span>
-            <strong>{formatDuration(state.elapsedMs)}</strong>
+          <div className="measure-metric">
+            <span>
+              <Timer size={16} aria-hidden="true" />
+              시간
+              {state.phase === 'active' && <i className="measure-live" aria-hidden="true" />}
+            </span>
+            <strong className="measure-number">
+              {formatDuration(Math.max(0, state.elapsedMs - state.pausedMs))}
+            </strong>
           </div>
-          <div>
-            <span>저장 대기</span>
-            <strong>{state.pending}개</strong>
+          <div className="measure-metric">
+            <span>
+              <HardDriveUpload size={16} aria-hidden="true" />
+              저장 대기
+            </span>
+            <strong className="measure-number">{state.pending}개</strong>
           </div>
         </div>
         <div className="button-row service-actions">
           {!running && (
-            <Button onClick={() => void measurement.start(selectedMode).catch(() => undefined)}>
-              시작
+            <Button
+              disabled={policyCheck.status !== 'ok'}
+              onClick={() => void measurement.start(selectedMode).catch(() => undefined)}
+            >
+              {policyCheck.status === 'loading' ? '정책 확인 중' : '시작'}
             </Button>
           )}
           {['active', 'paused'].includes(state.phase) && (
@@ -105,7 +165,7 @@ export function MeasurePage() {
               {state.phase === 'paused' ? '재개' : '일시정지'}
             </Button>
           )}
-          {['active', 'paused'].includes(state.phase) && (
+          {state.phase === 'paused' && (
             <Button
               variant="secondary"
               disabled={state.pending > 550}
@@ -132,7 +192,12 @@ export function MeasurePage() {
               측정 정리
             </Button>
           )}
-          <Button variant="ghost" onClick={() => setMuted(!muted)}>
+          <Button variant="ghost" className="measure-mute" onClick={() => setMuted(!muted)}>
+            {muted ? (
+              <Bell size={16} aria-hidden="true" />
+            ) : (
+              <BellOff size={16} aria-hidden="true" />
+            )}
             {muted ? '알림 켜기' : '알림 끄기'}
           </Button>
         </div>
@@ -164,15 +229,6 @@ export function MeasurePage() {
           </Button>
         </div>
       </Modal>
-      {state.phase === 'completed' && state.session && (
-        <Link
-          to="/history/$sessionId"
-          params={{ sessionId: state.session.id }}
-          className="button button-secondary"
-        >
-          저장된 기록
-        </Link>
-      )}
     </div>
   );
 }

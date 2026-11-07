@@ -11,6 +11,8 @@ interface Measurement {
   camera: number;
   head: number;
   elapsedMs: number;
+  /** 일시정지 구간 길이. 화면의 측정 시간은 elapsedMs - pausedMs */
+  pausedMs: number;
   epoch: number;
   latest: DerivedWindow | null;
   recent: DerivedWindow[];
@@ -30,6 +32,7 @@ export const initialMeasurement: Measurement = {
   camera: 10,
   head: 8,
   elapsedMs: 0,
+  pausedMs: 0,
   epoch: 1,
   latest: null,
   recent: [],
