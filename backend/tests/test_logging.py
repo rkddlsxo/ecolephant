@@ -112,7 +112,7 @@ class StructuredLoggingTests(unittest.TestCase):
         error_log = json.loads(captured.records[0].getMessage())
         self.assertEqual(error_log['status'], 422)
         self.assertEqual(error_log['path'], '/api/v1/sessions')
-        self.assertEqual(error_log['error_code'], 'invalid_request')
+        self.assertEqual(error_log['error_code'], 'validation_failed')
         self.assertIsNotNone(error_log['owner_hash'])
 
 
