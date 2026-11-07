@@ -8,7 +8,9 @@ import type { RawLandmark } from './pose-result';
  * Draws points locally on a canvas; results are never stored or sent anywhere.
  */
 export function poseDebugEnabled(search = window.location.search) {
-  return import.meta.env.DEV && new URLSearchParams(search).has('pose-debug');
+  // 개발 서버에서는 주소 없이도 기본으로 켬. `?pose-debug=off`로 끌 수 있음.
+  // 배포 빌드는 모델 파일이 git에 없어 그대로 끔.
+  return import.meta.env.DEV && new URLSearchParams(search).get('pose-debug') !== 'off';
 }
 
 /** `?pose-debug&model=full` picks the model, `&all` also draws all 33 raw points. */
@@ -36,6 +38,61 @@ interface Stats {
   inferenceMs?: number;
   delegate?: string | null;
   variant?: PoseModelVariant;
+}
+
+/** 점 색 범례. 색 이름만 표시 */
+const legend: { quality: CameraModelResult['quality']; label: string }[] = [
+  { quality: 'valid', label: '정상' },
+  { quality: 'motion', label: '움직임' },
+  { quality: 'low_confidence', label: '신뢰도 낮음' },
+  { quality: 'no_pose', label: '사람 없음' },
+];
+
+/** 카메라 화면 왼쪽 위, 상태 표시 아래에 세로로 놓는 반투명 범례. 지금 품질은 굵게 표시 */
+function PoseLegend({ current }: { current?: CameraModelResult['quality'] }) {
+  return (
+    <ul
+      aria-label="점 색 기준"
+      style={{
+        margin: 0,
+        padding: '8px 12px',
+        listStyle: 'none',
+        borderRadius: 6,
+        background: 'rgba(0,0,0,0.45)',
+        border: '0.5px solid #fff',
+        color: '#fff',
+        font: '13px/1.6 system-ui, sans-serif',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3,
+      }}
+    >
+      {legend.map(({ quality, label }) => (
+        <li
+          key={quality}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            opacity: current && current !== quality ? 0.7 : 1,
+            fontWeight: current === quality ? 700 : 400,
+          }}
+        >
+          <i
+            aria-hidden="true"
+            style={{
+              width: 10,
+              height: 10,
+              flexShrink: 0,
+              borderRadius: '50%',
+              background: colors[quality],
+            }}
+          />
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /** Target analysis rate for the overlay only; the measurement loop decides its own rate. */
@@ -173,25 +230,37 @@ export function PoseDebugOverlay({
           transform: mirrored ? 'scaleX(-1)' : undefined,
         }}
       />
-      <p
-        data-testid="pose-debug-stats"
+      <div
         style={{
           position: 'absolute',
           left: 8,
           top: 8,
-          margin: 0,
-          padding: '4px 8px',
-          borderRadius: 6,
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
-          font: '12px/1.4 ui-monospace, monospace',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 8,
+          pointerEvents: 'none',
         }}
       >
-        {stats.status === 'loading' && '포즈 모델 불러오는 중…'}
-        {stats.status === 'error' && stats.message}
-        {stats.status === 'running' &&
-          `${stats.variant} · ${stats.quality} · ${stats.fps} fps · ${stats.inferenceMs} ms · ${stats.delegate}`}
-      </p>
+        <p
+          data-testid="pose-debug-stats"
+          style={{
+            margin: 0,
+            padding: '6px 12px',
+            borderRadius: 6,
+            background: 'rgba(0,0,0,0.6)',
+            border: '0.5px solid #fff',
+            color: '#fff',
+            font: '13px/1.5 ui-monospace, monospace',
+          }}
+        >
+          {stats.status === 'loading' && '포즈 모델 불러오는 중…'}
+          {stats.status === 'error' && stats.message}
+          {stats.status === 'running' &&
+            `${stats.variant} · ${stats.quality} · ${stats.fps} fps · ${stats.inferenceMs} ms · ${stats.delegate}`}
+        </p>
+        <PoseLegend current={stats.status === 'running' ? stats.quality : undefined} />
+      </div>
     </>
   );
 }

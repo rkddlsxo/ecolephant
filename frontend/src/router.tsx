@@ -6,6 +6,7 @@ import {
   Link,
 } from '@tanstack/react-router';
 import { Shell } from './components/Shell';
+import { parsePeriodSearch } from './features/statistics/period';
 const root = createRootRoute({
   component: Shell,
   notFoundComponent: () => (
@@ -35,8 +36,54 @@ const session = createRoute({
   path: '/history/$sessionId',
   component: lazyRouteComponent(() => import('./pages/SessionPage'), 'SessionPage'),
 });
+const placeholderPages = () => import('./pages/PlaceholderPages');
+const calibration = createRoute({
+  getParentRoute: () => root,
+  path: '/calibration',
+  component: lazyRouteComponent(() => import('./pages/CalibrationPage'), 'CalibrationPage'),
+});
+const statistics = createRoute({
+  getParentRoute: () => root,
+  path: '/statistics',
+  component: lazyRouteComponent(() => import('./pages/StatisticsPage'), 'StatisticsPage'),
+});
+const statisticsPeriod = createRoute({
+  getParentRoute: () => root,
+  path: '/statistics/period',
+  validateSearch: parsePeriodSearch,
+  component: lazyRouteComponent(
+    () => import('./pages/StatisticsPeriodPage'),
+    'StatisticsPeriodPage',
+  ),
+});
+const notificationSettings = createRoute({
+  getParentRoute: () => root,
+  path: '/settings/notifications',
+  component: lazyRouteComponent(placeholderPages, 'NotificationSettingsPage'),
+});
+const deviceSettings = createRoute({
+  getParentRoute: () => root,
+  path: '/settings/devices',
+  component: lazyRouteComponent(placeholderPages, 'DeviceSettingsPage'),
+});
+const accountSettings = createRoute({
+  getParentRoute: () => root,
+  path: '/settings/account',
+  component: lazyRouteComponent(placeholderPages, 'AccountSettingsPage'),
+});
 export const router = createRouter({
-  routeTree: root.addChildren([prepare, measure, history, session]),
+  routeTree: root.addChildren([
+    prepare,
+    calibration,
+    measure,
+    history,
+    session,
+    statistics,
+    statisticsPeriod,
+    notificationSettings,
+    deviceSettings,
+    accountSettings,
+  ]),
   scrollRestoration: true,
 });
 declare module '@tanstack/react-router' {

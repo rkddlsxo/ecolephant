@@ -3,15 +3,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ api: { sessions: vi.fn(), statistics: vi.fn() } }));
+const mocks = vi.hoisted(() => ({
+  api: { sessions: vi.fn(), statistics: vi.fn(), remove: vi.fn() },
+  navigate: vi.fn(),
+}));
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mocks.navigate,
   Link: ({ children, params }: { children: ReactNode; params: { sessionId: string } }) => (
     <a href="#" data-testid={`session-${params.sessionId}`}>
       {children}
     </a>
   ),
 }));
-vi.mock('../api/client', () => ({ api: mocks.api, errorMessage: () => '조회에 실패했습니다.' }));
+vi.mock('../api/client', () => ({
+  api: mocks.api,
+  errorMessage: () => '조회에 실패했습니다.',
+  isMissingSession: (error: unknown) => error instanceof Error && error.message === 'missing',
+}));
 import { HistoryPage } from './HistoryPage';
 
 const item = (id: string, started_at: string) => ({
@@ -37,6 +45,12 @@ beforeEach(() => {
   mocks.api.sessions.mockResolvedValue({ items: [], next_cursor: null });
   mocks.api.statistics.mockResolvedValue({ groups: [], unassigned_unknown_duration_ms: 0 });
 });
+function choose(label: string, option: string) {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${label} `) }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+const dayLabel: Record<string, string> = { '1': '오늘', '7': '7일', '30': '30일' };
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -90,7 +104,7 @@ describe('history statistics', () => {
   ])('uses the same Seoul calendar boundaries for %s days in both requests', async (days, from) => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T14:00:00Z'));
     setup();
-    fireEvent.change(screen.getByLabelText('기간'), { target: { value: days } });
+    choose('기간', dayLabel[days]);
     const range = { from, to: '2026-11-01T15:00:00.000Z' };
     await waitFor(() =>
       expect(mocks.api.statistics).toHaveBeenLastCalledWith(expect.objectContaining(range)),
@@ -101,7 +115,7 @@ describe('history statistics', () => {
   it('refreshes the requested day after returning to the page across Seoul midnight', async () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T14:00:00Z'));
     setup();
-    fireEvent.change(screen.getByLabelText('기간'), { target: { value: '1' } });
+    choose('기간', '오늘');
     await waitFor(() =>
       expect(mocks.api.statistics).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -136,6 +150,8 @@ describe('history statistics', () => {
       high_duration_ms: 30000,
       within_range_percent: 50,
       first_stage_alert_count: 1,
+      corrected_alert_count: 1,
+      mean_correction_ms: 4000,
     };
     const empty = {
       valid_duration_ms: 0,
@@ -186,13 +202,16 @@ describe('history statistics', () => {
     expect(rows[1]).toHaveTextContent('policy-demo');
     expect(rows[1]).toHaveTextContent('테스트');
     expect(within(rows[1]).getAllByText('50.0%')).toHaveLength(2);
+    expect(within(rows[1]).getByText('1/1회')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('0분 4초')).toBeInTheDocument();
     expect(rows[2]).toHaveTextContent('AirPods');
     expect(rows[2]).toHaveTextContent('policy-real');
     expect(rows[2]).toHaveTextContent('실제');
-    expect(within(rows[2]).getAllByText('—')).toHaveLength(2);
+    // 비율 2칸 + 알림이 없어 교정 지표 2칸도 비워 둠
+    expect(within(rows[2]).getAllByText('—')).toHaveLength(4);
     expect(screen.getByText(/미분류.*0분 3초/)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('단위'), { target: { value: 'hour' } });
+    choose('단위', '시간별');
     await waitFor(() =>
       expect(mocks.api.statistics).toHaveBeenLastCalledWith(
         expect.objectContaining({ group_by: 'hour' }),
@@ -201,7 +220,7 @@ describe('history statistics', () => {
     table = await screen.findByRole('table', { name: '기간별 통계' });
     rows = within(table).getAllByRole('row');
     expect(rows[1]).toHaveTextContent('13:00');
-    fireEvent.change(screen.getByLabelText('방식'), { target: { value: 'webcam' } });
+    choose('방식', '웹캠');
     await waitFor(() =>
       expect(mocks.api.statistics).toHaveBeenLastCalledWith(
         expect.objectContaining({ mode: 'webcam' }),
@@ -223,5 +242,53 @@ describe('history statistics', () => {
     mocks.api.statistics.mockResolvedValue({ groups: [], unassigned_unknown_duration_ms: 500 });
     setup();
     expect(await screen.findByText(/미분류.*1초 미만/)).toBeInTheDocument();
+  });
+});
+
+describe('session list controls', () => {
+  it('changes the sort order of the session list', async () => {
+    setup();
+    await waitFor(() =>
+      expect(mocks.api.sessions).toHaveBeenCalledWith(expect.objectContaining({ order: 'desc' })),
+    );
+    choose('정렬', '오래된순');
+    await waitFor(() =>
+      expect(mocks.api.sessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ order: 'asc' }),
+      ),
+    );
+  });
+
+  it('deletes every session regardless of period after confirmation', async () => {
+    const active = { ...item('active', '2026-11-01T09:00:00Z'), status: 'active' };
+    mocks.api.sessions.mockImplementation(async (params) =>
+      params.from
+        ? { items: [], next_cursor: null }
+        : params.cursor === 'p2'
+          ? { items: [oldest], next_cursor: null }
+          : { items: [newest, active], next_cursor: 'p2' },
+    );
+    mocks.api.remove.mockImplementation(async (id: string) => {
+      if (id === 'active') throw new Error('missing'); // 이미 지워진 세션은 성공으로 셈
+    });
+    setup();
+    fireEvent.click(await screen.findByRole('button', { name: /전체 삭제/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText(/내 세션 3개/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/진행 중으로 남은 세션 1개/)).toBeInTheDocument();
+    expect(mocks.api.remove).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: '3개 모두 삭제' }));
+    expect(await within(dialog).findByText('세션 3개를 삭제했어요.')).toBeInTheDocument();
+    expect(mocks.api.remove.mock.calls.map(([id]) => id)).toEqual(['newest', 'active', 'oldest']);
+  });
+
+  it('cancels without deleting anything', async () => {
+    mocks.api.sessions.mockResolvedValue({ items: [newest], next_cursor: null });
+    setup();
+    fireEvent.click(await screen.findByRole('button', { name: /전체 삭제/ }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: '취소' }));
+    expect(mocks.api.remove).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
