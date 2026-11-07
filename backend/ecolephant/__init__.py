@@ -1,7 +1,10 @@
 from pathlib import Path
+import hashlib
 import json
+import logging
 import os
 import sqlite3
+import time
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -29,6 +32,8 @@ def create_app(config=None):
     )
     if config:
         app.config.update(config)
+    if not app.config.get("TESTING"):
+        app.logger.setLevel(logging.INFO)
     from .policies import load_catalog
     app.extensions["policies"] = load_catalog(app.config.get("POLICIES"))
     if app.config["AUTH_MODE"] not in {"local", "cognito"}:
@@ -57,6 +62,7 @@ def create_app(config=None):
     @app.before_request
     def initialize_request():
         g.request_id = str(uuid4())
+        g.started_ns = time.monotonic_ns()
         if request.method in {"POST", "PUT", "PATCH"}:
             if not request.is_json:
                 raise ApiError(400, "json_required", "JSON 요청이 필요합니다.")
@@ -67,7 +73,8 @@ def create_app(config=None):
 
     @app.after_request
     def response_headers(response):
-        response.headers["X-Request-ID"] = getattr(g, "request_id", str(uuid4()))
+        request_id = getattr(g, "request_id", str(uuid4()))
+        response.headers["X-Request-ID"] = request_id
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         origin = request.headers.get("Origin")
@@ -76,6 +83,20 @@ def create_app(config=None):
             response.headers["Vary"] = "Origin"
             response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Idempotency-Key"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+        started_ns = getattr(g, "started_ns", None)
+        latency_ms = round((time.monotonic_ns() - started_ns) / 1_000_000, 2) if started_ns is not None else 0.0
+        owner = getattr(g, "owner", None)
+        owner_hash = hashlib.sha256(owner.encode()).hexdigest()[:12] if owner else None
+        entry = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.path,
+            "status": response.status_code,
+            "latency_ms": latency_ms,
+            "owner_hash": owner_hash,
+            "error_code": getattr(g, "error_code", None),
+        }
+        app.logger.info(json.dumps(entry, separators=(",", ":")))
         return response
 
     @app.errorhandler(ApiError)
