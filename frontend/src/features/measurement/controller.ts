@@ -14,6 +14,16 @@ import { queryClient } from '../../api/query';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 import { usePreferences } from '../../state/preferences';
 
+const sensorCount: Record<ActiveMode, number> = { none: 0, webcam: 1, airpods: 1, combined: 2 };
+
+/**
+ * 쓸 수 있는 센서가 줄면 끊김, 늘면 복구. 수가 같은 채 바뀌면(웹캠↔AirPods) 이전 센서가
+ * 끊긴 것이므로 끊김으로 기록함.
+ */
+export function modeChangeReason(previous: ActiveMode, current: ActiveMode) {
+  return sensorCount[current] > sensorCount[previous] ? 'sensor_restored' : 'sensor_lost';
+}
+
 function confirmedBatch(
   value: unknown,
   count: number,
@@ -269,7 +279,7 @@ class MeasurementController {
           data: {
             previous_mode: this.lastMode,
             current_mode: sample.active_mode,
-            reason: sample.active_mode === 'none' ? 'sensor_lost' : 'sensor_restored',
+            reason: modeChangeReason(this.lastMode, sample.active_mode),
           },
         });
         this.lastMode = sample.active_mode;
@@ -279,8 +289,15 @@ class MeasurementController {
       const next = advanceAlerts(this.alerts, sample);
       this.alerts = next.state;
       this.commands(next.commands);
-      const recent = [...useMeasurement.getState().recent, sample].slice(-120);
-      useMeasurement.setState({ latest: sample, recent, elapsedMs: this.cursor });
+      const current = useMeasurement.getState();
+      const recent = [...current.recent, sample].slice(-120);
+      useMeasurement.setState({
+        latest: sample,
+        recent,
+        elapsedMs: this.cursor,
+        // 일시정지 중에도 기록은 이어지지만(quality=paused) 화면의 측정 시간은 멈춤
+        pausedMs: current.pausedMs + (observation.quality === 'paused' ? duration : 0),
+      });
     }
     useMeasurement.setState({
       pending: this.samples.length + this.events.length,
@@ -309,9 +326,10 @@ class MeasurementController {
     useMeasurement.setState({ phase: phase === 'paused' ? 'active' : 'paused' });
   }
 
+  /** 일시정지 중에만 가능. 3초 보정 구간을 거친 뒤 측정을 이어 감 */
   recalibrate(mode?: Mode) {
     const store = useMeasurement.getState();
-    if (!['active', 'paused'].includes(store.phase) || store.pending > 550) return;
+    if (store.phase !== 'paused' || store.pending > 550) return;
     const target = Math.floor(performance.now() - this.origin);
     this.advance(target);
     if (this.cursor < target) {
@@ -321,6 +339,8 @@ class MeasurementController {
     this.close();
     const nextMode = mode ?? store.mode;
     const epoch = store.epoch + 1;
+    // 일시정지에서 바로 보정으로 넘어가므로 재개 이벤트를 먼저 남김
+    this.addEvent({ type: 'resumed', data: {} });
     this.addEvent({ type: 'calibration_started', data: { calibration_epoch: epoch } });
     this.calibrationUntil = this.cursor + 3000;
     useMeasurement.setState({ phase: 'recalibrating', epoch, mode: nextMode });
@@ -371,6 +391,17 @@ class MeasurementController {
         }
       }
       useMeasurement.setState({ error: null });
+      // 측정 중 저장된 결과가 열려 있는 통계·기록 화면에도 바로 반영되도록 다시 조회
+      void Promise.resolve()
+        .then(() =>
+          queryClient.invalidateQueries({
+            predicate: ({ queryKey }) =>
+              ['statistics', 'sessions', 'session', 'timeline', 'events'].includes(
+                String(queryKey[0]),
+              ),
+          }),
+        )
+        .catch(() => undefined);
     } catch (error) {
       if (isMissingSession(error)) this.markMissing();
       else useMeasurement.setState({ error: errorMessage(error) });
@@ -432,12 +463,19 @@ class MeasurementController {
         completed.final_event_seq !== this.eventSequence
       )
         throw new Error('종료 확인에 실패했습니다. 다시 시도해 주세요.');
+      // 저장이 끝나면 바로 새 측정을 시작할 수 있도록 화면 값은 처음 상태로 되돌림
       useMeasurement.setState({
         phase: 'completed',
         session: completed,
         error: null,
         saving: false,
         memoryFull: false,
+        elapsedMs: 0,
+        pausedMs: 0,
+        latest: null,
+        recent: [],
+        pending: 0,
+        alert: null,
       });
       void Promise.resolve()
         .then(() => queryClient.invalidateQueries())

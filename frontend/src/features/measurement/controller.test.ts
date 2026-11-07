@@ -73,6 +73,62 @@ describe('synthetic session flow', () => {
     ).toBe(true);
     expect(mocks.api.complete).toHaveBeenCalledOnce();
     expect(useMeasurement.getState().phase).toBe('completed');
+    // 저장 후 화면 값은 0으로 초기화
+    expect(useMeasurement.getState()).toMatchObject({
+      elapsedMs: 0,
+      latest: null,
+      recent: [],
+      pending: 0,
+      alert: null,
+    });
+  });
+
+  it('stops the displayed measurement time while paused and continues after resuming', async () => {
+    await measurement.start('webcam');
+    await vi.advanceTimersByTimeAsync(3000);
+    measurement.pause();
+    const shown = () => useMeasurement.getState().elapsedMs - useMeasurement.getState().pausedMs;
+    const atPause = shown();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(useMeasurement.getState().phase).toBe('paused');
+    expect(shown()).toBe(atPause);
+    measurement.pause();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(shown()).toBeGreaterThan(atPause);
+    await measurement.finish();
+  });
+
+  it('recalibrates only from pause, then resumes measuring after the calibration window', async () => {
+    await measurement.start('webcam');
+    await vi.advanceTimersByTimeAsync(2000);
+    measurement.recalibrate();
+    expect(useMeasurement.getState().phase).toBe('active');
+
+    measurement.pause();
+    measurement.recalibrate();
+    expect(useMeasurement.getState()).toMatchObject({ phase: 'recalibrating', epoch: 2 });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(useMeasurement.getState().phase).toBe('active');
+    await measurement.finish();
+    const types = mocks.api.events.mock.calls.flatMap((call) => call[1]).map((e) => e.type);
+    expect(types).toEqual(
+      expect.arrayContaining(['paused', 'resumed', 'calibration_started', 'calibration_completed']),
+    );
+    expect(types.indexOf('resumed')).toBeLessThan(types.indexOf('calibration_started'));
+  });
+
+  it('refreshes open statistics and history views after each upload while measuring', async () => {
+    await measurement.start('webcam');
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(mocks.api.samples).toHaveBeenCalled();
+    expect(useMeasurement.getState().phase).toBe('active');
+    const call = mocks.invalidateQueries.mock.calls.find(([arg]) => arg?.predicate)?.[0];
+    expect(call).toBeDefined();
+    const refreshes = (key: unknown[]) => call.predicate({ queryKey: key });
+    expect(refreshes(['statistics', {}, '', 'day'])).toBe(true);
+    expect(refreshes(['sessions', {}, ''])).toBe(true);
+    expect(refreshes(['policies'])).toBe(false);
+    await measurement.finish();
   });
 
   it('keeps a failed completion retryable', async () => {
@@ -350,4 +406,16 @@ describe('synthetic session flow', () => {
     expect(events.find((event) => event.type === 'paused')?.elapsed_ms).toBe(601_000);
     expect(sent.find((sample) => sample.seq === 601)?.quality).toBe('no_sensor');
   }, 15_000);
+});
+
+describe('mode change reason', () => {
+  it('records a lost sensor when fewer sensors remain and a restored one when more return', async () => {
+    const { modeChangeReason } = await import('./controller');
+    expect(modeChangeReason('combined', 'airpods')).toBe('sensor_lost');
+    expect(modeChangeReason('combined', 'none')).toBe('sensor_lost');
+    expect(modeChangeReason('airpods', 'none')).toBe('sensor_lost');
+    expect(modeChangeReason('webcam', 'airpods')).toBe('sensor_lost');
+    expect(modeChangeReason('none', 'airpods')).toBe('sensor_restored');
+    expect(modeChangeReason('airpods', 'combined')).toBe('sensor_restored');
+  });
 });
