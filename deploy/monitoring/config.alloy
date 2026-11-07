@@ -1,0 +1,90 @@
+//alloy의 파이프라인 코드, 누구한테서 수집해서 어디로 넘긴다 (forward_to)흐름으로 읽으면 된다.
+// 내장 node_exporter: 방금 compose에서 마운트해준 /host/..들을 읽어서 호스트os의 cpu사용률, 남은 메모리, 디스크 용량 지표를 생성
+prometheus.exporter.unix "host" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+}
+
+//위 unix.host 가 만든 호스트 지표를 15초 마다 읽어서 프로메테우스 원격쓰기 
+prometheus.scrape "host_metrics" {
+  targets         = prometheus.exporter.unix.host.targets
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.exporter.cadvisor "containers" {
+  docker_host = "unix:///var/run/docker.sock"
+  docker_only = true
+}
+
+prometheus.scrape "container_metrics" {
+  targets         = prometheus.exporter.cadvisor.containers.targets
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.json_logs.receiver]
+}
+
+loki.process "json_logs" {
+  stage.match {
+    selector = "{service=\"backend\"}"
+
+    stage.json {
+      expressions = {
+        request_id = "request_id",
+        method     = "method",
+        path       = "path",
+        status     = "status",
+        latency_ms = "latency_ms",
+        owner_hash = "owner_hash",
+        error_code = "error_code",
+      }
+    }
+
+    stage.labels {
+      values = {
+        method     = "",
+        status     = "",
+        error_code = "",
+      }
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
