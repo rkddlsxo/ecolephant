@@ -1,0 +1,66 @@
+services:
+#기존 compose.yml(앱 컨테이너)과 충돌하지 않게 분리한 관측 전용 Compose 파일
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=14d"
+      - "--web.enable-remote-write-receiver"
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+  # alloy서비스 - 올인원 수집기: node_exporter, cAdvisor, Promtail합체
+  loki:
+    image: grafana/loki:3.4.2
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+    # 호스트의 도커 데몬과 통신하는 소켓. 이걸 읽기 전용으로 연결해야 현재 어떤 데이터가 떠 있는지,
+    # CPU를 얼마나 쓰는지, 무슨 로그를 뱉는지 실시간으로 읽어올 수 있다.
+    volumes:
+      - ./deploy/monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.7.1
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "/etc/alloy/config.alloy"
+    ports:
+      - "127.0.0.1:12345:12345"
+    volumes:
+      - ./deploy/monitoring/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    depends_on:
+      - prometheus
+      - loki
+
+#시각화 대시보드 웹 ui grafana 서비스
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+    # 로컬에서 접속할 때 코드에 비밀번호를 적어두지 않고도 로그인 없이 바로 대시보드를 편집, 확인할 수 있게 합니다.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    # 외부 임의 회원가입을 막습니다.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./deploy/monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:
