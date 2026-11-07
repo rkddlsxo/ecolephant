@@ -1,7 +1,10 @@
 from pathlib import Path
+import hashlib
 import json
+import logging
 import os
 import sqlite3
+import time
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -29,6 +32,10 @@ def create_app(config=None):
     )
     if config:
         app.config.update(config)
+    # 파이썬 logging의 기본 출력 기준은 warning입니다. 그래서 이 줄이 없으면 app.logger.info를 아무리 호출해도 콘솔에 아무것도 안 찍힙니다.abs
+    #단, Testing=true(단위테스트 실행 중)일 때는 기존 190개 테스트가 돌아갈 때 화면에 로그 수천 줄이 쏱아지지 않도록 평소엔 꺼두고, 운영/도커 실행시에만 INFO를 켭니다.
+    if not app.config.get("TESTING"):
+        app.logger.setLevel(logging.INFO)
     from .policies import load_catalog
     app.extensions["policies"] = load_catalog(app.config.get("POLICIES"))
     if app.config["AUTH_MODE"] not in {"local", "cognito"}:
@@ -54,10 +61,13 @@ def create_app(config=None):
     else:
         raise RuntimeError("Unsupported storage mode")
 
+    # 라우트 함수가 실행되기 직전에 무조건 먼저 실행된다.
     @app.before_request
     def initialize_request():
         g.request_id = str(uuid4())
+        g.started_ns = time.monotonic_ns()
         if request.method in {"POST", "PUT", "PATCH"}:
+            #서버가 NTP시간 동기화를 하느라 시계가 0.1초 뒤로 감기면 time.time()은 응답시간이 음수가 될 수 있습니다.
             if not request.is_json:
                 raise ApiError(400, "json_required", "JSON 요청이 필요합니다.")
             try:
@@ -65,9 +75,11 @@ def create_app(config=None):
             except (ValueError, UnicodeError):
                 raise ApiError(400, "invalid_json", "올바른 JSON 요청이 필요합니다.") from None
 
+    # 요청 처리가 다 끝나고 클라이언트에게 응답을 돌려주기 직전에 실행
     @app.after_request
     def response_headers(response):
-        response.headers["X-Request-ID"] = getattr(g, "request_id", str(uuid4()))
+        request_id = getattr(g, "request_id", str(uuid4()))
+        response.headers["X-Request-ID"] = request_id
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         origin = request.headers.get("Origin")
@@ -76,6 +88,20 @@ def create_app(config=None):
             response.headers["Vary"] = "Origin"
             response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Idempotency-Key"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+        started_ns = getattr(g, "started_ns", None)
+        latency_ms = round((time.monotonic_ns() - started_ns) / 1_000_000, 2) if started_ns is not None else 0.0
+        owner = getattr(g, "owner", None)
+        owner_hash = hashlib.sha256(owner.encode()).hexdigest()[:12] if owner else None
+        entry = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.path,
+            "status": response.status_code,
+            "latency_ms": latency_ms,
+            "owner_hash": owner_hash,
+            "error_code": getattr(g, "error_code", None),
+        }
+        app.logger.info(json.dumps(entry, separators=(",", ":")))
         return response
 
     @app.errorhandler(ApiError)
