@@ -35,17 +35,22 @@ setup은 `.venv`, `.data`, `backend/.env`, `frontend/.env.local`을 만들고 AP
 Flask가 실행되어야 하며 실제 웹캠 또는 AirPods 추정값을 생성하지 않습니다.
 자세한 [카메라 안내](camera-preview.md)와 [ML 인계](../measurement/ml-handoff.md)를 확인하세요.
 
-## 선택: DynamoDB Local
+## 선택: Docker Compose (Nginx 리버스 프록시 + DynamoDB Local)
 
-기본 SQLite 실행과 동시에 포트 5000을 사용하지 않습니다. Docker가 설치된 경우:
+운영 구조와 동일하게 단일 오리진(`http://127.0.0.1:8080`)에서 Nginx(`web`)가 정적 빌드(`frontend/dist`)를 서빙하고 `/api/`와 `/health`를 복수의 백엔드 컨테이너(`backend` 2개 복제본)로 프록시합니다.
 
 ```sh
-docker compose -f compose.yml up --build
-npm run dev:frontend
+npm run setup
+VITE_API_BASE_URL=http://127.0.0.1:8080 npm run build --workspace frontend
+# backend/.env의 ECOLEPHANT_ALLOWED_ORIGIN을 http://127.0.0.1:8080으로 설정
+docker compose -f compose.yml up -d --build
+curl -s http://127.0.0.1:8080/health
 ```
 
-Compose는 DynamoDB Local 초기화 후 Flask를 시작합니다. 로컬 데이터는 별도 Docker 볼륨에 남습니다.
-Docker Compose 경로와 실제 AWS는 아직 실행 검증하지 않았습니다. 동일 어댑터는 DynamoDB Local 3.3.2 단독 실행으로 검사했습니다.
+- 리버스 프록시 설정: [deploy/nginx.conf](../../deploy/nginx.conf) (`proxy_next_upstream`으로 컨테이너 재시작 시 자동 재시도)
+- 무중단 롤링 업데이트: [rolling-update.ps1](../../scripts/rolling-update.ps1) (Windows) / [rolling-update.sh](../../scripts/rolling-update.sh) (Linux/EC2)
+- Compose는 DynamoDB Local 초기화 후 백엔드 헬스체크 통과 시 Nginx를 시작합니다. 로컬 데이터는 별도 Docker 볼륨에 남습니다.
+- Docker Compose 경로와 실제 AWS는 별도 실행 검증 대상입니다. 동일 어댑터는 DynamoDB Local 3.3.2 단독 실행으로 검사했습니다.
 
 실행 중인 테스트 전용 DynamoDB Local이 있다면 PowerShell에서 API 테스트를 추가로 실행할 수 있습니다.
 테스트는 지정된 루프백 서버에 임의의 테스트 테이블을 만들고 삭제합니다. 실제 AWS 주소는 거부합니다.
