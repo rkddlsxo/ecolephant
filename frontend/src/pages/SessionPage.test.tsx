@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   api: { session: vi.fn(), timeline: vi.fn(), eventList: vi.fn(), remove: vi.fn() },
   navigate: vi.fn(),
+  createSessionPdf: vi.fn(),
 }));
+vi.mock('../features/pdf/session-report', () => ({ createSessionPdf: mocks.createSessionPdf }));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
   useParams: () => ({ sessionId: 'synthetic-session' }),
@@ -53,6 +55,7 @@ beforeEach(() => {
   useMeasurement.setState({ ...initialMeasurement }, true);
   mocks.api.remove.mockResolvedValue(undefined);
   mocks.navigate.mockResolvedValue(undefined);
+  mocks.createSessionPdf.mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }));
   mocks.api.session.mockResolvedValue({
     id: 'synthetic-session',
     started_at: '2026-10-17T10:00:00Z',
@@ -143,14 +146,27 @@ describe('session export', () => {
           active_mode: 'webcam',
           metrics: {
             valid_duration_ms: 500,
+            normal_duration_ms: 500,
+            caution_duration_ms: 0,
+            high_duration_ms: 0,
+            forward_head_suspected_ms: 0,
+            mean_display_angle_deg: 8.25,
             within_range_percent: 100,
             first_stage_alert_count: 0,
+            corrected_alert_count: 0,
+            unknown_correction_count: 0,
+            mean_correction_ms: null,
           },
         },
       ],
     });
     setup();
-    expect(await screen.findByText('유효 1초 미만')).toBeInTheDocument();
+    expect(await screen.findByText('1초 미만')).toBeInTheDocument();
+    expect(screen.getByText('100.0%')).toBeInTheDocument();
+    expect(screen.getByText('정상 1초 미만')).toBeInTheDocument();
+    expect(screen.getByText('평균 각도(추정)').nextSibling).toHaveTextContent('8.3°');
+    // 알림이 없으면 교정 지표를 0으로 채우지 않음
+    expect(screen.getByText('알림 후 자세 변화').nextSibling).toHaveTextContent('—');
   });
 
   it('keeps earlier timeline pages visible after a later page fails and retries the failed page', async () => {
@@ -227,6 +243,48 @@ describe('session export', () => {
       expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3),
     );
     expect(screen.queryByRole('button', { name: '타임라인 더 보기' })).not.toBeInTheDocument();
+  });
+
+  it('downloads a PDF built from every timeline and event page', async () => {
+    const bucket = {
+      elapsed_start_ms: 0,
+      duration_ms: 60000,
+      normal_ms: 60000,
+      caution_ms: 0,
+      high_ms: 0,
+      unknown_ms: 0,
+      active_modes: ['webcam'],
+    };
+    mocks.api.timeline.mockImplementation(async (_id, from) => ({
+      session_id: 'synthetic-session',
+      resolution_ms: 60000,
+      buckets: [{ ...bucket, elapsed_start_ms: from }],
+      next_from_elapsed_ms: from === 0 ? 60000 : null,
+    }));
+    setup();
+    await screen.findByText('일시정지');
+    fireEvent.click(screen.getByRole('button', { name: 'PDF로 저장' }));
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    const input = mocks.createSessionPdf.mock.calls[0][0];
+    expect(input.buckets.map((b: { elapsed_start_ms: number }) => b.elapsed_start_ms)).toEqual([
+      0, 60000,
+    ]);
+    expect(input.events.map((e: { event_id: string }) => e.event_id)).toEqual([
+      'event-first',
+      'event-second',
+    ]);
+    const anchor = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(anchor.download).toBe('ecolephant-synthetic-session.pdf');
+    expect(createUrl.mock.calls[0][0].type).toBe('application/pdf');
+  });
+
+  it('shows an error when the PDF cannot be created', async () => {
+    mocks.createSessionPdf.mockRejectedValueOnce(new Error('canvas'));
+    setup();
+    await screen.findByText('일시정지');
+    fireEvent.click(screen.getByRole('button', { name: 'PDF로 저장' }));
+    expect(await screen.findByText(/PDF를 준비하지 못했습니다/)).toBeInTheDocument();
+    expect(click).not.toHaveBeenCalled();
   });
 
   it('exports all timeline pages without requiring manual pagination', async () => {
