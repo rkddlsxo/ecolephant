@@ -7,6 +7,7 @@ class ApiError(Exception):
 
 
 def problem(error):
+    g.error_code = error.code
     body = {"code": error.code, "message": error.message, "request_id": g.request_id}
     if error.issues:
         body["issues"] = error.issues
