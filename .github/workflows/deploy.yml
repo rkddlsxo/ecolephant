@@ -1,0 +1,120 @@
+name: CD / deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+      - 'infra/ansible/**'
+      - 'deploy/**'
+      - 'compose*.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+      - 'infra/ansible/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+
+      - name: Check Terraform formatting
+        if: hashFiles('infra/terraform/**/*.tf') != ''
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Validate Terraform OIDC module
+        if: hashFiles('infra/terraform/oidc/*.tf') != ''
+        working-directory: infra/terraform/oidc
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate Terraform main infrastructure module
+        if: hashFiles('infra/terraform/main/*.tf') != ''
+        working-directory: infra/terraform/main
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate Ansible playbook syntax
+        if: hashFiles('infra/ansible/playbook.yml') != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+          ansible-playbook --syntax-check -i "localhost," infra/ansible/playbook.yml
+
+      - name: Configure AWS credentials via OIDC for PR plan
+        if: github.event_name == 'pull_request' && vars.AWS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+
+      - name: Run Terraform plan on pull request
+        if: github.event_name == 'pull_request' && vars.AWS_ROLE_ARN != ''
+        working-directory: infra/terraform/main
+        run: |
+          terraform init
+          terraform plan -no-color
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+
+      - name: Apply Terraform infrastructure
+        working-directory: infra/terraform/main
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Provision EC2 and execute zero-downtime rolling update via Ansible
+        if: vars.EC2_HOST != '' && secrets.EC2_SSH_KEY != ''
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+          install -m 0700 -d ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 0600 ~/.ssh/deploy_key
+          ansible-playbook \
+            -i "${EC2_HOST}," \
+            -u "${EC2_USER}" \
+            --private-key ~/.ssh/deploy_key \
+            -e "run_deploy=true" \
+            infra/ansible/playbook.yml
+          rm -f ~/.ssh/deploy_key
