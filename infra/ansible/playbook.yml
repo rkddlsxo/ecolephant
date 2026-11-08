@@ -1,0 +1,111 @@
+---
+- name: Provision and deploy Ecolephant on Ubuntu EC2
+  hosts: all
+  become: true
+  vars:
+    app_user: ubuntu
+    app_dir: /opt/ecolephant
+    aws_region: ap-northeast-2
+    dynamodb_table: ecolephant-results
+    allowed_origin: https://localhost
+
+  tasks:
+    - name: Update apt package cache and install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - git
+          - ufw
+        state: present
+        update_cache: true
+
+    - name: Allow OpenSSH, HTTP, and HTTPS through UFW
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"
+        - "80"
+        - "443"
+
+    - name: Enable UFW firewall with default deny incoming
+      community.general.ufw:
+        state: enabled
+        direction: incoming
+        policy: deny
+
+    - name: Create keyrings directory for Docker repository
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker official GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is running and enabled
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add application user to docker group
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: true
+
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0755"
+
+    - name: Install systemd service unit for Ecolephant stack
+      ansible.builtin.template:
+        src: templates/ecolephant.service.j2
+        dest: /etc/systemd/system/ecolephant.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd daemon and enable ecolephant service
+      ansible.builtin.systemd:
+        name: ecolephant.service
+        daemon_reload: true
+        enabled: true
+
+    - name: Execute zero-downtime rolling update when compose file is present
+      ansible.builtin.command:
+        cmd: /bin/bash scripts/rolling-update.sh
+        chdir: "{{ app_dir }}"
+      become_user: "{{ app_user }}"
+      register: rolling_result
+      changed_when: true
+      when: run_deploy | default(false) | bool
+
