@@ -1,0 +1,19 @@
+[Unit]
+Description=Ecolephant Docker Compose Application and Observability Stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User={{ app_user }}
+WorkingDirectory={{ app_dir }}
+ExecStart=/usr/bin/docker compose -f compose.yml -f compose.monitoring.yml up -d --remove-orphans
+ExecReload=/bin/bash {{ app_dir }}/scripts/rolling-update.sh
+ExecStop=/usr/bin/docker compose -f compose.yml -f compose.monitoring.yml down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+
