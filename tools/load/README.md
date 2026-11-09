@@ -1,8 +1,8 @@
 # k6 동시 세션 부하 테스트 및 무중단 배포 검증
 
-[클라우드 계획](../../docs/references/cloud-plan.md)의 목표 규모(사용자 10여 명)와 백엔드 스레드 구성(`threads=4` × 복제본 2개)을 기준으로, 기본 10개의 동시 가상 사용자(`TARGET_VUS=10`)가 세션 생성(`POST /api/v1/sessions`), 5초 배치 업로드(`POST /samples:batch`), 세션 완료(`POST /complete`), 타임라인 조회(`GET /timeline`)를 반복 실행할 때의 `p95` 지연시간과 에러율을 측정합니다.
+[클라우드 계획](../../docs/references/cloud-plan.md)의 목표 규모(사용자 10여 명)와 백엔드 스레드 구성(`threads=4` × 복제본 2개)을 기준으로, 기본 10개의 동시 가상 사용자(`TARGET_VUS=10`)가 세션 생성(`POST /api/v1/sessions`), 5초 배치 업로드(`POST /samples:batch`), 측정 중 실시간 통계 조회(`GET /api/v1/statistics?...&include_active=true`), 세션 완료(`POST /complete`), 타임라인 조회(`GET /timeline`), 세션 삭제(`DELETE /api/v1/sessions/{id}`)를 반복 실행할 때의 `p95` 지연시간과 에러율을 측정합니다.
 
-가상 사용자 1명은 1초 주기로 6개 API를 연속 호출하므로 `TARGET_VUS=10`은 실제 브라우저(5초 주기 배치 전송) 기준 약 150명 이상의 동시 측정 트래픽에 해당합니다.
+가상 사용자 1명은 1초 주기로 8개 API를 연속 호출하므로 `TARGET_VUS=10`은 실제 브라우저(5초 주기 배치 전송) 기준 약 150명 이상의 동시 측정 트래픽에 해당합니다.
 
 ## 실행 방법
 

@@ -134,6 +134,17 @@ export default function () {
     'acknowledged_through_seq is 5': (r) => r.json('acknowledged_through_seq') === 5,
   });
 
+  // 프론트엔드(PR #10)가 배치 업로드 직후 진행 중 세션을 포함해 통계를 즉시 갱신하는 흐름(include_active=true)을 검증합니다.
+  const statsFrom = new Date(Date.parse(startedAt) - 60000).toISOString();
+  const statsTo = new Date(Date.parse(startedAt) + 60000).toISOString();
+  const statsRes = http.get(
+    `${BASE_URL}/api/v1/statistics?from=${encodeURIComponent(statsFrom)}&to=${encodeURIComponent(statsTo)}&timezone=Asia%2FSeoul&group_by=day&include_active=true`,
+    { headers: buildHeaders() },
+  );
+  check(statsRes, {
+    'active statistics 200': (r) => r.status === 200,
+  });
+
   const endedAt = new Date(Date.parse(startedAt) + 5000).toISOString();
   const completeRes = http.post(
     `${BASE_URL}/api/v1/sessions/${sessionId}/complete`,
@@ -154,6 +165,16 @@ export default function () {
   );
   check(timelineRes, {
     'timeline 200': (r) => r.status === 200,
+  });
+
+  // 프론트엔드(PR #10)의 세션 삭제 흐름을 검증하고 부하 테스트 후 더미 데이터가 쌓이지 않도록 정리합니다.
+  const deleteRes = http.del(
+    `${BASE_URL}/api/v1/sessions/${sessionId}`,
+    null,
+    { headers: buildHeaders() },
+  );
+  check(deleteRes, {
+    'session deleted 204': (r) => r.status === 204,
   });
 
   sleep(1);
