@@ -1,14 +1,23 @@
+#systemd 서비스 유닛 템플릿
+#ec2서버가 재부팅되더라도 사람이 들어가서 docker compose up을 칠 필요없이
+#리눅스 systemd가 자동으로 앱과 모니터링 스택을 살려줍니다.
+
+#반드시 네트워크와 도커 데몬이 먼저 켜진 뒤에 우리 앱을 시작하도록 순서를 보장합니다.
 [Unit]
 Description=Ecolephant Docker Compose Application and Observability Stack
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
 
+#docker compose -d처럼 백그라운드 데몬을 띄우고 명령 자체는 종료되는 서비스를
+#systemd가 정상실행중(active)으로 관리하게 해주는 정석 설정입니다.
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 User={{ app_user }}
 WorkingDirectory={{ app_dir }}
+#시작할 땐 compose.yml(앱+nginx)와 compose.monitoring.yml(alloy+grafana)를 함께 띄우고,
+#systemctl reload ecolephant를 치면 우리가 pr#1에서 만든 무중단 롤링 업데이트가 실행되도록 연결했습니다.
 ExecStart=/usr/bin/docker compose -f compose.yml -f compose.monitoring.yml up -d --remove-orphans
 ExecReload=/bin/bash {{ app_dir }}/scripts/rolling-update.sh
 ExecStop=/usr/bin/docker compose -f compose.yml -f compose.monitoring.yml down
@@ -16,4 +25,3 @@ TimeoutStartSec=300
 
 [Install]
 WantedBy=multi-user.target
-

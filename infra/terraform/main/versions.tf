@@ -1,3 +1,4 @@
+# terraform버전 및 aws 프로바이더 버전 고정, 전 리소스 공통 태그 설정
 terraform {
   required_version = ">= 1.6.0"
 

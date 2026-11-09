@@ -2,7 +2,7 @@ data "aws_vpc" "default" {
   default = true
 }
 
-//ami id를 하드코딩 하지 않고 canonical 공식 계정에서 가장 최신 ubuntu 24.04 tls arm64이미지를 자동으로 찾아옵니다.
+# ami id를 하드코딩 하지 않고 canonical 공식 계정에서 가장 최신 ubuntu 24.04 tls arm64이미지를 자동으로 찾아옵니다.
 data "aws_ami" "ubuntu_arm64" {
   most_recent = true
   owners      = ["099720109477"]
@@ -18,14 +18,14 @@ data "aws_ami" "ubuntu_arm64" {
   }
 }
 
-//ec2 백엔드에서 사용할 dynamo db 테이블을 생성합니다. 이 테이블은 posture 결과를 저장하는 데 사용됩니다. 
+# ec2 백엔드에서 사용할 dynamo db 테이블을 생성합니다. 이 테이블은 posture 결과를 저장하는 데 사용됩니다.
 resource "aws_dynamodb_table" "results" {
-  name         = "${var.project_name}-results"
-  //상시 과금이 없는 온디맨드 모드로, 요청한 만큼만 과금되어 월 $0.1 미만으로 유지됩니다.
+  name = "${var.project_name}-results"
+  # 상시 과금이 없는 온디맨드 모드로, 요청한 만큼만 과금되어 월 $0.1 미만으로 유지됩니다.
   billing_mode = "PAY_PER_REQUEST"
-  //백엔드의 단일 테이블 설계와 정확히 일치하는 파티션 키.정렬 키입니다.
-  hash_key     = "pk"
-  range_key    = "sk"
+  # 백엔드의 단일 테이블 설계와 정확히 일치하는 파티션 키.정렬 키입니다.
+  hash_key  = "pk"
+  range_key = "sk"
 
   attribute {
     name = "pk"
@@ -37,7 +37,7 @@ resource "aws_dynamodb_table" "results" {
     type = "S"
   }
 
-  //실수로 데이터를 지워도 최근 35일 내 원하는 초 단위로 복구할 수 있는 PIRT 기능입니다.
+  # 실수로 데이터를 지워도 최근 35일 내 원하는 초 단위로 복구할 수 있는 PIRT 기능입니다.
   point_in_time_recovery {
     enabled = true
   }
@@ -47,13 +47,13 @@ resource "aws_dynamodb_table" "results" {
   }
 }
 
-//cognito 사용자 풀
+# cognito 사용자 풀
 resource "aws_cognito_user_pool" "owners" {
   name                     = "${var.project_name}-owners"
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
-//아무나 회원가입하지 못하고 관리자(팀)가 생성한 시연.테스트 계정만 로그인할 수 있게 막습니다.
+  # 아무나 회원가입하지 못하고 관리자(팀)가 생성한 시연.테스트 계정만 로그인할 수 있게 막습니다.
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
@@ -67,7 +67,7 @@ resource "aws_cognito_user_pool" "owners" {
   }
 }
 
-//브라우저에서 직접 로그인하므로 client secret없이 안전한 SRP인증만 허용합니다.
+# 브라우저에서 직접 로그인하므로 client secret없이 안전한 SRP인증만 허용합니다.
 resource "aws_cognito_user_pool_client" "web" {
   name                                 = "${var.project_name}-web-client"
   user_pool_id                         = aws_cognito_user_pool.owners.id
@@ -111,8 +111,8 @@ data "aws_iam_policy_document" "ec2_dynamodb_access" {
   }
 }
 
-//서버에 aws키를 두지 않는 핵심
-//ec2용 iam instance profile 
+# 서버에 aws키를 두지 않는 핵심
+# ec2용 iam instance profile
 resource "aws_iam_role_policy" "ec2_dynamodb_access" {
   name   = "${var.project_name}-ec2-dynamodb-policy"
   role   = aws_iam_role.ec2_backend.id
@@ -124,6 +124,7 @@ resource "aws_iam_instance_profile" "ec2_backend" {
   role = aws_iam_role.ec2_backend.name
 }
 
+# 외부에서는 웹(80/443)과 ansible배포용 ssh(22)만 열고 내부 컨테이너 포트는 차단하는 보안그룹
 resource "aws_security_group" "app" {
   name   = "${var.project_name}-app-sg"
   vpc_id = data.aws_vpc.default.id
@@ -157,12 +158,14 @@ resource "aws_security_group" "app" {
   }
 }
 
+# ssh_public_key 변수가 주어졌을 때만 (count=1) ec2 점속용 키페어를 등록
 resource "aws_key_pair" "deployer" {
   count      = var.ssh_public_key != "" ? 1 : 0
   key_name   = "${var.project_name}-deployer-key"
   public_key = var.ssh_public_key
 }
 
+# docker compose와 alloy관측 스택이 올라갈 ubuntu 24.04 ARM64 애플리케이션 서버
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.ubuntu_arm64.id
   instance_type               = var.instance_type
@@ -176,6 +179,7 @@ resource "aws_instance" "app" {
     http_tokens   = "required"
   }
 
+  # 도커 이미지와 14일치 로그.메트릭 보관을 위한 20GB 암호화
   root_block_device {
     volume_size = 20
     volume_type = "gp3"
@@ -207,6 +211,7 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+# 정적 웹 자산을 HTTPS로 서빙하고 SPA라우팅을 처리하는 cloudfront CDN
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"

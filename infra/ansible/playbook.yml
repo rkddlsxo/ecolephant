@@ -1,3 +1,4 @@
+#빈 우분투 서버를 운영 서버로 만드는 전 과정을 멱등성 (여러번 실행해도 안전함)있게 순서대로 정의합니다.
 ---
 - name: Provision and deploy Ecolephant on Ubuntu EC2
   hosts: all
@@ -9,6 +10,7 @@
     dynamodb_table: ecolephant-results
     allowed_origin: https://localhost
 
+  #aws 보안 그룹에만 의존하지 않고 리눅스 호스트 내부 방화벽(ufw)도 함께 설정해 보안을 강화합니다.
   tasks:
     - name: Update apt package cache and install base packages
       ansible.builtin.apt:
@@ -49,6 +51,7 @@
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
 
+# EC2가 ARM64인지 X86인지 자동 감지해 맞는 아키텍쳐의 docker 공식저장소를 등록
     - name: Add Docker apt repository
       ansible.builtin.apt_repository:
         repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
@@ -72,6 +75,7 @@
         state: started
         enabled: true
 
+#sudo 없이도 ubuntu계정으로 docker compose와 롤링 업데이트 스크립트를 실행할 수 있도록 docker 그룹 권한 부여
     - name: Add application user to docker group
       ansible.builtin.user:
         name: "{{ app_user }}"
@@ -86,6 +90,7 @@
         group: "{{ app_user }}"
         mode: "0755"
 
+#systemd 서비스로 등록하고 enabled: true를 켜서 ec2가 재부팅되어도 앱과 모니터링 컨테이너가 자동 시작되게 설정
     - name: Install systemd service unit for Ecolephant stack
       ansible.builtin.template:
         src: templates/ecolephant.service.j2
@@ -100,6 +105,7 @@
         daemon_reload: true
         enabled: true
 
+    #무중단 롤링 업데이트 실행
     - name: Execute zero-downtime rolling update when compose file is present
       ansible.builtin.command:
         cmd: /bin/bash scripts/rolling-update.sh
@@ -108,4 +114,3 @@
       register: rolling_result
       changed_when: true
       when: run_deploy | default(false) | bool
-
