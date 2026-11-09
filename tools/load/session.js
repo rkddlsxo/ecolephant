@@ -7,6 +7,8 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 //기본 대상 주소는 nginx프록시 입니다.
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080';
 const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
+//클라우드 계획의 목표 규모와 백엔드 스레드에 맞춰 기본 동시 사용자를 10명으로 서정
+const TARGET_VUS = Number(__ENV.TARGET_VUS || 10);
 
 export const options = {
   scenarios: {
@@ -15,17 +17,18 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
 
-      //처음 10초동안 접속자(VU)를 0명에서 50명까지 서서히 늘립니다.(ramp-up)
-      //30초동안 50명 유지
-      //10초동안 접속자(VU)를 50명에서 0명까지 서서히 줄입니다.(ramp-down)
+      //처음 10초동안 접속자(VU)를 0명에서 10명까지 서서히 늘립니다.(ramp-up)
+      //30초동안 10명 유지
+      //10초동안 접속자(VU)를 10명에서 0명까지 서서히 줄입니다.(ramp-down)
       stages: [
-        { duration: '10s', target: 50 },
-        { duration: '30s', target: 50 },
+        { duration: '10s', target: TARGET_VUS },
+        { duration: '30s', target: TARGET_VUS },
         { duration: '10s', target: 0 },
       ],
       gracefulRampDown: '5s',
     },
   },
+  //부하테스트 자동합격기준 - 전체 요청 실패율 1%미만, 상위 95%(p95)응답 지연시간 500ms 미만이어야 통과
   thresholds: {
     http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<500'],
@@ -44,6 +47,7 @@ function buildHeaders(idempotencyKey) {
   return headers;
 }
 
+//백엔드 openapi 
 function makeSample(seq, angleDeg) {
   const high = angleDeg >= 30;
   return {
@@ -88,6 +92,7 @@ export default function () {
   const policyId = policiesRes.json('items.0.policy_id');
   const startedAt = new Date(Date.now() - 10000).toISOString();
 
+  //data_source: 'demo'로 합성 측정 세션을 시작하고 Idempotency-key해더로 중복 생성을 방지
   const createRes = http.post(
     `${BASE_URL}/api/v1/sessions`,
     JSON.stringify({
@@ -100,7 +105,6 @@ export default function () {
     }),
     { headers: buildHeaders(uuidv4()) },
   );
-
 
   const createdOk = check(createRes, {
     'session created 201': (r) => r.status === 201,
@@ -119,7 +123,7 @@ export default function () {
     makeSample(5, 14),
   ];
 
-  //fianl_seq: 5로 세션을 정상 종료해 서버 집계를 실행시키고, 이어서 1분 버킷 타임라인 조회까지 정상 응답하는지 확인합니다.
+  //final_seq: 5로 세션을 정상 종료해 서버 집계를 실행시키고, 이어서 1분 버킷 타임라인 조회까지 정상 응답하는지 확인합니다.
   const batchRes = http.post(
     `${BASE_URL}/api/v1/sessions/${sessionId}/samples:batch`,
     JSON.stringify({ samples: batchSamples }),

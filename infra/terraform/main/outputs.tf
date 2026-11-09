@@ -1,3 +1,4 @@
+# 배포 완료 후 ansible 인벤토리(ec2 공인 ip)와 프론트엔드 환경변수 (cognito, cloudfront)에 연결할 출력값
 output "ec2_public_ip" {
   value = aws_instance.app.public_ip
 }

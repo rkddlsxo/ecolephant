@@ -1,5 +1,6 @@
 name: CD / deploy
 
+#pr을 올렸을 때는 검증만 돌고, main브랜치에 머지되었을 때는 검증 통과 후 실제 배포(deploy)까지 이어지도록 트리거를 나눕니다.
 on:
   push:
     branches: [main]
@@ -18,10 +19,12 @@ on:
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+#github actions가 aws oidc에 제출할 일회용 신분증 (JWT토큰)을 발급받기 위해 반드시 필요한 권한
 permissions:
   contents: read
   id-token: write
 
+#aws 자격증명 없이 지금 짠 terraform코드에 문법 오타가 없는지 검사
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -34,6 +37,7 @@ jobs:
         with:
           terraform_version: '1.9.8'
 
+      # terraform init -backend=false로 aws계정이 없는 phase1 상태에서도 terraform 포맷, 문법을 자동검사
       - name: Check Terraform formatting
         if: hashFiles('infra/terraform/**/*.tf') != ''
         run: terraform fmt -check -recursive infra/terraform
@@ -52,6 +56,9 @@ jobs:
           terraform init -backend=false
           terraform validate
 
+      #ansible플레이북 yaml문법도 자동으로 검사한다.
+      #if: github.event_name == 'pull_request' && vars.AWS_ROLE_ARN != '': 나중에 AWS 계정이 나와서 GitHub Variables에 AWS_ROLE_ARN을 등록하면,
+      #PR에서 자동으로 terraform plan까지 돌려 변경점(diff)을 보여줍니다. (지금은 변수가 비어 있으니 에러 없이 건너뜁니다!)
       - name: Validate Ansible playbook syntax
         if: hashFiles('infra/ansible/playbook.yml') != ''
         run: |
@@ -73,6 +80,8 @@ jobs:
           terraform init
           terraform plan -no-color
 
+  # environment: production: GitHub의 production 환경 승인 게이트를 통과해야만 실행됩니다.
+  # 일반설정은 모두 vars.*(github variables)에서 읽고, 민감정보인 ssh 개인키만 (github secrets)에서 읽어 ansible 무중단 배포를 실행한 뒤 키 파일을 즉시 삭제 합니다.
   deploy:
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_ROLE_ARN != ''
@@ -86,7 +95,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
-
+# 장기 aws 액세스 키 없이 vars.AWS_ROLE_ARN을 통해 1시간짜리 임시 자격증명을 OIDC로 발급받아 로그인
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -99,6 +108,7 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
+    #ssh 개인키 권한을 0600으로 잠그고, ansible 무중단 배포(run_deploy=true) 실행 직후 키 파일을 즉시 삭제해 보안 유지
       - name: Provision EC2 and execute zero-downtime rolling update via Ansible
         if: vars.EC2_HOST != '' && secrets.EC2_SSH_KEY != ''
         env:
