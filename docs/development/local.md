@@ -41,6 +41,7 @@ Flask가 실행되어야 하며 실제 웹캠 또는 AirPods 추정값을 생성
 
 ```sh
 npm run setup
+npm run pose:assets
 VITE_API_BASE_URL=http://127.0.0.1:8080 npm run build --workspace frontend
 # backend/.env의 ECOLEPHANT_ALLOWED_ORIGIN을 http://127.0.0.1:8080으로 설정
 docker compose -f compose.yml up -d --build
