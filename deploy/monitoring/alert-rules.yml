@@ -2,6 +2,7 @@ groups:
   - name: ecolephant_host_and_container_alerts
     interval: 30s
     rules:
+    # alloy 내장 node_exporter가 수집한 node_cpu_seconds_total을 기반으로 경고
       - alert: HostHighCpuUsage
         expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
         for: 5m
@@ -12,6 +13,7 @@ groups:
           summary: "호스트 CPU 사용률 80% 초과"
           description: "5분 이상 호스트 평균 CPU 사용률이 80%를 초과했습니다."
 
+    # alloy 내장 node_exporter가 수집한 node_memory_MemAvailable_bytes와 node_memory_MemTotal_bytes를 기반으로 경고
       - alert: HostLowAvailableMemory
         expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
         for: 5m
@@ -22,6 +24,7 @@ groups:
           summary: "호스트 가용 메모리 15% 미만"
           description: "t4g.small(2GB) 또는 로컬 호스트의 가용 메모리가 15% 미만으로 떨어졌습니다."
 
+    # 루트 디스크 여유 공간이 10분 이상 15% 미만이면 도커 이미지나 로그 용량을 점검하도록 알림
       - alert: HostLowDiskSpace
         expr: (node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 < 15
         for: 10m
