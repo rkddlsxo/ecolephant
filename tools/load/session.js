@@ -7,6 +7,8 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 //기본 대상 주소는 nginx프록시 입니다.
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080';
 const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
+//클라우드 계획(cloud-plan.md)의 목표 사용자(10여 명) 및 백엔드 스레드(4x2=8) 기준 기본값 10명
+const TARGET_VUS = Number(__ENV.TARGET_VUS || 10);
 
 export const options = {
   scenarios: {
@@ -15,12 +17,12 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
 
-      //처음 10초동안 접속자(VU)를 0명에서 50명까지 서서히 늘립니다.(ramp-up)
-      //30초동안 50명 유지
-      //10초동안 접속자(VU)를 50명에서 0명까지 서서히 줄입니다.(ramp-down)
+      //처음 10초동안 접속자(VU)를 0명에서 TARGET_VUS(기본 10명)까지 서서히 늘립니다.(ramp-up)
+      //30초동안 TARGET_VUS 유지
+      //10초동안 접속자(VU)를 TARGET_VUS에서 0명까지 서서히 줄입니다.(ramp-down)
       stages: [
-        { duration: '10s', target: 50 },
-        { duration: '30s', target: 50 },
+        { duration: '10s', target: TARGET_VUS },
+        { duration: '30s', target: TARGET_VUS },
         { duration: '10s', target: 0 },
       ],
       gracefulRampDown: '5s',
@@ -101,7 +103,6 @@ export default function () {
     { headers: buildHeaders(uuidv4()) },
   );
 
-
   const createdOk = check(createRes, {
     'session created 201': (r) => r.status === 201,
   });
@@ -119,7 +120,7 @@ export default function () {
     makeSample(5, 14),
   ];
 
-  //fianl_seq: 5로 세션을 정상 종료해 서버 집계를 실행시키고, 이어서 1분 버킷 타임라인 조회까지 정상 응답하는지 확인합니다.
+  //final_seq: 5로 세션을 정상 종료해 서버 집계를 실행시키고, 이어서 1분 버킷 타임라인 조회까지 정상 응답하는지 확인합니다.
   const batchRes = http.post(
     `${BASE_URL}/api/v1/sessions/${sessionId}/samples:batch`,
     JSON.stringify({ samples: batchSamples }),
