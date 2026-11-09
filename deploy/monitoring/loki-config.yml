@@ -1,0 +1,33 @@
+#멀티테넌트 헤더없이 단일 프로젝트용으로 심플하게 동작하게 한다.
+auth_enabled: false
+
+#loki가 3100번 포트에서 alloy와 grafana의 요청을 받는다.
+server:
+  http_listen_port: 3100
+
+#storage: filesystem: S3 같은 외부 스토리지 없이 컨테이너 내부 디스크(/loki/chunks)에 로그를 저장합니다.
+#replication_factor: 1 & store: inmemory: 분산 클러스터가 아니라 컨테이너 1개로 띄우므로 복제본 수 1개, 인메모리 링(Ring)을 사용합니다
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+#336시간(= 14일)이 지난 로그는 보존 정책에 따라 제한합니다.
+limits_config:
+  retention_period: 336h

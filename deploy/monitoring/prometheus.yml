@@ -1,0 +1,10 @@
+#매트릭 수집 기본 주기를 15초로, 알람 조건 계산 주기를 15초로 설저
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+#호스트,컨테이너 메트릭은 alloy가 알아서 넣어주므로, prometheus는 자기 자신의 상태만 스스로 점검하도록 최소 설정만 넣어둠
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
