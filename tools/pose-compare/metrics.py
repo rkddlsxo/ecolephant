@@ -23,7 +23,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from common import DEFAULT_THRESHOLDS, POINTS
 
 REQUIRED = ("left_ear", "right_ear", "left_shoulder", "right_shoulder")
@@ -133,7 +132,7 @@ def agreement(w: pd.DataFrame, reference: str, pck: float = 0.1) -> pd.DataFrame
                 "model": model,
                 "A1_nme": float(d.mean()) if d.size else np.nan,
                 "A2_pck": float((d < pck).mean()) if d.size else np.nan,
-                "ref_frames": int(len(common)),
+                "ref_frames": len(common),
             }
         )
     return pd.DataFrame(rows)

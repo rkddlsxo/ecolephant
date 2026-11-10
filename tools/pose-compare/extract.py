@@ -19,8 +19,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-
-from common import COCO_INDEX, MEDIAPIPE_INDEX, POINTS, Point, frame_rows, write_rows
+from common import COCO_INDEX, MEDIAPIPE_INDEX, Point, frame_rows, write_rows
 
 RTMPOSE_T = (
     "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"

@@ -20,7 +20,6 @@ import re
 from pathlib import Path
 
 import numpy as np
-
 from common import COCO_INDEX, POINTS, Point, frame_rows, write_rows
 
 FRAME_RE = re.compile(r"frame_(\d+)")

@@ -5,11 +5,10 @@
 
 import json
 
+import import_sapiens
 import numpy as np
 import pandas as pd
 import pytest
-
-import import_sapiens
 from common import POINTS
 from metrics import agreement, jitter, load, markdown, missing_rate, report, wide
 
