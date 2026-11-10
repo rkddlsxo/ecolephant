@@ -71,6 +71,7 @@ class SQLiteRepository:
             raise ApiError(409, "idempotency_conflict", "같은 시작 식별자에 다른 내용이 있습니다.")
         return json.loads(matches[0]["body"])
 
+    # 새 세션 만들기
     def create(self, owner, key, payload, record):
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -122,6 +123,7 @@ class SQLiteRepository:
         with self.connection() as conn:
             return [json.loads(row["body"])["session"] for row in conn.execute("SELECT body FROM sessions WHERE owner=? AND deleted=0", (owner,))]
 
+#샘플/ 이벤트 추가 저장하기
     def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session_id, revision = record["session"]["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}
@@ -131,6 +133,7 @@ class SQLiteRepository:
                 conn.execute("BEGIN IMMEDIATE")
                 updated = conn.execute("UPDATE sessions SET body=?, revision=? WHERE id=? AND owner=? AND revision=? AND deleted=0",
                                        (canonical(stored), revision + 1, session_id, owner, revision))
+                # 어? 내가 읽었을 때의 revision이 아니네? (그새 다른 요청이 수정함 -> 낙관적 락 409 충돌)
                 if updated.rowcount != 1:
                     raise ApiError(409, "concurrent_write", "기록이 변경되었습니다. 같은 요청을 다시 보내 주세요.")
                 for sample in samples:
