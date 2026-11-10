@@ -1,5 +1,5 @@
 ## 관련 이슈 / Jira 티켓
-- Jira 티켓: `ECO-` (또는 GitHub Issue `#`)
+- Jira 티켓: `ECOLEPHANT-` (예: `ECOLEPHANT-11`, 제목이나 여기에 적으면 Jira 카드가 자동으로 `검토 중` / `완료`로 이동합니다)
 
 ## 개요
 - 변경 목적과 배경을 요약해 주세요.

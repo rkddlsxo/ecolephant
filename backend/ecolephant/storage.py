@@ -7,7 +7,10 @@ import sqlite3
 from .contracts import canonical
 from .errors import ApiError
 
+# 지금의 sessions 테이블은 세션의 시작 시간 (started_at), 상태(status: 측정 중/완료), 총 측정 시간 (duration_ms) 등을
+# body TEXT 하나에 JSON 문자열로 뭉뚱그려 저장하므로, 조건 검색 시 DB 인덱스를 타지 못하고 파이썬에서 매번 json.loads()로 파싱해야 합니다.
 
+# 이런식의 코드는 긴 소설책 한 줄 (Text)처럼 보여서 조건을 건 것만 찾아줘 이럴때 DB가 바로 못 찾고, 파이썬이 모든 줄을 다 꺼내서 읽어야했다.
 class SQLiteRepository:
     def __init__(self, database):
         self.database = str(database)
@@ -15,6 +18,7 @@ class SQLiteRepository:
         with self.connection() as conn:
             conn.executescript("""
                 PRAGMA journal_mode=WAL;
+                
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY, owner TEXT NOT NULL, client_id TEXT NOT NULL,
                     idem_key TEXT NOT NULL, body TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -112,6 +116,7 @@ class SQLiteRepository:
             record["samples"] = {r["seq"]: json.loads(r["body"]) for r in conn.execute("SELECT seq,body FROM samples WHERE session_id=? ORDER BY seq", (session_id,))}
             record["events"] = {r["seq"]: json.loads(r["body"]) for r in conn.execute("SELECT seq,body FROM events WHERE session_id=? ORDER BY seq", (session_id,))}
             return record
+
 
     def list(self, owner):
         with self.connection() as conn:
