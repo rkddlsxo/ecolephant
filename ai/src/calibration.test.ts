@@ -109,4 +109,17 @@ describe('calibration', () => {
     expect(median([3, 1, 2])).toBe(2);
     expect(median([4, 1, 3, 2])).toBe(2.5);
   });
+
+  it('stores the nose baseline only when at least half of the segment had a nose', () => {
+    const withNose = feed(initialCalibration(), 0, 3000, 100, (t) => ({
+      ok: true,
+      features: { timestampMs: t, r: 0.33, h: 0.5, n: -0.2 },
+    }));
+    expect(withNose.status === 'done' && withNose.baseline.n0).toBeCloseTo(-0.2, 6);
+    const mostlyMissing = feed(initialCalibration(), 0, 3000, 100, (t) => ({
+      ok: true,
+      features: { timestampMs: t, r: 0.33, h: 0.5, n: t < 1000 ? -0.2 : null },
+    }));
+    expect(mostlyMissing.status === 'done' && mostlyMissing.baseline.n0).toBeNull();
+  });
 });

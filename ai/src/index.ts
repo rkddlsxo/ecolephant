@@ -24,3 +24,18 @@ export {
 export type { CalibrationOptions, CalibrationRestart, CalibrationState } from './calibration';
 export { headFlexionDeg } from './head-motion';
 export type { FlexionFailure, FlexionResult } from './head-motion';
+export {
+  defaultCameraWindowOptions,
+  draftCameraChangeThresholds,
+  judgeCameraChange,
+  summarizeCameraWindow,
+} from './camera-window';
+export type {
+  CameraChangeThresholds,
+  CameraJudgement,
+  CameraLevel,
+  CameraWindowFailure,
+  CameraWindowOptions,
+  CameraWindowSummary,
+  PostureType,
+} from './camera-window';

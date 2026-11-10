@@ -100,4 +100,23 @@ describe('camera features', () => {
     expect(change.hChange).toBeCloseTo(-0.05, 6);
     expect(Object.keys(change).sort()).toEqual(['hChange', 'rChange']);
   });
+
+  it('adds the nose height only when the nose is reliable', () => {
+    const withNose = cameraFeatures(frame());
+    if (!withNose.ok) throw new Error('expected features');
+    expect(typeof withNose.features.n).toBe('number');
+    const lowNose = cameraFeatures(frame({ nose: p(0.5, 0.36, 0.5) }));
+    if (!lowNose.ok) throw new Error('a weak nose must not reject the frame');
+    expect(lowNose.features.n).toBeNull();
+    const noNose = cameraFeatures(frame({ nose: null }));
+    if (!noNose.ok) throw new Error('a missing nose must not reject the frame');
+    expect(noNose.features.n).toBeNull();
+  });
+
+  it('lowers the nose height when the nose drops relative to the ears', () => {
+    const level = cameraFeatures(frame());
+    const dropped = cameraFeatures(frame({ nose: p(0.5, 0.42) }));
+    if (!level.ok || !dropped.ok) throw new Error('expected features');
+    expect(dropped.features.n!).toBeLessThan(level.features.n!);
+  });
 });
