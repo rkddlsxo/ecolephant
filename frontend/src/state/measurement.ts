@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import type { DerivedWindow, Mode, Scenario } from '@ecolephant/ai';
 import type { Session } from '../api/client';
+/** camera: real webcam via the pose model. demo: synthetic signals for flow tests. */
+export type MeasurementInput = 'camera' | 'demo';
 export type Phase =
   'idle' | 'starting' | 'active' | 'paused' | 'recalibrating' | 'ending' | 'completed';
 interface Measurement {
   phase: Phase;
   session: Session | null;
   mode: Mode;
+  input: MeasurementInput;
   scenario: Scenario;
   camera: number;
   head: number;
@@ -28,6 +31,7 @@ export const initialMeasurement: Measurement = {
   phase: 'idle',
   session: null,
   mode: 'combined',
+  input: 'demo',
   scenario: 'auto',
   camera: 10,
   head: 8,

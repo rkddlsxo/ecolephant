@@ -13,6 +13,7 @@ vi.mock('../../api/client', () => ({
 vi.mock('../../api/query', () => ({ queryClient: { invalidateQueries: mocks.invalidateQueries } }));
 
 import { measurement } from './controller';
+import { cameraPipeline } from './camera-pipeline';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 
 describe('synthetic session flow', () => {
@@ -47,6 +48,7 @@ describe('synthetic session flow', () => {
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('saves synthetic windows, keeps missing input unknown, and completes', async () => {
@@ -406,6 +408,72 @@ describe('synthetic session flow', () => {
     expect(events.find((event) => event.type === 'paused')?.elapsed_ms).toBe(601_000);
     expect(sent.find((sample) => sample.seq === 601)?.quality).toBe('no_sensor');
   }, 15_000);
+
+  it('real camera input needs a baseline and only accepts webcam mode', async () => {
+    useMeasurement.setState({ input: 'camera' });
+    vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(false);
+    await measurement.start('webcam');
+    expect(mocks.api.create).not.toHaveBeenCalled();
+    expect(useMeasurement.getState().error).toMatch(/기준 자세/);
+    vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(true);
+    await measurement.start('combined');
+    expect(mocks.api.create).not.toHaveBeenCalled();
+  });
+
+  it('judges real camera windows from change values and saves them as demo', async () => {
+    useMeasurement.setState({ input: 'camera' });
+    vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(true);
+    const observe = vi
+      .spyOn(cameraPipeline, 'observe')
+      .mockReturnValueOnce({ cameraChange: { forward: 0.25, drop: 0, noseDrop: null } })
+      .mockReturnValueOnce({ cameraChange: null, quality: 'motion' })
+      .mockReturnValue({ cameraChange: { forward: 0.01, drop: 0, noseDrop: null } });
+    await measurement.start('webcam');
+    await vi.advanceTimersByTimeAsync(3000);
+    measurement.pause();
+    await measurement.finish();
+
+    expect(mocks.api.create.mock.calls[0][0].data_source).toBe('demo');
+    const [start, end] = observe.mock.calls[0];
+    expect(end - start).toBe(1000);
+    const samples = mocks.api.samples.mock.calls.flatMap((call) => call[1]);
+    expect(samples[0]).toMatchObject({
+      active_mode: 'webcam',
+      posture_level: 'high',
+      posture_type: 'chin_forward',
+      camera_forward_change: 0.25,
+      camera_estimate_deg: null,
+      display_angle_deg: null,
+    });
+    expect(samples[1]).toMatchObject({ quality: 'motion', posture_level: 'unknown' });
+    expect(samples[2]).toMatchObject({ posture_level: 'normal', posture_type: null });
+    expect(JSON.stringify(samples)).not.toMatch(/landmarks|leftEar/);
+  });
+
+  it('recalibrates on the real camera until a new baseline is stored', async () => {
+    useMeasurement.setState({ input: 'camera' });
+    vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(true);
+    vi.spyOn(cameraPipeline, 'observe').mockReturnValue({
+      cameraChange: { forward: 0, drop: 0, noseDrop: null },
+    });
+    const begin = vi.spyOn(cameraPipeline, 'beginCalibration').mockImplementation(() => undefined);
+    const calibrating = vi.spyOn(cameraPipeline, 'calibrating', 'get').mockReturnValue(true);
+    await measurement.start('webcam');
+    await vi.advanceTimersByTimeAsync(1000);
+    measurement.pause();
+    measurement.recalibrate();
+    expect(begin).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(useMeasurement.getState().phase).toBe('recalibrating');
+    calibrating.mockReturnValue(false);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(useMeasurement.getState().phase).toBe('active');
+    await measurement.finish();
+    const events = mocks.api.events.mock.calls.flatMap((call) => call[1]);
+    expect(events.map((event) => event.type)).toContain('calibration_completed');
+    const samples = mocks.api.samples.mock.calls.flatMap((call) => call[1]);
+    expect(samples.filter((sample) => sample.quality === 'calibrating').length).toBeGreaterThan(3);
+  });
 });
 
 describe('mode change reason', () => {
