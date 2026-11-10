@@ -13,9 +13,27 @@ export type Reason =
   | 'motion'
   | 'calibrating'
   | 'paused';
+/**
+ * Posture type (team-agreed MVP set, 2026-11-10): chin_forward = head pushed toward the
+ * screen without dropping, head_down = head dropped without moving forward, combined = both.
+ * Rounded shoulders and cervical straightening are out of scope.
+ */
+export type PostureType = 'chin_forward' | 'head_down' | 'combined';
+/** Webcam change against the personal baseline (dimensionless, not degrees). */
+export interface CameraChange {
+  /** rChange = r/r0 - 1. Positive: head closer to the camera. */
+  forward: number;
+  /** hChange = h - h0. Negative: ears dropped toward the shoulders. */
+  drop: number;
+  /** nChange = n - n0. Negative: nose dropped relative to the ears. `null` if unreliable. */
+  noseDrop: number | null;
+}
 export interface Observation {
+  /** Webcam angle. Only used by policies whose camera_judgement is "angle" (validated mapping). */
   cameraDeg: number | null;
   headDeg: number | null;
+  /** Webcam change. Used by policies whose camera_judgement is "change" (draft-web-v1). */
+  cameraChange?: CameraChange | null;
   quality?: Exclude<Quality, 'valid'>;
 }
 export interface DerivedWindow {
@@ -31,6 +49,11 @@ export interface DerivedWindow {
   posture_level: Level;
   reason_code: Reason;
   confidence: 'dual_sensor' | 'single_sensor' | 'unavailable';
+  /** Webcam change values behind the judgement (derived numbers, never landmarks). */
+  camera_forward_change: number | null;
+  camera_drop_change: number | null;
+  camera_nose_drop_change: number | null;
+  posture_type: PostureType | null;
 }
 export type Scenario =
   'auto' | 'normal' | 'high' | 'head_down' | 'camera_lost' | 'missing' | 'motion' | 'manual';

@@ -33,6 +33,13 @@ SCHEMA = shape(LEGACY_POLICY)
 summary = SPEC['components']['schemas']['PolicySummary']['properties']
 for field in ('policy_id', 'revision', 'release_approved', 'camera_mapping_status'):
     SCHEMA['properties'][field] = summary[field]
+# Optional fields of change-based profiles (draft-web-v1, DEC-002). Absent means angle-based.
+BAND = {'type': 'object', 'properties': {'caution': {'type': 'number'}, 'high': {'type': 'number'}},
+        'required': ['caution', 'high'], 'additionalProperties': False}
+SCHEMA['properties']['camera_judgement'] = {'type': 'string', 'enum': ['angle', 'change']}
+SCHEMA['properties']['camera_change_thresholds'] = {
+    'type': 'object', 'properties': {'forward': BAND, 'drop': BAND, 'nose_drop': BAND},
+    'required': ['forward', 'drop', 'nose_drop'], 'additionalProperties': False}
 
 
 def validate_policy(value):
@@ -45,6 +52,17 @@ def validate_policy(value):
             raise ValueError('Invalid posture thresholds')
         if not all(0 <= weight <= 1 for weight in weights.values()) or not math.isclose(sum(weights.values()), 1):
             raise ValueError('Invalid sensor weights')
+        if value.get('camera_judgement') == 'change':
+            bands = value.get('camera_change_thresholds')
+            if not bands:
+                raise ValueError('Change-based profile needs camera_change_thresholds')
+            if not (0 < bands['forward']['caution'] < bands['forward']['high']):
+                raise ValueError('Invalid forward change bounds')
+            for name in ('drop', 'nose_drop'):
+                if not (bands[name]['high'] < bands[name]['caution'] < 0):
+                    raise ValueError('Invalid drop change bounds')
+        elif 'camera_change_thresholds' in value:
+            raise ValueError('Change thresholds need camera_judgement=change')
         if (value['quality']['window_ms'] != 1000 or value['transport']['batch_max_items'] != 60
                 or value['transport']['batch_max_bytes'] != 65536 or value['alerts']['adaptive_reduction_enabled']):
             raise ValueError('Policy settings do not match the supported API')

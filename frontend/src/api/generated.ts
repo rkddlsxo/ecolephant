@@ -279,6 +279,17 @@ export interface components {
             reason_code: "within_range" | "combined_high" | "forward_shift" | "head_flexion" | "mixed_caution" | "insufficient_data" | "motion" | "calibrating" | "paused";
             /** @enum {string} */
             confidence: "dual_sensor" | "single_sensor" | "unavailable";
+            /** @description 웹캠 얼굴/어깨 비율 변화(r/r0-1). 변화율 판정 정책에서 사용하는 파생값이며 관절점 좌표가 아님 */
+            camera_forward_change?: number | null;
+            /** @description 웹캠 귀-어깨 높이 변화(h-h0). 음수면 귀가 어깨 쪽으로 내려감 */
+            camera_drop_change?: number | null;
+            /** @description 웹캠 코-귀 높이 변화(n-n0). 코가 불안정하면 null */
+            camera_nose_drop_change?: number | null;
+            /**
+             * @description 자세 유형. 정상 또는 무효 창은 null
+             * @enum {string|null}
+             */
+            posture_type?: "chin_forward" | "head_down" | "combined" | null;
         } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         SampleBatch: {
             samples: components["schemas"]["SampleWindow"][];

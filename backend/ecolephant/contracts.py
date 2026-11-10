@@ -46,10 +46,66 @@ def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
+RANK = {"normal": 0, "caution": 1, "high": 2}
+
+
+def _above(value, band):
+    return "high" if value >= band["high"] else "caution" if value >= band["caution"] else "normal"
+
+
+def _below(value, band):
+    return "high" if value <= band["high"] else "caution" if value <= band["caution"] else "normal"
+
+
+def _worst(a, b):
+    return a if RANK[a] >= RANK[b] else b
+
+
+def change_semantics(sample, policy):
+    """draft-web-v1 (DEC-002): webcam judged by change, head drop by AirPods when connected.
+
+    Mirrors ai/src/decision.ts changeWindow. Webcam degrees stay null until the side-view
+    experiment validates a mapping (camera_mapping_status == "validated").
+    """
+    mode, head = sample["active_mode"], sample["head_flexion_deg"]
+    forward, drop = sample.get("camera_forward_change"), sample.get("camera_drop_change")
+    nose = sample.get("camera_nose_drop_change")
+    if sample["camera_estimate_deg"] is not None and policy["camera_mapping_status"] != "validated":
+        raise ApiError(422, "camera_angle_unvalidated", "검증되지 않은 웹캠 각도는 저장할 수 없습니다.")
+    has_camera = mode in {"webcam", "combined"}
+    if has_camera and (forward is None or drop is None):
+        raise ApiError(422, "camera_change_missing", "웹캠 판정에 필요한 변화량이 없습니다.")
+    if sample["display_angle_deg"] != head:
+        raise ApiError(422, "angle_mismatch", "참고 각도와 센서 조합이 일치하지 않습니다.")
+    bands = policy["camera_change_thresholds"]
+    forward_level = _above(forward, bands["forward"]) if has_camera else "normal"
+    if head is not None:
+        drop_level = _above(head, policy["thresholds_deg"])
+    else:
+        drop_level = _below(drop, bands["drop"])
+        if nose is not None:
+            drop_level = _worst(drop_level, _below(nose, bands["nose_drop"]))
+    level = _worst(forward_level, drop_level)
+    forward_on, drop_on = forward_level != "normal", drop_level != "normal"
+    posture = "combined" if forward_on and drop_on else "chin_forward" if forward_on else "head_down" if drop_on else None
+    if level == "normal":
+        reason = "within_range"
+    elif level == "caution":
+        reason = "head_flexion" if posture == "head_down" else "mixed_caution"
+    else:
+        reason = {"chin_forward": "forward_shift", "head_down": "head_flexion"}.get(posture, "combined_high")
+    if (sample["posture_level"], sample["reason_code"], sample.get("posture_type")) != (level, reason, posture):
+        raise ApiError(422, "decision_mismatch", "판정과 정책 버전이 일치하지 않습니다.")
+
+
 def sample_semantics(sample, policy):
     if sample["quality"] != "valid":
         return
+    if policy.get("camera_judgement", "angle") == "change":
+        return change_semantics(sample, policy)
     camera, head = sample["camera_estimate_deg"], sample["head_flexion_deg"]
+    if (camera is None and sample["active_mode"] != "airpods") or sample["display_angle_deg"] is None:
+        raise ApiError(422, "angle_missing", "이 정책은 각도로 판정합니다.")
     mode = sample["active_mode"]
     weights = policy["fusion_weights"]
     expected_angle = (camera * weights["webcam"] + head * weights["airpods"]) if mode == "combined" else (camera if mode == "webcam" else head)

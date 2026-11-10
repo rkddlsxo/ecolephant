@@ -60,6 +60,14 @@ export function median(values: readonly number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/** Median of `n` only when at least half of the segment had a usable nose; otherwise null. */
+function noseBaseline(samples: readonly CameraFeatures[]): number | null {
+  const values = samples
+    .map((s) => s.n)
+    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+  return values.length * 2 >= samples.length ? median(values) : null;
+}
+
 function restart(
   state: Extract<CalibrationState, { status: 'collecting' }>,
   reason: CalibrationRestart,
@@ -107,6 +115,7 @@ export function advanceCalibration(
       baseline: {
         r0: median(samples.map((s) => s.r)),
         h0: median(samples.map((s) => s.h)),
+        n0: noseBaseline(samples),
         samples: samples.length,
         startedMs: samples[0].timestampMs,
         endedMs: sample.timestampMs,

@@ -3,8 +3,24 @@ import math
 
 def semantic_errors(name,value,policy):
     errors=[]
-    if name=='SampleWindow' and value['quality']=='valid':
+    if name=='SampleWindow' and value['quality']=='valid' and policy.get('camera_judgement')=='change':
         mode=value['active_mode']
+        if value['camera_estimate_deg'] is not None and policy['camera_mapping_status']!='validated':
+            errors.append('webcam degrees stored before the mapping is validated')
+        if mode in {'webcam','combined'} and (value.get('camera_forward_change') is None or value.get('camera_drop_change') is None):
+            errors.append('webcam change values missing')
+        if value['display_angle_deg']!=value['head_flexion_deg']:
+            errors.append('display angle must be the measured AirPods angle or null')
+        allowed={'normal':{'within_range'},'caution':{'head_flexion','mixed_caution'},'high':{'combined_high','forward_shift','head_flexion'}}
+        if value['reason_code'] not in allowed[value['posture_level']]:
+            errors.append('inconsistent reason and level')
+        if (value['posture_level']=='normal')!=(value.get('posture_type') is None):
+            errors.append('posture type must be set exactly when the level is not normal')
+    elif name=='SampleWindow' and value['quality']=='valid':
+        mode=value['active_mode']
+        if value['display_angle_deg'] is None or (mode!='airpods' and value['camera_estimate_deg'] is None):
+            errors.append('angle policy needs degrees')
+            return errors
         if mode=='combined':
             weights=policy['fusion_weights']
             expected=value['camera_estimate_deg']*weights['webcam']+value['head_flexion_deg']*weights['airpods']
@@ -44,7 +60,8 @@ def semantic_errors(name,value,policy):
         if valid==0:
             if value['mean_display_angle_deg'] is not None or value['within_range_percent'] is not None:
                 errors.append('zero denominator must be null')
-        elif value['mean_display_angle_deg'] is None or value['within_range_percent'] is None or not math.isclose(value['within_range_percent'],100*value['normal_duration_ms']/valid,abs_tol=1e-6):
+        # The mean angle may be null with valid time: change-based webcam windows carry no degrees.
+        elif value['within_range_percent'] is None or not math.isclose(value['within_range_percent'],100*value['normal_duration_ms']/valid,abs_tol=1e-6):
             errors.append('normal ratio or mean presence mismatch')
         corrected=value['corrected_alert_count']
         if corrected+value['unknown_correction_count']>value['first_stage_alert_count']:

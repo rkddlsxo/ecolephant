@@ -1452,6 +1452,29 @@
           "confidence": {
             "type": "string",
             "enum": ["dual_sensor", "single_sensor", "unavailable"]
+          },
+          "camera_forward_change": {
+            "type": ["number", "null"],
+            "minimum": -10,
+            "maximum": 10,
+            "description": "웹캠 얼굴/어깨 비율 변화(r/r0-1). 변화율 판정 정책에서 사용하는 파생값이며 관절점 좌표가 아님"
+          },
+          "camera_drop_change": {
+            "type": ["number", "null"],
+            "minimum": -10,
+            "maximum": 10,
+            "description": "웹캠 귀-어깨 높이 변화(h-h0). 음수면 귀가 어깨 쪽으로 내려감"
+          },
+          "camera_nose_drop_change": {
+            "type": ["number", "null"],
+            "minimum": -10,
+            "maximum": 10,
+            "description": "웹캠 코-귀 높이 변화(n-n0). 코가 불안정하면 null"
+          },
+          "posture_type": {
+            "type": ["string", "null"],
+            "enum": ["chin_forward", "head_down", "combined", null],
+            "description": "자세 유형. 정상 또는 무효 창은 null"
           }
         },
         "required": [
@@ -1498,7 +1521,7 @@
                   ]
                 },
                 "display_angle_deg": {
-                  "type": "number",
+                  "type": ["number", "null"],
                   "minimum": 0,
                   "maximum": 90
                 },
@@ -1524,6 +1547,18 @@
                 },
                 "confidence": {
                   "const": "unavailable"
+                },
+                "camera_forward_change": {
+                  "type": "null"
+                },
+                "camera_drop_change": {
+                  "type": "null"
+                },
+                "camera_nose_drop_change": {
+                  "type": "null"
+                },
+                "posture_type": {
+                  "type": "null"
                 }
               }
             }
@@ -1542,7 +1577,7 @@
             "then": {
               "properties": {
                 "camera_estimate_deg": {
-                  "type": "number",
+                  "type": ["number", "null"],
                   "minimum": 0,
                   "maximum": 90
                 },
@@ -1571,7 +1606,7 @@
             "then": {
               "properties": {
                 "camera_estimate_deg": {
-                  "type": "number",
+                  "type": ["number", "null"],
                   "minimum": 0,
                   "maximum": 90
                 },
@@ -1607,6 +1642,15 @@
                 },
                 "confidence": {
                   "const": "single_sensor"
+                },
+                "camera_forward_change": {
+                  "type": "null"
+                },
+                "camera_drop_change": {
+                  "type": "null"
+                },
+                "camera_nose_drop_change": {
+                  "type": "null"
                 }
               }
             }

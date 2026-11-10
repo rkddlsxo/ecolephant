@@ -23,8 +23,10 @@ def main():
             load('docs/api/openapi.json'),
             load('backend/harness/fixtures/policy/example.json'),
             load('backend/harness/fixtures/http/contract-cases.json')['cases'],
+            {'change-v1': load('backend/harness/fixtures/policy/change-v1.json')},
         ),
-        'policy': lambda: check_policy(load('backend/harness/fixtures/policy/example.json')),
+        'policy': lambda: [check_policy(load(f'backend/harness/fixtures/policy/{name}.json'))
+                           for name in ('example', 'change-v1')],
         'links': check_links,
         'secrets': check_secrets,
         'self-tests': self_tests,
