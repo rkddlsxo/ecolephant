@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { deriveWindow } from './decision';
+import policy from './policy.json';
 import type { Mode, Observation } from './types';
 
 const timing = { seq: 1, elapsed_start_ms: 0, duration_ms: 1000, calibration_epoch: 1 };
-const run = (mode: Mode, observation: Observation) => deriveWindow(mode, observation, timing);
+/** Angle-based draft (draft-web-v0). Old sessions keep this policy, so its table stays pinned. */
+const anglePolicy = { thresholds_deg: { caution: 15, high: 30 }, camera_judgement: 'angle' };
+const run = (mode: Mode, observation: Observation) =>
+  deriveWindow(mode, observation, timing, anglePolicy);
 const combined = (cameraDeg: number, headDeg: number) => run('combined', { cameraDeg, headDeg });
 
 /**
@@ -160,5 +164,144 @@ describe('invalid input is never treated as normal', () => {
 
   it('copies window timing unchanged', () => {
     expect(run('webcam', { cameraDeg: 5, headDeg: null })).toMatchObject(timing);
+  });
+});
+
+/** draft-web-v1 (DEC-002): webcam judged by change against the personal baseline. */
+describe('change-based decision (draft-web-v1)', () => {
+  const change = (forward: number, drop: number, noseDrop: number | null = null) => ({
+    forward,
+    drop,
+    noseDrop,
+  });
+  const runV1 = (mode: Mode, observation: Observation) => deriveWindow(mode, observation, timing);
+
+  it('uses the app policy, which is change-based', () => {
+    expect(policy.camera_judgement).toBe('change');
+  });
+
+  it.each([
+    // forward, drop, level, reason, posture type
+    [0.05, -0.05, 'normal', 'within_range', null],
+    [0.1, 0, 'caution', 'mixed_caution', 'chin_forward'],
+    [0.2, 0, 'high', 'forward_shift', 'chin_forward'],
+    [0, -0.1, 'caution', 'head_flexion', 'head_down'],
+    [0, -0.25, 'high', 'head_flexion', 'head_down'],
+    [0.12, -0.12, 'caution', 'mixed_caution', 'combined'],
+    [0.25, -0.12, 'high', 'combined_high', 'combined'],
+  ] as const)('webcam forward %d, drop %d → %s / %s / %s', (f, d, level, reason, type) => {
+    expect(
+      runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(f, d) }),
+    ).toMatchObject({
+      active_mode: 'webcam',
+      quality: 'valid',
+      posture_level: level,
+      reason_code: reason,
+      posture_type: type,
+      confidence: 'single_sensor',
+      camera_estimate_deg: null,
+      display_angle_deg: null,
+      camera_forward_change: f,
+      camera_drop_change: d,
+    });
+  });
+
+  it('never turns a webcam angle into a judgement while the mapping is unvalidated', () => {
+    expect(runV1('webcam', { cameraDeg: 40, headDeg: null })).toMatchObject({
+      quality: 'no_sensor',
+      posture_level: 'unknown',
+      camera_estimate_deg: null,
+    });
+  });
+
+  it('uses a dropped nose when the ears alone stay within range', () => {
+    expect(
+      runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(0, -0.02, -0.15) }),
+    ).toMatchObject({
+      posture_level: 'caution',
+      posture_type: 'head_down',
+      camera_nose_drop_change: -0.15,
+    });
+  });
+
+  it('combined: webcam judges the forward shift, AirPods judges the drop', () => {
+    // Webcam ears dropped but AirPods says the head is level → forward part only.
+    const result = runV1('combined', {
+      cameraDeg: null,
+      headDeg: 5,
+      cameraChange: change(0.22, -0.3),
+    });
+    expect(result).toMatchObject({
+      active_mode: 'combined',
+      confidence: 'dual_sensor',
+      posture_level: 'high',
+      reason_code: 'forward_shift',
+      posture_type: 'chin_forward',
+      head_flexion_deg: 5,
+      display_angle_deg: 5,
+      camera_estimate_deg: null,
+      camera_drop_change: -0.3,
+    });
+    expect(
+      runV1('combined', { cameraDeg: null, headDeg: 35, cameraChange: change(0.25, 0) }),
+    ).toMatchObject({
+      posture_level: 'high',
+      reason_code: 'combined_high',
+      posture_type: 'combined',
+    });
+    expect(
+      runV1('combined', { cameraDeg: null, headDeg: 20, cameraChange: change(0.02, 0) }),
+    ).toMatchObject({
+      posture_level: 'caution',
+      reason_code: 'head_flexion',
+      posture_type: 'head_down',
+    });
+  });
+
+  it('airpods only keeps the angle bands', () => {
+    expect(runV1('airpods', { cameraDeg: null, headDeg: 31 })).toMatchObject({
+      active_mode: 'airpods',
+      posture_level: 'high',
+      reason_code: 'head_flexion',
+      posture_type: 'head_down',
+      display_angle_deg: 31,
+      camera_forward_change: null,
+    });
+  });
+
+  it('rejects non-finite change values instead of judging them', () => {
+    expect(
+      runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(Number.NaN, 0) }),
+    ).toMatchObject({ quality: 'no_sensor', posture_level: 'unknown' });
+  });
+
+  it('keeps invalid windows empty, including the change fields', () => {
+    expect(
+      runV1('webcam', {
+        cameraDeg: null,
+        headDeg: null,
+        cameraChange: change(0.3, 0),
+        quality: 'motion',
+      }),
+    ).toMatchObject({
+      posture_level: 'unknown',
+      reason_code: 'motion',
+      camera_forward_change: null,
+      posture_type: null,
+    });
+  });
+
+  it('fails loudly if a change policy lacks its thresholds', () => {
+    expect(() =>
+      deriveWindow(
+        'webcam',
+        { cameraDeg: null, headDeg: null, cameraChange: change(0, 0) },
+        timing,
+        {
+          thresholds_deg: { caution: 15, high: 30 },
+          camera_judgement: 'change',
+        },
+      ),
+    ).toThrow();
   });
 });

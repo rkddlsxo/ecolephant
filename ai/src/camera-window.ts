@@ -1,6 +1,7 @@
 import policy from './policy.json';
 import { median } from './calibration';
 import type { CameraBaseline, FeatureFailure, FeatureResult } from './camera-features';
+import type { CameraChange, PostureType } from './types';
 
 /**
  * Webcam-only judgement from change against the personal baseline (DEC-002, team-agreed
@@ -21,10 +22,11 @@ export interface CameraChangeThresholds {
   noseDrop: { caution: number; high: number };
 }
 
+/** Draft values from the policy (`camera_change_thresholds`, draft-web-v1). */
 export const draftCameraChangeThresholds: CameraChangeThresholds = {
-  forward: { caution: 0.1, high: 0.2 },
-  drop: { caution: -0.1, high: -0.2 },
-  noseDrop: { caution: -0.1, high: -0.2 },
+  forward: { ...policy.camera_change_thresholds.forward },
+  drop: { ...policy.camera_change_thresholds.drop },
+  noseDrop: { ...policy.camera_change_thresholds.nose_drop },
 };
 
 export interface CameraWindowOptions {
@@ -102,7 +104,7 @@ export type CameraLevel = 'normal' | 'caution' | 'high';
  * screen without dropping, head_down = head dropped without moving forward, combined = both.
  * Rounded shoulders and cervical straightening are out of scope.
  */
-export type PostureType = 'chin_forward' | 'head_down' | 'combined';
+export type { PostureType } from './types';
 
 export interface CameraJudgement {
   level: CameraLevel;
@@ -113,16 +115,29 @@ export interface CameraJudgement {
   dropLevel: CameraLevel;
 }
 
-function levelAbove(value: number, { caution, high }: { caution: number; high: number }) {
+export function levelAbove(
+  value: number,
+  { caution, high }: { caution: number; high: number },
+): CameraLevel {
   return value >= high ? 'high' : value >= caution ? 'caution' : 'normal';
 }
 
-function levelBelow(value: number, { caution, high }: { caution: number; high: number }) {
+export function levelBelow(
+  value: number,
+  { caution, high }: { caution: number; high: number },
+): CameraLevel {
   return value <= high ? 'high' : value <= caution ? 'caution' : 'normal';
 }
 
 const rank: Record<CameraLevel, number> = { normal: 0, caution: 1, high: 2 };
-const worst = (a: CameraLevel, b: CameraLevel) => (rank[a] >= rank[b] ? a : b);
+export const worst = (a: CameraLevel, b: CameraLevel) => (rank[a] >= rank[b] ? a : b);
+
+/** Posture type from which part (forward shift / drop) reached at least caution. */
+export function postureTypeOf(forwardLevel: CameraLevel, dropLevel: CameraLevel) {
+  const forward = forwardLevel !== 'normal';
+  const drop = dropLevel !== 'normal';
+  return forward && drop ? 'combined' : forward ? 'chin_forward' : drop ? 'head_down' : null;
+}
 
 /** Level and posture type from a valid window summary. Pure; thresholds are draft values. */
 export function judgeCameraChange(
@@ -135,9 +150,19 @@ export function judgeCameraChange(
     summary.nChange === null ? 'normal' : levelBelow(summary.nChange, thresholds.noseDrop);
   const dropLevel = worst(dropFromEars, dropFromNose);
   const level = worst(forwardLevel, dropLevel);
-  const forward = forwardLevel !== 'normal';
-  const drop = dropLevel !== 'normal';
-  const type: PostureType | null =
-    forward && drop ? 'combined' : forward ? 'chin_forward' : drop ? 'head_down' : null;
-  return { level, type, forwardLevel, dropLevel };
+  return { level, type: postureTypeOf(forwardLevel, dropLevel), forwardLevel, dropLevel };
+}
+
+/**
+ * Converts one window summary into the camera part of an `Observation` for `deriveWindow`.
+ * Failed windows keep their reason; they are never reported as a normal posture.
+ */
+export function cameraObservation(summary: CameraWindowSummary): {
+  cameraChange: CameraChange | null;
+  quality?: CameraWindowFailure;
+} {
+  if (!summary.ok) return { cameraChange: null, quality: summary.reason };
+  return {
+    cameraChange: { forward: summary.rChange, drop: summary.hChange, noseDrop: summary.nChange },
+  };
 }

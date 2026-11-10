@@ -1,4 +1,5 @@
 export { deriveWindow } from './decision';
+export type { DecisionPolicy } from './decision';
 export { demoObservation } from './demo';
 export { initialAlerts, advanceAlerts, confirmDelivery, closeAlert } from './alerts';
 export type { AlertCommand, AlertState } from './alerts';
@@ -26,6 +27,7 @@ export { headFlexionDeg } from './head-motion';
 export type { FlexionFailure, FlexionResult } from './head-motion';
 export {
   defaultCameraWindowOptions,
+  cameraObservation,
   draftCameraChangeThresholds,
   judgeCameraChange,
   summarizeCameraWindow,

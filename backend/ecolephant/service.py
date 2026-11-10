@@ -15,7 +15,10 @@ def conflict(message):
 def require_real_policy(mode, policy):
     if not policy["release_approved"]:
         raise ApiError(409, "policy_not_approved", "실제 측정에 승인된 정책이 필요합니다.")
-    if mode in {"webcam", "combined"} and policy["camera_mapping_status"] != "validated":
+    # The mapping check guards webcam *degrees*. A change-based policy stores no webcam degrees
+    # (contracts.change_semantics rejects them until validated), so only team approval applies.
+    angle_based = policy.get("camera_judgement", "angle") == "angle"
+    if mode in {"webcam", "combined"} and angle_based and policy["camera_mapping_status"] != "validated":
         raise ApiError(409, "camera_mapping_unvalidated", "카메라 측정 기준을 먼저 검증해 주세요.")
 
 

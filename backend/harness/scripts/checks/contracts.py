@@ -5,7 +5,7 @@ from .common import check_refs, require, walk
 from .semantics import semantic_errors
 
 
-def check_contracts(spec, policy, cases):
+def check_contracts(spec, policy, cases, profiles=None):
     errors = list(OpenAPIV31SpecValidator(spec).iter_errors())
     require(not errors, 'OpenAPI error: ' + '; '.join(str(e)[:700] for e in errors[:3]))
     check_refs(spec)
@@ -32,6 +32,9 @@ def check_contracts(spec, policy, cases):
         message = str(shape_errors[0])[:500] if shape_errors else 'unexpected acceptance'
         require(valid == case['valid'], f'{case["id"]} schema expectation failed: {message}')
         if valid:
-            meanings = semantic_errors(case['schema'], case['value'], policy)
+            # A case may name another fixture profile (e.g. change-v1); default is the draft example.
+            profile = (profiles or {}).get(case['policy'], None) if 'policy' in case else policy
+            require(profile is not None, f'{case["id"]} names an unknown policy fixture')
+            meanings = semantic_errors(case['schema'], case['value'], profile)
             require((not meanings) == case['semantics_valid'], f'{case["id"]} semantic expectation failed: {meanings}')
     print(f'PASS backend contracts: OpenAPI 3.1, {len(spec["components"]["schemas"])} schemas, {len(cases)} examples')

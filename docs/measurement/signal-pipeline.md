@@ -41,7 +41,18 @@
 
 단계는 앞쏠림(`rChange`)과 숙임(`hChange`, `nChange` 중 더 나쁜 쪽) 중 더 나쁜 쪽입니다. 자세 유형은 앞쏠림만 있으면 `chin_forward`, 숙임만 있으면 `head_down`, 둘 다면 `combined`입니다. 라운드 숄더와 일자목은 범위 밖입니다.
 
-이 판정은 `camera_estimate_deg`를 만들지 않습니다. 측정 흐름(`deriveWindow`, 서버 스키마)에 연결하는 방식은 프론트·백엔드와 합의 후 정합니다. 각도 환산은 측면 기준 실험에서 평균 비율과 사용자별 오차를 확인한 뒤에만 엽니다.
+이 판정은 `camera_estimate_deg`를 만들지 않습니다. 각도 환산은 측면 기준 실험에서 평균 비율과 사용자별 오차를 확인한 뒤에만 엽니다.
+
+#### 측정 흐름과 저장 (정책 `draft-web-v1`)
+
+- 판정 방식은 정책의 `camera_judgement`로 고릅니다. `draft-web-v1`은 `change`(변화량), 이전 세션의 `draft-web-v0`은 `angle`(없으면 angle)입니다. 서버는 두 정책을 모두 제공하고 세션마다 당시 정책으로 다시 검사합니다.
+- 변화량 기준값은 정책의 `camera_change_thresholds`(`forward`, `drop`, `nose_drop`)에 있습니다. 위 표의 초기 제안값과 같습니다.
+- `deriveWindow`는 `Observation.cameraChange`(`camera-window.ts`의 `cameraObservation`으로 만듦)를 받습니다. 결과 창에는 `camera_forward_change`·`camera_drop_change`·`camera_nose_drop_change`(파생 숫자, 관절점 아님)와 `posture_type`이 함께 저장됩니다. 나중에 실험으로 비율을 정하면 이전 기록도 각도로 다시 계산할 수 있습니다.
+- 결합 모드는 장치별 역할을 나눕니다(DEC-004 확정 전 임시 규칙): 앞쏠림은 웹캠 변화량, 숙임은 AirPods 각도(15°/30°)로 판정하고 단계는 둘 중 더 나쁜 쪽입니다. 웹캠의 숙임 변화량은 저장만 하고 AirPods가 없을 때만 판정에 씁니다.
+- `display_angle_deg`에는 실제로 잰 각도(AirPods)만 넣습니다. 웹캠만 쓰면 `null`이고, 통계의 평균 각도는 각도가 있는 창만으로 계산합니다(없으면 `null`, 화면은 "—").
+- `reason_code`는 기존 단계-이유 조합을 유지합니다: 주의는 숙임이면 `head_flexion`, 그 외 `mixed_caution` / 높음은 `forward_shift`·`head_flexion`·`combined_high`. 자세 유형의 세부는 `posture_type`에 있습니다.
+- 서버(`backend/ecolephant/contracts.py`의 `change_semantics`)는 같은 규칙으로 단계·이유·자세 유형을 다시 계산해 다르면 422로 거부합니다. 매핑이 검증되지 않은 정책에서 웹캠 각도를 보내면 `camera_angle_unvalidated`로 거부합니다.
+- 실측 저장(`data_source=real`): 변화량 정책은 웹캠 각도를 만들지 않으므로 카메라 매핑 검증 조건은 적용하지 않고, 팀의 정책 승인(`release_approved`)만 필요합니다. `draft-web-v1`은 아직 미승인입니다(ECOLEPHANT-12).
 
 ## AirPods 특징 제안
 

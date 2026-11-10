@@ -1,12 +1,27 @@
 {
-  "policy_id": "draft-web-v0",
-  "revision": "0.1",
+  "policy_id": "draft-web-v1",
+  "revision": "0.2",
   "release_approved": false,
   "camera_mapping_status": "unvalidated",
-  "status": "설계·실측 대기, 운영 사용 금지",
+  "status": "변화율 판정 초안(DEC-002, 팀 동의 2026-11-10). 기준값은 실험 전 초기 제안값, 운영 사용 금지",
   "thresholds_deg": {
     "caution": 15,
     "high": 30
+  },
+  "camera_judgement": "change",
+  "camera_change_thresholds": {
+    "forward": {
+      "caution": 0.1,
+      "high": 0.2
+    },
+    "drop": {
+      "caution": -0.1,
+      "high": -0.2
+    },
+    "nose_drop": {
+      "caution": -0.1,
+      "high": -0.2
+    }
   },
   "fusion_weights": {
     "webcam": 0.5,
@@ -59,7 +74,9 @@
       "quality.rotation_rate_limit_rad_s",
       "alerts.correction_stable_ms",
       "alerts.correction_observation_ms",
-      "transport"
+      "transport",
+      "camera_judgement",
+      "camera_change_thresholds"
     ],
     "decisions": ["DEC-002", "DEC-003", "DEC-004", "DEC-007", "DEC-010"]
   }

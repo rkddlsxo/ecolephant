@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CameraBaseline, FeatureResult } from './camera-features';
+import policy from './policy.json';
 import {
+  cameraObservation,
   defaultCameraWindowOptions,
   draftCameraChangeThresholds,
   judgeCameraChange,
@@ -125,5 +127,32 @@ describe('judgeCameraChange', () => {
 
   it('ignores the nose when it is unavailable', () => {
     expect(judgeCameraChange(summary(0, 0, null)).level).toBe('normal');
+  });
+});
+
+describe('cameraObservation', () => {
+  it('passes the medians on as change values', () => {
+    expect(
+      cameraObservation({
+        ok: true,
+        rChange: 0.2,
+        hChange: -0.1,
+        nChange: null,
+        coverage: 1,
+        frames: 10,
+      }),
+    ).toEqual({ cameraChange: { forward: 0.2, drop: -0.1, noseDrop: null } });
+  });
+
+  it('keeps the failure reason instead of a normal posture', () => {
+    expect(cameraObservation({ ok: false, reason: 'motion', coverage: 0.4, frames: 10 })).toEqual({
+      cameraChange: null,
+      quality: 'motion',
+    });
+  });
+
+  it('reads the draft thresholds from the policy', () => {
+    expect(draftCameraChangeThresholds.forward).toEqual(policy.camera_change_thresholds.forward);
+    expect(draftCameraChangeThresholds.noseDrop).toEqual(policy.camera_change_thresholds.nose_drop);
   });
 });
