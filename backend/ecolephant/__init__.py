@@ -23,6 +23,10 @@ def create_app(config=None):
         LOCAL_TOKEN=os.getenv("ECOLEPHANT_LOCAL_TOKEN", ""),
         STORAGE=os.getenv("ECOLEPHANT_STORAGE", "sqlite"),
         DATABASE=os.getenv("ECOLEPHANT_DATABASE", str(base.parent / ".data/ecolephant.sqlite3")),
+        POSTGRES_DSN=os.getenv(
+            "ECOLEPHANT_POSTGRES_DSN",
+            "postgresql://ecolephant:ecolephant_local@localhost:5432/ecolephant",
+        ),
         TABLE=os.getenv("ECOLEPHANT_TABLE", "ecolephant-local"),
         ENDPOINT=os.getenv("AWS_ENDPOINT_URL_DYNAMODB"),
         JWT_ISSUER=os.getenv("ECOLEPHANT_JWT_ISSUER", ""),
@@ -58,6 +62,9 @@ def create_app(config=None):
     elif app.config["STORAGE"] == "dynamodb":
         from .dynamo import DynamoRepository
         app.extensions["repository"] = DynamoRepository(app.config["TABLE"], app.config["ENDPOINT"])
+    elif app.config["STORAGE"] in {"postgres", "postgresql"}:
+        from .postgres import PostgresRepository
+        app.extensions["repository"] = PostgresRepository(app.config["POSTGRES_DSN"])
     else:
         raise RuntimeError("Unsupported storage mode")
 
