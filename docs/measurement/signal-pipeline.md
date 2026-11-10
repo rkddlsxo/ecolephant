@@ -52,6 +52,8 @@
 - `display_angle_deg`에는 실제로 잰 각도(AirPods)만 넣습니다. 웹캠만 쓰면 `null`이고, 통계의 평균 각도는 각도가 있는 창만으로 계산합니다(없으면 `null`, 화면은 "—").
 - `reason_code`는 기존 단계-이유 조합을 유지합니다: 주의는 숙임이면 `head_flexion`, 그 외 `mixed_caution` / 높음은 `forward_shift`·`head_flexion`·`combined_high`. 자세 유형의 세부는 `posture_type`에 있습니다.
 - 서버(`backend/ecolephant/contracts.py`의 `change_semantics`)는 같은 규칙으로 단계·이유·자세 유형을 다시 계산해 다르면 422로 거부합니다. 매핑이 검증되지 않은 정책에서 웹캠 각도를 보내면 `camera_angle_unvalidated`로 거부합니다.
+- 브라우저 연결(`frontend/src/features/measurement/camera-pipeline.ts`): 측정·보정 화면에서 카메라가 켜지면 MediaPipe lite를 초당 최대 15번 실행해 `cameraFeatures`를 만들고, 보정 중이면 `advanceCalibration`(3초 안정 구간)에, 아니면 최근 10초 버퍼에 넣습니다. 측정 흐름은 1초 창마다 `observe(start, end)`로 `summarizeCameraWindow` → `cameraObservation` 결과(변화량 또는 실패 이유)만 받습니다. 관절점·특징값과 기준값은 이 모듈 밖으로 나가지 않고 서버로 보내지 않습니다.
+- 측정 화면 입력은 "실제 카메라"(웹캠 단독, 기준 자세 필요)와 "테스트 입력"(합성 신호)으로 고릅니다. 실제 카메라의 기준 재설정은 고정 3초가 아니라 보정 상태 기계가 기준을 저장할 때 끝납니다. 정책이 승인되기 전까지 두 입력 모두 `data_source=demo`로 저장합니다.
 - 실측 저장(`data_source=real`): 변화량 정책은 웹캠 각도를 만들지 않으므로 카메라 매핑 검증 조건은 적용하지 않고, 팀의 정책 승인(`release_approved`)만 필요합니다. `draft-web-v1`은 아직 미승인입니다(ECOLEPHANT-12).
 
 ## AirPods 특징 제안

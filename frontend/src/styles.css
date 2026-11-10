@@ -1742,3 +1742,25 @@ p {
     animation: none;
   }
 }
+
+/* 실제 카메라 측정: 미리보기와 보정 버튼 */
+.measure-camera {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.calibration-progress {
+  display: grid;
+  gap: 8px;
+}
+.calibration-progress progress {
+  width: 100%;
+  height: 8px;
+}
+
+.measure-change-readout {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
