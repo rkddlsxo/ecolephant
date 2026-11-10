@@ -1,7 +1,7 @@
 """Change-based webcam judgement (draft-web-v1, DEC-002) with synthetic data only."""
 
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 import json
 import sys
