@@ -1,0 +1,12 @@
+# Analysis (always needed)
+numpy
+pandas
+opencv-python
+pytest
+
+# Model runners — install only the ones you test
+mediapipe            # --model mediapipe (Apache 2.0)
+ai-edge-litert       # --model movenet  (TFLite interpreter; Apache 2.0)
+rtmlib               # --model rtmpose  (Apache 2.0)
+onnxruntime
+ultralytics          # --model yolo11n  (AGPL-3.0: local comparison only, do not ship)
