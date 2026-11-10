@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import type { Level, Mode, PostureType, Scenario } from '@ecolephant/ai';
+import { policy, type Level, type Mode, type PostureType, type Scenario } from '@ecolephant/ai';
 import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
 import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
 import { Select } from '../components/Select';
@@ -36,6 +36,9 @@ const scenarioLabel: Partial<Record<Scenario, string>> = {
   missing: '센서 없음',
   motion: '움직임',
 };
+
+const changeThresholds = policy.camera_change_thresholds;
+const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
 
 const modeOptions = (['webcam', 'airpods', 'combined'] as const).map((mode) => ({
   value: mode,
@@ -190,6 +193,23 @@ export function MeasurePage() {
             <strong className="measure-number">{state.pending}개</strong>
           </div>
         </div>
+        {camera && changeThresholds && (
+          <p className="measure-change-readout" data-testid="change-readout">
+            기준 대비 변화 (시범값 확인용) · 앞쏠림{' '}
+            {state.latest?.camera_forward_change != null
+              ? signed(state.latest.camera_forward_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.forward.caution)}) · 귀 높이{' '}
+            {state.latest?.camera_drop_change != null
+              ? signed(state.latest.camera_drop_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.drop.caution)}) · 코 높이{' '}
+            {state.latest?.camera_nose_drop_change != null
+              ? signed(state.latest.camera_nose_drop_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.nose_drop.caution)})
+          </p>
+        )}
         <div className="button-row service-actions">
           {!running && (
             <Button
