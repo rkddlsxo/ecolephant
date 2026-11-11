@@ -16,6 +16,7 @@ import type {
   GuideIssue,
   Observation,
 } from '@ecolephant/ai';
+import { backgroundMode, backgroundProbe } from './background-probe';
 import type { PostureModelAdapter } from './model-adapter';
 import { createMediaPipeAdapter, VideoNotReadyError } from './pose/mediapipe-adapter';
 
@@ -225,15 +226,24 @@ export class CameraPipeline {
     try {
       const frame = await this.adapter.analyze(this.video, started);
       if (run !== this.generation) return;
+      this.probe(true);
       this.accept(cameraFeatures(frame), frame.timestampMs, guideFit(frame));
     } catch (error) {
       // A frame that is not ready (VideoNotReadyError) or fails is skipped. Too few analysed
       // frames in a window make that window no_sensor; nothing is filled in as normal.
       void (error instanceof VideoNotReadyError);
+      this.probe(false);
     }
     if (run !== this.generation) return;
     const elapsed = this.now() - started;
     this.schedule(run, Math.max(0, this.intervalMs - elapsed));
+  }
+
+  /** Dev-only background probe (`?bg=timer`): counts analysed frames, nothing else. */
+  private probe(ok: boolean) {
+    if (backgroundMode() !== 'timer') return;
+    if (!backgroundProbe.running) backgroundProbe.start();
+    backgroundProbe.frame(ok, this.video?.readyState ?? null);
   }
 
   private accept(result: FeatureResult, t: number, guide: GuideFit) {
