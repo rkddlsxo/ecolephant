@@ -3,7 +3,10 @@ import type { CameraModelResult, PostureModelAdapter } from './model-adapter';
 import { CameraPipeline, useCameraPipeline } from './camera-pipeline';
 
 /** Synthetic upright pose; `forward` widens the ears (head closer), `drop` lowers them. */
-function pose(t: number, { forward = 0, drop = 0, quality = 'valid' } = {}): CameraModelResult {
+function pose(
+  t: number,
+  { forward = 0, drop = 0, quality = 'valid', shoulder = 0.2 } = {},
+): CameraModelResult {
   const half = 0.06 * (1 + forward);
   const p = (x: number, y: number) => ({ x, y, confidence: 0.95 });
   return {
@@ -15,13 +18,20 @@ function pose(t: number, { forward = 0, drop = 0, quality = 'valid' } = {}): Cam
       nose: p(0.5, 0.33 + drop),
       leftEar: p(0.5 + half, 0.35 + drop),
       rightEar: p(0.5 - half, 0.35 + drop),
-      leftShoulder: p(0.7, 0.6),
-      rightShoulder: p(0.3, 0.6),
+      leftShoulder: p(0.5 + shoulder, 0.6),
+      rightShoulder: p(0.5 - shoulder, 0.6),
     },
   };
 }
 
-function fakeAdapter(shape: { current: { forward?: number; drop?: number; quality?: string } }) {
+interface Shape {
+  forward?: number;
+  drop?: number;
+  quality?: string;
+  shoulder?: number;
+}
+
+function fakeAdapter(shape: { current: Shape }) {
   const analyze = vi.fn(async (_video: HTMLVideoElement, t: number) => pose(t, shape.current));
   const adapter = {
     delegate: 'GPU' as const,
@@ -35,7 +45,7 @@ function fakeAdapter(shape: { current: { forward?: number; drop?: number; qualit
 const video = {} as HTMLVideoElement;
 
 describe('CameraPipeline', () => {
-  let shape: { current: { forward?: number; drop?: number; quality?: string } };
+  let shape: { current: Shape };
   let adapter: ReturnType<typeof fakeAdapter>;
   let pipeline: CameraPipeline;
 
@@ -101,6 +111,34 @@ describe('CameraPipeline', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(pipeline.hasBaseline).toBe(false);
     expect(useCameraPipeline.getState().lastRestart).toBe('motion');
+  });
+
+  it('only takes the baseline inside the person-shaped guide', async () => {
+    pipeline.attach(video);
+    // Shoulders 0.2 of the width apart: sitting too far from the camera.
+    shape.current = { shoulder: 0.1 };
+    pipeline.beginCalibration();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(pipeline.hasBaseline).toBe(false);
+    expect(useCameraPipeline.getState()).toMatchObject({ guide: 'too_far', progress: 0 });
+    shape.current = {};
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(pipeline.hasBaseline).toBe(true);
+    expect(useCameraPipeline.getState().guide).toBe('ok');
+  });
+
+  it('can calibrate without the guide when it is turned off', async () => {
+    const free = new CameraPipeline({
+      createAdapter: () => adapter,
+      now: () => Date.now(),
+      requireGuide: false,
+    });
+    shape.current = { shoulder: 0.1 };
+    free.attach(video);
+    free.beginCalibration();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(free.hasBaseline).toBe(true);
+    free.reset();
   });
 
   it('stops analysing when the video is detached', async () => {

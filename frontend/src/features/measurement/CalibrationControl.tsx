@@ -1,6 +1,18 @@
 import { CheckCircle2, Info } from 'lucide-react';
+import { calibrationTips, guideLabel } from '@ecolephant/ai';
 import { Button } from '../../components/ui';
-import { cameraPipeline, restartLabel, useCameraPipeline } from './camera-pipeline';
+import {
+  cameraPipeline,
+  restartLabel,
+  useCameraPipeline,
+  type PipelineView,
+} from './camera-pipeline';
+
+/** Guide check result as one line of text (no layout change; the silhouette is drawn by the page). */
+function guideText(guide: PipelineView['guide']) {
+  if (guide === null) return null;
+  return guide === 'ok' ? '가이드 안에 잘 앉았어요.' : guideLabel[guide];
+}
 
 /**
  * Start / progress / result of the 3 s baseline calibration on the real camera.
@@ -17,6 +29,9 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
           편한 자세로 가만히 있어 주세요 · {Math.round(view.progress * 100)}%
           {view.lastRestart && (
             <span className="field-error"> {restartLabel[view.lastRestart]}</span>
+          )}
+          {view.guide && view.guide !== 'ok' && (
+            <span className="field-error"> {guideText(view.guide)}</span>
           )}
         </p>
         <Button variant="secondary" onClick={() => cameraPipeline.cancelCalibration()}>
@@ -38,15 +53,30 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
           <CheckCircle2 size={14} aria-hidden="true" />
           기준 자세를 저장했어요. 이 기기 안에만 보관하고 서버로 보내지 않아요.
         </p>
+      ) : !ready ? (
+        <p className="calibration-pending">
+          <Info size={14} aria-hidden="true" />
+          {view.status === 'loading'
+            ? 'AI 모델을 불러오는 중이에요.'
+            : '카메라를 켜면 보정을 시작할 수 있어요.'}
+        </p>
       ) : (
-        !ready && (
+        <div className="calibration-guide">
           <p className="calibration-pending">
             <Info size={14} aria-hidden="true" />
-            {view.status === 'loading'
-              ? 'AI 모델을 불러오는 중이에요.'
-              : '카메라를 켜면 보정을 시작할 수 있어요.'}
+            바른 자세를 기준으로 저장해요. 시작 전에 확인해 주세요.
           </p>
-        )
+          <ul className="calibration-tips">
+            {calibrationTips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+          {guideText(view.guide) && (
+            <p className="calibration-pending" role="status">
+              {guideText(view.guide)}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
