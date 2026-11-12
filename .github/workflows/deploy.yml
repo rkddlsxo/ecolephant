@@ -1,6 +1,6 @@
 name: CD / deploy
 
-#pr을 올렸을 때는 검증만 돌고, main브랜치에 머지되었을 때는 검증 통과 후 실제 배포(deploy)까지 이어지도록 트리거를 나눕니다.
+#pr올릴땐 검사만 하고, main에 합쳐질 때만 진짜배포를 한다.
 on:
   push:
     branches: [main]
@@ -24,7 +24,8 @@ permissions:
   contents: read
   id-token: write
 
-#aws 자격증명 없이 지금 짠 terraform코드에 문법 오타가 없는지 검사
+#오타검사기(validate)
+#aws 서버에 진짜 올리기 전에, Terraform이랑 ansible에 오타 없는지 미리 검사 (--syntax-check)
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -56,9 +57,9 @@ jobs:
           terraform init -backend=false
           terraform validate
 
-      #ansible플레이북 yaml문법도 자동으로 검사한다.
+      #ansible플레이북 yaml문법도 자동으로 검사
       #if: github.event_name == 'pull_request' && vars.AWS_ROLE_ARN != '': 나중에 AWS 계정이 나와서 GitHub Variables에 AWS_ROLE_ARN을 등록하면,
-      #PR에서 자동으로 terraform plan까지 돌려 변경점(diff)을 보여줍니다. (지금은 변수가 비어 있으니 에러 없이 건너뜁니다!)
+      #PR에서 자동으로 terraform plan까지 돌려 변경점(diff)을 보여줍니다. (지금은 변수가 비어 있으니 에러 없이 건너뜁니다)
       - name: Validate Ansible playbook syntax
         if: hashFiles('infra/ansible/playbook.yml') != ''
         run: |
@@ -80,6 +81,7 @@ jobs:
           terraform init
           terraform plan -no-color
 
+  # 비밀번호 안 털리고 진짜 배포하기
   # environment: production: GitHub의 production 환경 승인 게이트를 통과해야만 실행됩니다.
   # 일반설정은 모두 vars.*(github variables)에서 읽고, 민감정보인 ssh 개인키만 (github secrets)에서 읽어 ansible 무중단 배포를 실행한 뒤 키 파일을 즉시 삭제 합니다.
   deploy:
@@ -95,7 +97,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
-# 장기 aws 액세스 키 없이 vars.AWS_ROLE_ARN을 통해 1시간짜리 임시 자격증명을 OIDC로 발급받아 로그인
+# aws에는 영구 비밀번호 대신 '1시간짜리 일회용 출입증(OIDC)'로 들어가고
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -111,6 +113,7 @@ jobs:
     # ssh 개인키 권한을 0600으로 잠그고, ansible 무중단 배포(run_deploy=true) 실행 직후 키 파일을 즉시 삭제해 보안 유지
     # 주의: GitHub Actions 문법상 step의 if 조건문 안에는 secrets.* 를 직접 쓸 수 없으므로(Invalid workflow file 에러 발생),
     # env로 주입한 뒤 셸 스크립트 안에서 비어있는지 검사합니다.
+    # EC2 서버에는 열쇠파일(deploy_key)로 들어가서 배포한 뒤, 마지막 줄(136줄 rm -f)에서 열쇠를 즉시 삭제해 흔적을 지운다
       - name: Provision EC2 and execute zero-downtime rolling update via Ansible
         if: vars.EC2_HOST != ''
         env:
