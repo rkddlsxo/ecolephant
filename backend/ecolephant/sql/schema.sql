@@ -58,3 +58,9 @@ CREATE TABLE IF NOT EXISTS policies (
     body JSONB NOT NULL
 );
 
+--주인(owner)별로 먼저 모으고 시작 시각(started_at).상태(status) 순으로 정렬하는 책갈피 (복합 인덱스)
+--이미 삭제된 (deleted = TRUE) 세션은 조회하지 않으므로 제외해 인덱스 용량을 아낍니다 (partial Index).
+CREATE INDEX IF NOT EXISTS idx_sessions_owner_started
+    ON sessions (owner,started_at,status)
+    WHERE deleted = FALSE;
+
