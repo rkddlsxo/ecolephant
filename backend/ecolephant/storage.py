@@ -118,6 +118,31 @@ class SQLiteRepository:
             record["events"] = {r["seq"]: json.loads(r["body"]) for r in conn.execute("SELECT seq,body FROM events WHERE session_id=? ORDER BY seq", (session_id,))}
             return record
 
+    def load_many(self, owner, session_ids):
+        if not session_ids:
+            return []
+        placeholders = ",".join("?" for _ in session_ids)
+        with self.connection() as conn:
+            conn.execute("BEGIN")
+            rows = conn.execute(
+                f"SELECT id, body FROM sessions WHERE owner=? AND deleted=0 AND id IN ({placeholders})",
+                (owner, *session_ids),
+            ).fetchall()
+            records_by_id = {}
+            for row in rows:
+                rec = json.loads(row["body"])
+                rec["samples"], rec["events"] = {}, {}
+                records_by_id[row["id"]] = rec
+            if not records_by_id:
+                return []
+            found_ids = list(records_by_id.keys())
+            found_ph = ",".join("?" for _ in found_ids)
+            for r in conn.execute(f"SELECT session_id, seq, body FROM samples WHERE session_id IN ({found_ph}) ORDER BY seq", found_ids):
+                records_by_id[r["session_id"]]["samples"][r["seq"]] = json.loads(r["body"])
+            for r in conn.execute(f"SELECT session_id, seq, body FROM events WHERE session_id IN ({found_ph}) ORDER BY seq", found_ids):
+                records_by_id[r["session_id"]]["events"][r["seq"]] = json.loads(r["body"])
+            return [records_by_id[sid] for sid in session_ids if sid in records_by_id]
+
 
     def list(self, owner):
         with self.connection() as conn:

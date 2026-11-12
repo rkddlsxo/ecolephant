@@ -122,6 +122,33 @@ class FakePostgresConnection:
             rows = sorted(self.state["events"].get(session_id, []), key=lambda r: r["seq"])
             return FakeCursor(rows)
 
+        if normalized.startswith("SELECT id, body FROM sessions WHERE owner = %s AND deleted = FALSE AND id = ANY(%s)"):
+            owner, ids = params
+            rows = [
+                {"id": sid, "body": self.state["sessions"][sid]["body"]}
+                for sid in ids
+                if sid in self.state["sessions"]
+                and self.state["sessions"][sid]["owner"] == owner
+                and not self.state["sessions"][sid]["deleted"]
+            ]
+            return FakeCursor(rows)
+
+        if normalized.startswith("SELECT session_id, seq, body FROM samples WHERE session_id = ANY(%s) ORDER BY seq"):
+            (ids,) = params
+            rows = []
+            for sid in ids:
+                for r in sorted(self.state["samples"].get(sid, []), key=lambda item: item["seq"]):
+                    rows.append({"session_id": sid, "seq": r["seq"], "body": r["body"]})
+            return FakeCursor(rows)
+
+        if normalized.startswith("SELECT session_id, seq, body FROM events WHERE session_id = ANY(%s) ORDER BY seq"):
+            (ids,) = params
+            rows = []
+            for sid in ids:
+                for r in sorted(self.state["events"].get(sid, []), key=lambda item: item["seq"]):
+                    rows.append({"session_id": sid, "seq": r["seq"], "body": r["body"]})
+            return FakeCursor(rows)
+
         if normalized.startswith("INSERT INTO samples"):
             session_id, seq, elapsed_start_ms, duration_ms, active_mode, body = params
             bucket = self.state["samples"].setdefault(session_id, [])
@@ -243,6 +270,45 @@ class PostgresRepositoryDay2ConcurrencyTest(unittest.TestCase):
         loaded = repo.load("user-1", "sess-1")
         self.assertEqual(loaded["session"]["id"], "sess-1")
         self.assertIn("REPEATABLE READ", self.state["isolation_levels"])
+
+    def test_load_many_eliminates_n_plus_1_with_batch_any_queries(self):
+        """[Day 3 검증] 세션 5개를 load_many로 조회할 때 15번(N+1)이 아니라 단 3번의 SELECT(ANY 배치)로 샘플까지 모두 가져와야 합니다."""
+        connections = []
+
+        def open_conn(_):
+            conn = FakePostgresConnection(self.state)
+            connections.append(conn)
+            return conn
+
+        repo = PostgresRepository("postgresql://localhost/ecolephant", connect_fn=open_conn)
+        session_ids = [f"sess-{i}" for i in range(1, 6)]
+        for i, sid in enumerate(session_ids, start=1):
+            payload, record = make_sample_record(session_id=sid, client_id=f"client-{i}", revision=0)
+            repo.create("user-1", f"idem-{i}", payload, record)
+            repo.commit(
+                "user-1",
+                record,
+                samples=[
+                    {
+                        "seq": 1,
+                        "elapsed_start_ms": 0,
+                        "duration_ms": 5000,
+                        "active_mode": "imu",
+                        "calibration_epoch": 1,
+                    }
+                ],
+            )
+
+        connections.clear()
+        records = repo.load_many("user-1", session_ids)
+        self.assertEqual([r["session"]["id"] for r in records], session_ids)
+        # 5개 세션 각각의 samples(seq=1)가 빠짐없이 채워져 있어야 합니다!
+        for rec in records:
+            self.assertIn(1, rec["samples"])
+        # 트랜잭션 딱 1번, SELECT 쿼리 딱 3번(sessions, samples, events)만 실행되었는지 증명!
+        self.assertEqual(len(connections), 1)
+        select_queries = [q for q, _ in connections[0].queries if q.startswith("SELECT")]
+        self.assertEqual(len(select_queries), 3)
 
 
 if __name__ == "__main__":

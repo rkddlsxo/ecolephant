@@ -183,7 +183,7 @@ class PostgresRepository:
             return record
 
     def load_many(self, owner, session_ids):
-        """[Day 3 핵심: N+1 쿼리 제거]
+        """ N+1 쿼리 제거
         for문 안에서 load()를 N번 부르는 대신, session_ids 리스트를 ANY(%s)로 넘겨
         세션이 100개여도 단 1번의 트랜잭션(쿼리 3번)으로 한꺼번에 묶어 조회합니다.
         """
