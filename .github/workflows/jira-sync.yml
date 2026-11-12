@@ -1,0 +1,165 @@
+name: Jira PR Sync
+
+# ==============================================================================
+# GitHub PR <-> Jira (ecolephant.atlassian.net) 자동 연동 워크플로
+# ------------------------------------------------------------------------------
+# 역할:
+# 1. 팀원이 포크(Fork) 저장소나 브랜치에서 PR을 생성·수정·머지할 때,
+#    브랜치명·PR 제목·PR 본문에서 `ECOLEPHANT-숫자` 티켓 키를 자동 추출합니다.
+# 2. 해당 Jira 티켓에 GitHub PR 원격 링크(Remote Issue Link)를 등록/갱신합니다.
+# 3. PR 상태에 맞춰 Jira 카드 상태를 자동으로 이동합니다:
+#    - Draft PR 열림        -> 진행 중 (transition id: 21)
+#    - 일반 PR 열림/재오픈   -> 검토 중 (transition id: 31)
+#    - PR 머지됨(Merged)    -> 완료    (transition id: 41)
+#
+# 필요한 GitHub Secrets (Repository Settings -> Secrets and variables -> Actions):
+# - JIRA_USER_EMAIL : Atlassian 계정 이메일 (예: sungah@inha.edu)
+# - JIRA_API_TOKEN  : Atlassian API 토큰 (https://id.atlassian.com/manage-profile/security/api-tokens)
+# - JIRA_BASE_URL   : (선택) 기본값 https://ecolephant.atlassian.net
+# ==============================================================================
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - closed
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sync-jira:
+    name: Sync PR to Jira (ECOLEPHANT)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Link PR and transition Jira work item
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || 'https://ecolephant.atlassian.net' }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_STATE: ${{ github.event.pull_request.state }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPO_FULL_NAME: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.request
+
+          base_url = os.environ.get("JIRA_BASE_URL", "https://ecolephant.atlassian.net").rstrip("/")
+          email = os.environ.get("JIRA_USER_EMAIL", "").strip()
+          token = os.environ.get("JIRA_API_TOKEN", "").strip()
+
+          pr_number = os.environ.get("PR_NUMBER", "")
+          pr_title = os.environ.get("PR_TITLE", "")
+          pr_body = os.environ.get("PR_BODY", "")
+          pr_url = os.environ.get("PR_URL", "")
+          pr_state = os.environ.get("PR_STATE", "open").lower()
+          pr_draft = os.environ.get("PR_DRAFT", "false").lower() == "true"
+          pr_merged = os.environ.get("PR_MERGED", "false").lower() == "true"
+          pr_author = os.environ.get("PR_AUTHOR", "")
+          head_ref = os.environ.get("HEAD_REF", "")
+          repo = os.environ.get("REPO_FULL_NAME", "rkddlsxo/ecolephant")
+
+          search_text = f"{head_ref}\n{pr_title}\n{pr_body}"
+          keys = sorted(
+              set(re.findall(r"\bECOLEPHANT-\d+\b", search_text, flags=re.IGNORECASE)),
+              key=lambda k: int(k.split("-")[1]),
+          )
+          keys = [k.upper() for k in keys]
+
+          if not keys:
+              print("No ECOLEPHANT-<number> key found in branch, title, or body. Skipping Jira sync.")
+              sys.exit(0)
+
+          print(f"Found Jira keys: {', '.join(keys)}")
+
+          if not email or not token:
+              print("::notice::JIRA_USER_EMAIL 또는 JIRA_API_TOKEN 시크릿이 아직 설정되지 않아 Jira 자동 동기화를 건너뜁니다.")
+              sys.exit(0)
+
+          auth_header = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
+          headers = {
+              "Authorization": f"Basic {auth_header}",
+              "Accept": "application/json",
+              "Content-Type": "application/json",
+          }
+
+          def jira_request(method: str, path: str, payload: dict | None = None):
+              data = json.dumps(payload).encode("utf-8") if payload is not None else None
+              req = urllib.request.Request(f"{base_url}{path}", data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as resp:
+                      body = resp.read().decode("utf-8")
+                      return resp.status, (json.loads(body) if body else {})
+              except urllib.error.HTTPError as e:
+                  err_body = e.read().decode("utf-8", errors="replace")
+                  print(f"::warning::Jira API {method} {path} failed ({e.code}): {err_body}")
+                  return e.code, {}
+
+          if pr_merged:
+              target_transition_id = "41"  # 완료
+              status_label = "Merged"
+          elif pr_state == "open" and pr_draft:
+              target_transition_id = "21"  # 진행 중
+              status_label = "Draft"
+          elif pr_state == "open":
+              target_transition_id = "31"  # 검토 중
+              status_label = "In Review"
+          else:
+              target_transition_id = None
+              status_label = "Closed"
+
+          for key in keys:
+              # 1. PR 원격 링크 등록/갱신 (globalId 기준으로 멱등 업데이트)
+              remote_link_payload = {
+                  "globalId": f"github-pr-{repo}-{pr_number}",
+                  "application": {
+                      "type": "com.atlassian.jira.plugin.system.issuelinktype",
+                      "name": "GitHub",
+                  },
+                  "relationship": "pull request",
+                  "object": {
+                      "url": pr_url,
+                      "title": f"PR #{pr_number}: {pr_title} ({pr_author})",
+                      "summary": f"GitHub PR #{pr_number} ({status_label})",
+                      "icon": {
+                          "url16x16": "https://github.githubassets.com/favicons/favicon.png",
+                          "title": "GitHub Pull Request",
+                      },
+                      "status": {
+                          "resolved": pr_merged,
+                      },
+                  },
+              }
+              status_code, _ = jira_request("POST", f"/rest/api/3/issue/{key}/remotelink", remote_link_payload)
+              if 200 <= status_code < 300:
+                  print(f"[{key}] Linked PR #{pr_number} (resolved={pr_merged})")
+
+              # 2. 티켓 상태 자동 전환
+              if target_transition_id:
+                  t_code, _ = jira_request(
+                      "POST",
+                      f"/rest/api/3/issue/{key}/transitions",
+                      {"transition": {"id": target_transition_id}},
+                  )
+                  if 200 <= t_code < 300:
+                      print(f"[{key}] Transitioned to transition_id={target_transition_id} ({status_label})")
+          PY
+

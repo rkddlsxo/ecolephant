@@ -202,7 +202,11 @@ def statistics():
     except (ZoneInfoNotFoundError, ValueError):
         raise ApiError(422, "invalid_timezone", "IANA 시간대를 확인해 주세요.") from None
     mode, policy_id = mode_filter(), request.args.get("policy_id")
-    records = []
+    # records = [] 주석처리한 이유: DB에서 목록을 직접 가져오는 것이 훨씬 빠르므로 메모리에 모두 로드할 필요가 없습니다.
+
+    session_ids = []
+    # DB야, 이 유저의 세션 목록 다 줘! (쿼리 1번)
+    # session_ids 종이에 적힌 100개 속지를 한 박스에 다 담아서 딱 한 번(load_many)에 줘!
     for session in repo().list(g.owner):
         if session["status"] != "completed" and include != "true":
             continue
@@ -212,8 +216,14 @@ def statistics():
             continue
         if session["status"] == "completed" and session["ended_at"] and timestamp(session["ended_at"]) < low:
             continue
-        record = repo().load(g.owner, session["id"])
-        records.append(record)
+
+        #record = repo().load(g.owner, session["id"])
+        #records.append(record)
+
+        session_ids.append(session["id"]) #장바구니에 ID만 담기
+
+        # for 문 밖에서 모든 ID들을 한 번에 묶어 조회 (N+1 제거)
+    records = repo().load_many(g.owner,session_ids)
     groups, unknown = [], 0
     intervals = list(time_buckets(low, high, zone, group_by))
     for source in ("demo", "real"):

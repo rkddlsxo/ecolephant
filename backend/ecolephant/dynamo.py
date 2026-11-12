@@ -158,6 +158,9 @@ class DynamoRepository:
     def list(self, owner):
         return [json.loads(item["body"])["session"] for item in self.query("owner#" + owner, "session#") if not item.get("deleted")]
 
+    def load_many(self, owner, session_ids):
+        return [self.load(owner, session_id) for session_id in session_ids]
+
     def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session_id, revision = record["session"]["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}

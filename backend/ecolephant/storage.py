@@ -7,7 +7,10 @@ import sqlite3
 from .contracts import canonical
 from .errors import ApiError
 
+# 지금의 sessions 테이블은 세션의 시작 시간 (started_at), 상태(status: 측정 중/완료), 총 측정 시간 (duration_ms) 등을
+# body TEXT 하나에 JSON 문자열로 뭉뚱그려 저장하므로, 조건 검색 시 DB 인덱스를 타지 못하고 파이썬에서 매번 json.loads()로 파싱해야 합니다.
 
+# 이런식의 코드는 긴 소설책 한 줄 (Text)처럼 보여서 조건을 건 것만 찾아줘 이럴때 DB가 바로 못 찾고, 파이썬이 모든 줄을 다 꺼내서 읽어야했다.
 class SQLiteRepository:
     def __init__(self, database):
         self.database = str(database)
@@ -15,6 +18,7 @@ class SQLiteRepository:
         with self.connection() as conn:
             conn.executescript("""
                 PRAGMA journal_mode=WAL;
+                
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY, owner TEXT NOT NULL, client_id TEXT NOT NULL,
                     idem_key TEXT NOT NULL, body TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -67,6 +71,7 @@ class SQLiteRepository:
             raise ApiError(409, "idempotency_conflict", "같은 시작 식별자에 다른 내용이 있습니다.")
         return json.loads(matches[0]["body"])
 
+    # 새 세션 만들기
     def create(self, owner, key, payload, record):
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -113,10 +118,37 @@ class SQLiteRepository:
             record["events"] = {r["seq"]: json.loads(r["body"]) for r in conn.execute("SELECT seq,body FROM events WHERE session_id=? ORDER BY seq", (session_id,))}
             return record
 
+    def load_many(self, owner, session_ids):
+        if not session_ids:
+            return []
+        placeholders = ",".join("?" for _ in session_ids)
+        with self.connection() as conn:
+            conn.execute("BEGIN")
+            rows = conn.execute(
+                f"SELECT id, body FROM sessions WHERE owner=? AND deleted=0 AND id IN ({placeholders})",
+                (owner, *session_ids),
+            ).fetchall()
+            records_by_id = {}
+            for row in rows:
+                rec = json.loads(row["body"])
+                rec["samples"], rec["events"] = {}, {}
+                records_by_id[row["id"]] = rec
+            if not records_by_id:
+                return []
+            found_ids = list(records_by_id.keys())
+            found_ph = ",".join("?" for _ in found_ids)
+            for r in conn.execute(f"SELECT session_id, seq, body FROM samples WHERE session_id IN ({found_ph}) ORDER BY seq", found_ids):
+                records_by_id[r["session_id"]]["samples"][r["seq"]] = json.loads(r["body"])
+            for r in conn.execute(f"SELECT session_id, seq, body FROM events WHERE session_id IN ({found_ph}) ORDER BY seq", found_ids):
+                records_by_id[r["session_id"]]["events"][r["seq"]] = json.loads(r["body"])
+            return [records_by_id[sid] for sid in session_ids if sid in records_by_id]
+
+
     def list(self, owner):
         with self.connection() as conn:
             return [json.loads(row["body"])["session"] for row in conn.execute("SELECT body FROM sessions WHERE owner=? AND deleted=0", (owner,))]
 
+#샘플/ 이벤트 추가 저장하기
     def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session_id, revision = record["session"]["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}
@@ -126,6 +158,7 @@ class SQLiteRepository:
                 conn.execute("BEGIN IMMEDIATE")
                 updated = conn.execute("UPDATE sessions SET body=?, revision=? WHERE id=? AND owner=? AND revision=? AND deleted=0",
                                        (canonical(stored), revision + 1, session_id, owner, revision))
+                # 어? 내가 읽었을 때의 revision이 아니네? (그새 다른 요청이 수정함 -> 낙관적 락 409 충돌)
                 if updated.rowcount != 1:
                     raise ApiError(409, "concurrent_write", "기록이 변경되었습니다. 같은 요청을 다시 보내 주세요.")
                 for sample in samples:
