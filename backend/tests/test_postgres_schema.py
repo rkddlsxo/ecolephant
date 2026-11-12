@@ -44,6 +44,9 @@ class PostgresDay1SchemaTest(unittest.TestCase):
             self.assertIn(column, sql)
         self.assertIn("UNIQUE (owner, client_id)", sql)
         self.assertIn("UNIQUE (owner, idem_key)", sql)
+        # Day 3: 복합 부분 인덱스(idx_sessions_owner_started)가 정의되어 있어야 합니다.
+        self.assertIn("CREATE INDEX IF NOT EXISTS idx_sessions_owner_started", sql)
+        self.assertIn("WHERE deleted = FALSE", sql)
 
     def test_init_postgres_blocks_remote_hosts_by_default(self):
         module = load_init_module()
