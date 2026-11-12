@@ -11,6 +11,7 @@ import type { ActiveMode, AlertCommand, DerivedWindow, Mode } from '@ecolephant/
 import { api, errorMessage, isMissingSession } from '../../api/client';
 import type { EventPayload, Sample, Session, SessionCreate, SessionEvent } from '../../api/client';
 import { queryClient } from '../../api/query';
+import { cameraPipeline } from './camera-pipeline';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 import { usePreferences } from '../../state/preferences';
 
@@ -120,6 +121,13 @@ class MeasurementController {
     const current = useMeasurement.getState();
     if (this.finishPromise) return;
     if (['active', 'paused', 'recalibrating', 'ending', 'starting'].includes(current.phase)) return;
+    if (current.input === 'camera') {
+      // AirPods are not connected yet, so real input is webcam-only and needs a baseline first.
+      if (mode !== 'webcam' || !cameraPipeline.hasBaseline) {
+        useMeasurement.setState({ error: '카메라를 켜고 기준 자세를 먼저 잡아 주세요.' });
+        return;
+      }
+    }
     if (!this.starting || this.starting.body.requested_mode !== mode) {
       this.starting = {
         body: {
@@ -138,6 +146,7 @@ class MeasurementController {
       ...initialMeasurement,
       phase: 'starting',
       mode,
+      input: current.input,
       scenario: current.scenario,
       camera: current.camera,
       head: current.head,
@@ -249,6 +258,9 @@ class MeasurementController {
     while (this.cursor < target && this.samples.length < policy.transport.memory_queue_windows) {
       const duration = Math.min(1000, target - this.cursor);
       const stale = gap || this.cursor < this.unavailableUntil || document.hidden;
+      // Real camera: the window after the calibration state machine stores a baseline ends it.
+      if (this.calibrationUntil === Number.POSITIVE_INFINITY && !cameraPipeline.calibrating)
+        this.calibrationUntil = this.cursor;
       const isCalibrating = this.calibrationUntil !== null && this.cursor < this.calibrationUntil;
       if (this.calibrationUntil !== null && this.cursor >= this.calibrationUntil) {
         this.addEvent({ type: 'calibration_completed', data: { calibration_epoch: store.epoch } });
@@ -256,10 +268,20 @@ class MeasurementController {
         if (store.phase !== 'ending') useMeasurement.setState({ phase: 'active' });
         store = useMeasurement.getState();
       }
-      const observation = demoObservation(store.scenario, this.cursor, {
-        cameraDeg: store.camera,
-        headDeg: store.head,
-      });
+      const observation =
+        store.input === 'camera'
+          ? {
+              cameraDeg: null,
+              headDeg: null,
+              ...cameraPipeline.observe(
+                this.origin + this.cursor,
+                this.origin + this.cursor + duration,
+              ),
+            }
+          : demoObservation(store.scenario, this.cursor, {
+              cameraDeg: store.camera,
+              headDeg: store.head,
+            });
       if (stale) observation.quality = 'no_sensor';
       else if (isCalibrating) observation.quality = 'calibrating';
       else if (
@@ -342,7 +364,11 @@ class MeasurementController {
     // 일시정지에서 바로 보정으로 넘어가므로 재개 이벤트를 먼저 남김
     this.addEvent({ type: 'resumed', data: {} });
     this.addEvent({ type: 'calibration_started', data: { calibration_epoch: epoch } });
-    this.calibrationUntil = this.cursor + 3000;
+    if (store.input === 'camera') {
+      // Ends when the real 3 s stable segment is found, not after a fixed 3 s.
+      cameraPipeline.beginCalibration();
+      this.calibrationUntil = Number.POSITIVE_INFINITY;
+    } else this.calibrationUntil = this.cursor + 3000;
     useMeasurement.setState({ phase: 'recalibrating', epoch, mode: nextMode });
   }
 

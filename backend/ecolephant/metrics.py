@@ -69,18 +69,21 @@ def aggregate(records, low=None, high=None):
                 event_groups[key].append((elapsed, corrections.get(alert_id)))
     result = []
     for (mode, policy_id), samples in sorted(groups.items()):
-        m, weighted = empty_metrics(), 0
+        m, weighted, angled = empty_metrics(), 0, 0
         for sample, duration in samples:
             if sample["quality"] != "valid":
                 continue
             m["valid_duration_ms"] += duration
             m[sample["posture_level"] + "_duration_ms"] += duration
-            weighted += sample["display_angle_deg"] * duration
+            # Change-based webcam windows carry no degrees; the mean covers measured angles only.
+            if sample["display_angle_deg"] is not None:
+                weighted += sample["display_angle_deg"] * duration
+                angled += duration
             if sample["posture_level"] == "high" and sample["reason_code"] in {"combined_high", "forward_shift"}:
                 m["forward_head_suspected_ms"] += duration
         valid = m["valid_duration_ms"]
         if valid:
-            m["mean_display_angle_deg"] = weighted / valid
+            m["mean_display_angle_deg"] = weighted / angled if angled else None
             m["within_range_percent"] = m["normal_duration_ms"] / valid * 100
         delays = []
         for elapsed, correction in event_groups[(mode, policy_id)]:
@@ -111,23 +114,28 @@ def build_append_state(record):
     if acknowledged != max(samples, default=0):
         return None
     tail = samples.get(acknowledged)
-    weighted = {}
+    weighted, angled = {}, {}
     for sample in samples.values():
         mode = sample["active_mode"]
         if mode in MODES and sample["quality"] == "valid":
-            weighted[mode] = weighted.get(mode, 0) + sample["display_angle_deg"] * sample["duration_ms"]
+            angle, duration = sample["display_angle_deg"], sample["duration_ms"]
+            weighted[mode] = weighted.get(mode, 0) + (angle * duration if angle is not None else 0)
+            angled[mode] = angled.get(mode, 0) + (duration if angle is not None else 0)
     delivered = [event["elapsed_ms"] for event in record["events"].values()
                  if event["type"] == "alert_delivery" and event["data"]["stage"] == 1
                  and event["data"]["result"] == "delivered"]
     return {"version": 1, "tail_seq": acknowledged,
             "tail_end_ms": tail["elapsed_start_ms"] + tail["duration_ms"] if tail else 0,
             "tail_epoch": tail["calibration_epoch"] if tail else record["create"]["initial_calibration_epoch"],
-            "weighted": weighted, "latest_delivery_ms": max(delivered, default=None)}
+            "weighted": weighted, "angled": angled, "latest_delivery_ms": max(delivered, default=None)}
 
 
 def append_sample_metrics(record, samples):
     session, state = record["session"], record["append_state"]
     groups = {(group["active_mode"], group["policy_id"]): group for group in session["summaries"]}
+    if "angled" not in state:
+        # States saved before change-based policies existed: every valid window had an angle.
+        state["angled"] = {group["active_mode"]: group["metrics"]["valid_duration_ms"] for group in session["summaries"]}
     for sample in samples:
         mode, duration = sample["active_mode"], sample["duration_ms"]
         if mode not in MODES:
@@ -140,14 +148,17 @@ def append_sample_metrics(record, samples):
         metrics = group["metrics"]
         metrics["valid_duration_ms"] += duration
         metrics[sample["posture_level"] + "_duration_ms"] += duration
-        state["weighted"][mode] = state["weighted"].get(mode, 0) + sample["display_angle_deg"] * duration
+        angle = sample["display_angle_deg"]
+        state["weighted"][mode] = state["weighted"].get(mode, 0) + (angle * duration if angle is not None else 0)
+        state["angled"][mode] = state["angled"].get(mode, 0) + (duration if angle is not None else 0)
         if sample["posture_level"] == "high" and sample["reason_code"] in {"combined_high", "forward_shift"}:
             metrics["forward_head_suspected_ms"] += duration
     for (mode, _), group in groups.items():
         metrics = group["metrics"]
         valid = metrics["valid_duration_ms"]
         if valid:
-            metrics["mean_display_angle_deg"] = state["weighted"][mode] / valid
+            angled = state["angled"].get(mode, 0)
+            metrics["mean_display_angle_deg"] = state["weighted"][mode] / angled if angled else None
             metrics["within_range_percent"] = metrics["normal_duration_ms"] / valid * 100
     session["summaries"] = [groups[key] for key in sorted(groups)]
 

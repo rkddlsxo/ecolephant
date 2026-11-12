@@ -1,6 +1,6 @@
-import { Info, Lightbulb, Move, ScanFace, Sofa, Sun } from 'lucide-react';
+import { Lightbulb, Move, ScanFace, Sofa, Sun } from 'lucide-react';
 import { CameraPreview } from '../components/CameraPreview';
-import { Button } from '../components/ui';
+import { CalibrationControl } from '../features/measurement/CalibrationControl';
 
 const steps = [
   {
@@ -38,7 +38,7 @@ export function CalibrationPage() {
       </div>
 
       <div className="calibration-layout">
-        <CameraPreview />
+        <CameraPreview analyze />
 
         <div className="calibration-side">
           <section className="panel calibration-card" aria-labelledby="calibration-steps-title">
@@ -56,13 +56,7 @@ export function CalibrationPage() {
                 </li>
               ))}
             </ol>
-            <Button className="calibration-start" disabled>
-              보정 시작
-            </Button>
-            <p className="calibration-pending">
-              <Info size={14} aria-hidden="true" />
-              AI 모델이 연결되면 사용할 수 있어요.
-            </p>
+            <CalibrationControl />
           </section>
 
           <section className="panel calibration-card" aria-labelledby="calibration-tips-title">

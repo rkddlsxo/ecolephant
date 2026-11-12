@@ -1,12 +1,15 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import type { Level, Mode, Scenario } from '@ecolephant/ai';
+import { policy, type Level, type Mode, type PostureType, type Scenario } from '@ecolephant/ai';
 import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
 import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
 import { Select } from '../components/Select';
+import { CameraPreview } from '../components/CameraPreview';
+import { CalibrationControl } from '../features/measurement/CalibrationControl';
+import { useCameraPipeline } from '../features/measurement/camera-pipeline';
 import { measurement } from '../features/measurement/controller';
 import { usePolicyCheck } from '../features/measurement/policy';
-import { useMeasurement } from '../state/measurement';
+import { useMeasurement, type MeasurementInput } from '../state/measurement';
 import { usePreferences } from '../state/preferences';
 
 const levelLabel: Record<Level, string> = {
@@ -15,6 +18,15 @@ const levelLabel: Record<Level, string> = {
   high: '높음',
   unknown: '판단 불가',
 };
+const postureLabel: Record<PostureType, string> = {
+  chin_forward: '턱 내밀기',
+  head_down: '고개 숙임',
+  combined: '복합',
+};
+const inputOptions: { value: MeasurementInput; label: string }[] = [
+  { value: 'camera', label: '실제 카메라' },
+  { value: 'demo', label: '테스트 입력' },
+];
 const scenarioLabel: Partial<Record<Scenario, string>> = {
   auto: '자동',
   normal: '정상',
@@ -24,6 +36,9 @@ const scenarioLabel: Partial<Record<Scenario, string>> = {
   missing: '센서 없음',
   motion: '움직임',
 };
+
+const changeThresholds = policy.camera_change_thresholds;
+const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
 
 const modeOptions = (['webcam', 'airpods', 'combined'] as const).map((mode) => ({
   value: mode,
@@ -40,7 +55,12 @@ export function MeasurePage() {
   const [selectedMode, setSelectedMode] = useState<Mode>('webcam');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
-  const policyCheck = usePolicyCheck(selectedMode);
+  const camera = state.input === 'camera';
+  const pipeline = useCameraPipeline();
+  // Real input is webcam-only until AirPods are connected.
+  const mode: Mode = camera ? 'webcam' : selectedMode;
+  const policyCheck = usePolicyCheck(mode);
+  const cameraReady = !camera || (pipeline.status === 'running' && pipeline.hasBaseline);
 
   useEffect(() => {
     if (!state.alert || document.hidden) return;
@@ -56,16 +76,20 @@ export function MeasurePage() {
       <div className="page-heading">
         <div>
           <div className="title-with-status">
-            <h1>테스트 측정</h1>
-            <span className="measure-badge">가상 입력</span>
+            <h1>{camera ? '시범 측정' : '테스트 측정'}</h1>
+            <span className="measure-badge">{camera ? '기준값 검증 전' : '가상 입력'}</span>
           </div>
           <p className="page-description">
-            가상 입력으로 측정·알림·저장 흐름이 잘 이어지는지 확인하는 화면이에요.
+            {camera
+              ? '웹캠으로 기준 자세에서 얼마나 달라졌는지 판정해요. 기록은 검증 전 연습용으로 저장돼요.'
+              : '가상 입력으로 측정·알림·저장 흐름이 잘 이어지는지 확인하는 화면이에요.'}
           </p>
         </div>
       </div>
       <Notice>
-        AI 모델 연결 전 테스트입니다.
+        {camera
+          ? '영상과 관절점은 이 기기에서만 분석하고, 서버에는 판정 결과와 변화량 숫자만 보내요.'
+          : '가상 입력으로 하는 테스트입니다.'}
         {policyCheck.status === 'ok' &&
           (!policyCheck.server.release_approved ||
             policyCheck.server.camera_mapping_status !== 'validated') &&
@@ -80,23 +104,41 @@ export function MeasurePage() {
       )}
       {state.alert && <Notice>자세 확인 · {state.alert.stage}차 알림</Notice>}
       {state.phase === 'recalibrating' && (
-        <Notice>기준 자세를 다시 잡고 있어요. 편한 자세로 3초 동안 가만히 있어 주세요.</Notice>
+        <Notice>
+          기준 자세를 다시 잡고 있어요. 편한 자세로 3초 동안 가만히 있어 주세요.
+          {camera && ` (${Math.round(pipeline.progress * 100)}%)`}
+        </Notice>
+      )}
+      {camera && (
+        <div className="measure-camera">
+          <CameraPreview analyze />
+          {!running && <CalibrationControl />}
+        </div>
       )}
       <section className="panel service-panel measure-panel">
         <div className="service-controls">
+          <Select<MeasurementInput>
+            label="입력"
+            value={state.input}
+            disabled={running}
+            onChange={(input) => useMeasurement.setState({ input, error: null })}
+            options={inputOptions}
+          />
           <Select<Mode>
             label="측정 방식"
-            value={running ? state.mode : selectedMode}
-            disabled={running}
+            value={running ? state.mode : mode}
+            disabled={running || camera}
             onChange={setSelectedMode}
             options={modeOptions}
           />
-          <Select<Scenario>
-            label="테스트 입력"
-            value={state.scenario}
-            onChange={(scenario) => useMeasurement.setState({ scenario })}
-            options={scenarioOptions}
-          />
+          {!camera && (
+            <Select<Scenario>
+              label="테스트 입력"
+              value={state.scenario}
+              onChange={(scenario) => useMeasurement.setState({ scenario })}
+              options={scenarioOptions}
+            />
+          )}
           {/* 항상 기록으로 갈 수 있게 선택 칸 줄 오른쪽 끝에 고정. 방금 저장한 세션이 있으면 그 상세로 */}
           {state.phase === 'completed' && state.session ? (
             <Link
@@ -129,7 +171,7 @@ export function MeasurePage() {
                 : state.phase === 'recalibrating'
                   ? '기준 재설정 중'
                   : state.latest
-                    ? levelLabel[state.latest.posture_level]
+                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel[state.latest.posture_type]}` : ''}`
                     : '대기'}
             </strong>
           </div>
@@ -151,13 +193,34 @@ export function MeasurePage() {
             <strong className="measure-number">{state.pending}개</strong>
           </div>
         </div>
+        {camera && changeThresholds && (
+          <p className="measure-change-readout" data-testid="change-readout">
+            기준 대비 변화 (시범값 확인용) · 앞쏠림{' '}
+            {state.latest?.camera_forward_change != null
+              ? signed(state.latest.camera_forward_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.forward.caution)}) · 귀 높이{' '}
+            {state.latest?.camera_drop_change != null
+              ? signed(state.latest.camera_drop_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.drop.caution)}) · 코 높이{' '}
+            {state.latest?.camera_nose_drop_change != null
+              ? signed(state.latest.camera_nose_drop_change)
+              : '—'}{' '}
+            (주의 {signed(changeThresholds.nose_drop.caution)})
+          </p>
+        )}
         <div className="button-row service-actions">
           {!running && (
             <Button
-              disabled={policyCheck.status !== 'ok'}
-              onClick={() => void measurement.start(selectedMode).catch(() => undefined)}
+              disabled={policyCheck.status !== 'ok' || !cameraReady || pipeline.calibrating}
+              onClick={() => void measurement.start(mode).catch(() => undefined)}
             >
-              {policyCheck.status === 'loading' ? '정책 확인 중' : '시작'}
+              {policyCheck.status === 'loading'
+                ? '정책 확인 중'
+                : camera && !cameraReady
+                  ? '기준 자세를 먼저 잡아 주세요'
+                  : '시작'}
             </Button>
           )}
           {['active', 'paused'].includes(state.phase) && (

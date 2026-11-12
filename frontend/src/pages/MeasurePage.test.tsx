@@ -109,3 +109,41 @@ it('offers recalibration only while paused and shows progress while recalibratin
   expect(screen.getByText('기준 재설정 중')).toBeInTheDocument();
   expect(screen.getByText(/3초 동안 가만히/)).toBeInTheDocument();
 });
+
+it('real camera input shows the camera, hides test scenarios and waits for a baseline', () => {
+  useMeasurement.setState({ input: 'camera' });
+  render(<MeasurePage />);
+  expect(screen.getByRole('heading', { name: '시범 측정' })).toBeInTheDocument();
+  expect(screen.getByLabelText('실시간 웹캠 미리보기')).toBeInTheDocument();
+  expect(screen.getByText(/서버에는 판정 결과와 변화량 숫자만/)).toBeInTheDocument();
+  expect(screen.queryByText('테스트 입력', { selector: 'label' })).not.toBeInTheDocument();
+  const start = screen.getByRole('button', { name: '기준 자세를 먼저 잡아 주세요' });
+  expect(start).toBeDisabled();
+  expect(screen.getByRole('button', { name: '보정 시작' })).toBeDisabled();
+});
+
+it('shows the posture type next to the level', () => {
+  useMeasurement.setState({
+    phase: 'active',
+    latest: {
+      seq: 1,
+      elapsed_start_ms: 0,
+      duration_ms: 1000,
+      calibration_epoch: 1,
+      active_mode: 'webcam',
+      quality: 'valid',
+      camera_estimate_deg: null,
+      head_flexion_deg: null,
+      display_angle_deg: null,
+      posture_level: 'caution',
+      reason_code: 'mixed_caution',
+      confidence: 'single_sensor',
+      camera_forward_change: 0.12,
+      camera_drop_change: 0,
+      camera_nose_drop_change: null,
+      posture_type: 'chin_forward',
+    },
+  });
+  render(<MeasurePage />);
+  expect(screen.getByText('주의 · 턱 내밀기')).toBeInTheDocument();
+});

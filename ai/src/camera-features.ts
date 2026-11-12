@@ -34,6 +34,12 @@ export interface CameraFeatures {
   r: number;
   /** (mid_shoulder_y - mid_ear_y) / shoulder_width, in pixels; larger = ears higher. */
   h: number;
+  /**
+   * (mid_ear_y - nose_y) / shoulder_width, in pixels; larger = nose higher relative to the ears.
+   * A dropping head tends to lower it. `null` when the nose is missing or below the confidence
+   * minimum; the frame is still usable for `r` and `h`.
+   */
+  n?: number | null;
 }
 
 export type FeatureFailure =
@@ -71,7 +77,7 @@ export function cameraFeatures(
   if (frame.quality === 'no_pose') return { ok: false, reason: 'no_pose' };
   if (frame.quality === 'low_confidence') return { ok: false, reason: 'low_confidence' };
   if (frame.quality === 'motion') return { ok: false, reason: 'motion' };
-  const { leftEar, rightEar, leftShoulder, rightShoulder } = frame.landmarks;
+  const { nose, leftEar, rightEar, leftShoulder, rightShoulder } = frame.landmarks;
   const min = options.minConfidence;
   if (
     !usable(leftEar, min) ||
@@ -99,6 +105,7 @@ export function cameraFeatures(
       timestampMs: frame.timestampMs,
       r: faceWidth / shoulderWidth,
       h: (midShoulderY - midEarY) / shoulderWidth,
+      n: usable(nose, min) ? (midEarY - px(nose).y) / shoulderWidth : null,
     },
   };
 }
@@ -106,6 +113,8 @@ export function cameraFeatures(
 export interface CameraBaseline {
   r0: number;
   h0: number;
+  /** Baseline of `n`; `null`/absent when the nose was not reliable during calibration. */
+  n0?: number | null;
 }
 
 /**

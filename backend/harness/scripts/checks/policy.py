@@ -11,4 +11,11 @@ def check_policy(policy):
     require(policy['transport']['batch_max_items']==60 and policy['transport']['batch_max_bytes']==65536,'Transport limits disagree with API')
     require(policy['alerts']['adaptive_reduction_enabled'] is False,'Adaptive reduction requires an approved rule')
     require(bool(policy['provenance']['source_initial_values']) and bool(policy['provenance']['design_proposals']),'Missing policy provenance')
-    print('PASS draft policy: explicit provenance, transport bounds, unapproved mapping')
+    if policy.get('camera_judgement') == 'change':
+        bands=policy['camera_change_thresholds']
+        require(0<bands['forward']['caution']<bands['forward']['high'],'Invalid forward change bounds')
+        require(all(bands[k]['high']<bands[k]['caution']<0 for k in ('drop','nose_drop')),'Invalid drop change bounds')
+        require('camera_change_thresholds' in policy['provenance']['design_proposals'],'Change thresholds must be marked as design proposals')
+    else:
+        require('camera_change_thresholds' not in policy,'Change thresholds need camera_judgement=change')
+    print(f'PASS draft policy {policy["policy_id"]}: explicit provenance, transport bounds, unapproved mapping')
