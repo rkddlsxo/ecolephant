@@ -41,10 +41,10 @@ class PostgresRepository:
         except Exception:
             raise ApiError(503, "storage_unavailable", "저장소를 다시 연결해 주세요.") from None
         try:
-            # 트랜잭션 격리 수준(Isolation Level)
-            # PostgreSQL의 기본값(READ COMMITTED)은 한 트랜잭션 안에서 SELECT를 두 번(sessions 조회 -> samples 조회) 할 때
-            # 그 0.001초 사이에 다른 요청이 끼어들어 데이터를 바꾸면 앞뒤가 안 맞는 상태(Non-Repeatable Read)를 읽을 수 있습니다.
-            # 여러 테이블을 묶어 읽을 때는 REPEATABLE READ로 격리 수준을 올려 처음 읽은 시점의 일관된 스냅샷을 보장합니다.
+            # 트랜잭션 격리 수준
+            # postgresql의 기본 설정으로 두면, session을 읽고, sample을 읽는 그 0.001초 틈새 사이에 앞 뒤가 안맞는 반쪽짜리 데이터를 읽게 된다.
+            # 그래서 repeatable_read를 사용한다. 
+            # 내가 이 트랜젝션을 시작한 순간의 사진 (스냅샷)을 찍어두고, 끝날때까지 똑같은 시점의 데이터만 보여줘 수준으로
             if repeatable_read:
                 conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
             yield conn

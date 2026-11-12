@@ -97,7 +97,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
-# aws에는 영구 비밀번호 대신 '1시간짜리 일회용 출입증(OIDC)'로 들어가고
+   # aws에는 영구 비밀번호 대신 '1시간짜리 일회용 출입증(OIDC)'로 들어가고
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -110,10 +110,7 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-    # ssh 개인키 권한을 0600으로 잠그고, ansible 무중단 배포(run_deploy=true) 실행 직후 키 파일을 즉시 삭제해 보안 유지
-    # 주의: GitHub Actions 문법상 step의 if 조건문 안에는 secrets.* 를 직접 쓸 수 없으므로(Invalid workflow file 에러 발생),
-    # env로 주입한 뒤 셸 스크립트 안에서 비어있는지 검사합니다.
-    # EC2 서버에는 열쇠파일(deploy_key)로 들어가서 배포한 뒤, 마지막 줄(136줄 rm -f)에서 열쇠를 즉시 삭제해 흔적을 지운다
+    # EC2 서버에는 열쇠파일(deploy_key)로 들어가서 배포한 뒤, 마지막 줄(136줄 rm -f)에서 열쇠를 즉시 삭제해 흔적을 지움
       - name: Provision EC2 and execute zero-downtime rolling update via Ansible
         if: vars.EC2_HOST != ''
         env:

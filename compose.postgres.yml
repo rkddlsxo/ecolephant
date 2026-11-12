@@ -1,10 +1,8 @@
-# PostgreSQL 16 로컬 컨테이너 및 스키마 초기화 구성
-# 기동 순서: 1순위 postgres
-#         -> 2순위 init-postgres
-#         -> 3순위 backend
+# 기동 순서: postgres(DB) -> init-postgres(db생성) -> backend 
+#         
 services:
   postgres:
-  #초경량버전, 일반버전보다 용량과 메모리를 훨씬 적게 먹어서, 나중에 서버에 올릴 때 메모리가 안터지게 해줌
+  #초경량버전, 나중에 서버에 올릴 때 메모리가 안터지게 해줌
     image: postgres:16-alpine
     environment:
     # 환경변수로 따로 지정한 값이 있으면 그걸 쓰고, 없으면 기본값을 쓴다. (안그러면 매번 바꿔줘야 해서 귀찮음)
@@ -12,11 +10,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ecolephant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecolephant_local}
     ports:
-      # 외부 인터넷에서 DB 포트로 직접 들어오지 못하도록 로컬호스트(127.0.0.1)에만 바인딩합니다.
-      # 그냥 5432:5432라고 적으면 외부 인터넷(0.0.0.0)에 누구나 우리 DB포트를 찔러 볼 수 있다.
-      # 앞에 127.0.0.1: 를 붙이면 로컬PC에서만 접속가능해서 더 안전함.
+      # 내 PC에서만 접속가능 (외부차단)
       - "127.0.0.1:5432:5432"
-      #컨테이너를 껏다켜도 db안에 저장한 세션 기록이 날아가지 않게 하드디스크(postgres-data)에 영구 보관하는 설정
+      #컨테이너를 지워도 데이터 유지
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -37,13 +33,12 @@ services:
     environment:
       ECOLEPHANT_POSTGRES_DSN: postgresql://ecolephant:ecolephant_local@postgres:5432/ecolephant
     volumes:
-    # ro: 컨테이너 안에서 실수로 원본 파이썬 파일이나 SQL파일을 수정하거나 지우지 못하게 읽기 전용으로만 넣어주는 안전장치
+    # ro: 읽기 전용으로만 넣어주는 안전장치
       - ./scripts/init-postgres.py:/tools/init-postgres.py:ro
       - ./backend/ecolephant/sql/schema.sql:/tools/schema.sql:ro
     depends_on:
       postgres:
-        # postgres 컨테이너가 pg_isready 헬스체크를 통과(service_healthy)한 뒤에야 테이블 생성을 시작합니다.
-        # 1번 postgres 컨테이너가 위에서 pg_isready 검사를 통과해 healthy 도장을 받은 직후에만 이 선반 설치 기사님이 출근하도록 순서를 강제한 줄
+        # 실패할 때만 재실행
         condition: service_healthy
     restart: on-failure
 
