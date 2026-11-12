@@ -182,6 +182,42 @@ class PostgresRepository:
             record["events"] = {row["seq"]: _decode_json(row["body"]) for row in event_rows}
             return record
 
+    def load_many(self, owner, session_ids):
+        """[Day 3 핵심: N+1 쿼리 제거]
+        for문 안에서 load()를 N번 부르는 대신, session_ids 리스트를 ANY(%s)로 넘겨
+        세션이 100개여도 단 1번의 트랜잭션(쿼리 3번)으로 한꺼번에 묶어 조회합니다.
+        """
+        if not session_ids:
+            return []
+        ids = list(session_ids)
+        with self.connection(repeatable_read=True) as conn:
+            session_rows = conn.execute(
+                "SELECT id, body FROM sessions WHERE owner = %s AND deleted = FALSE AND id = ANY(%s)",
+                (owner, ids),
+            ).fetchall()
+            records_by_id = {}
+            for row in session_rows:
+                rec = _decode_json(row["body"])
+                rec["samples"], rec["events"] = {}, {}
+                records_by_id[row["id"]] = rec
+            if not records_by_id:
+                return []
+            found_ids = list(records_by_id.keys())
+        
+            sample_rows = conn.execute(
+                "SELECT session_id, seq, body FROM samples WHERE session_id = ANY(%s) ORDER BY seq",
+                (found_ids,),
+            ).fetchall()
+            event_rows = conn.execute(
+                "SELECT session_id, seq, body FROM events WHERE session_id = ANY(%s) ORDER BY seq",
+                (found_ids,),
+            ).fetchall()
+            for row in sample_rows:
+                records_by_id[row["session_id"]]["samples"][row["seq"]] = _decode_json(row["body"])
+            for row in event_rows:
+                records_by_id[row["session_id"]]["events"][row["seq"]] = _decode_json(row["body"])
+            return [records_by_id[sid] for sid in ids if sid in records_by_id]
+
     def list(self, owner):
         with self.connection() as conn:
             rows = conn.execute(
