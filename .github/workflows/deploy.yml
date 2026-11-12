@@ -108,14 +108,20 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-    #ssh 개인키 권한을 0600으로 잠그고, ansible 무중단 배포(run_deploy=true) 실행 직후 키 파일을 즉시 삭제해 보안 유지
+    # ssh 개인키 권한을 0600으로 잠그고, ansible 무중단 배포(run_deploy=true) 실행 직후 키 파일을 즉시 삭제해 보안 유지
+    # 주의: GitHub Actions 문법상 step의 if 조건문 안에는 secrets.* 를 직접 쓸 수 없으므로(Invalid workflow file 에러 발생),
+    # env로 주입한 뒤 셸 스크립트 안에서 비어있는지 검사합니다.
       - name: Provision EC2 and execute zero-downtime rolling update via Ansible
-        if: vars.EC2_HOST != '' && secrets.EC2_SSH_KEY != ''
+        if: vars.EC2_HOST != ''
         env:
           EC2_HOST: ${{ vars.EC2_HOST }}
           EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
+          if [ -z "$EC2_SSH_KEY" ]; then
+            echo "EC2_SSH_KEY secret is not configured; skipping Ansible deployment."
+            exit 0
+          fi
           sudo apt-get update
           sudo apt-get install -y ansible
           install -m 0700 -d ~/.ssh

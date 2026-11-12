@@ -60,6 +60,18 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("try_files $uri =404;", nginx_conf)
         self.assertIn("application/wasm", nginx_conf)
 
+    def test_github_workflows_do_not_reference_secrets_in_if_conditions(self):
+        workflows_dir = ROOT / ".github" / "workflows"
+        for wf in workflows_dir.glob("*.yml"):
+            for idx, line in enumerate(wf.read_text(encoding="utf-8").splitlines(), start=1):
+                stripped = line.strip()
+                if stripped.startswith("if:"):
+                    self.assertNotIn(
+                        "secrets.",
+                        stripped,
+                        f"{wf.name} {idx}행: GitHub Actions는 step/job if 조건문에 secrets.* 직접 참조를 허용하지 않습니다",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
