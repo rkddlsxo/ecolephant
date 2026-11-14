@@ -1,4 +1,4 @@
-"""PostgreSQL repository with MVCC row-level locking, REPEATABLE READ snapshots, and optimistic locking."""
+"""PostgreSQL """
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -9,7 +9,7 @@ from .errors import ApiError
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "sql/schema.sql"
 
-
+# JSON 데이터를 파이썬 딕셔너리로 변환
 def _decode_json(value):
     if isinstance(value, (bytes, bytearray)):
         return json.loads(value.decode("utf-8"))
@@ -26,6 +26,7 @@ class PostgresRepository:
             with self.connection() as conn:
                 conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
+    # DB와 connection을 새로 여는 함수
     def _open_connection(self):
         if self._connect_fn is not None:
             return self._connect_fn(self.dsn)
@@ -34,6 +35,8 @@ class PostgresRepository:
 
         return psycopg.connect(self.dsn, row_factory=dict_row, autocommit=False)
 
+    # Connection을 관리하는 함수
+    # 연결 열기 -> 쿼리 성공하면 저장(commit) -> 에러 나면 취소(rollback) -> 닫기(close)
     @contextmanager
     def connection(self, *, repeatable_read=False):
         try:
@@ -41,10 +44,9 @@ class PostgresRepository:
         except Exception:
             raise ApiError(503, "storage_unavailable", "저장소를 다시 연결해 주세요.") from None
         try:
-            # 트랜잭션 격리 수준
-            # postgresql의 기본 설정으로 두면, session을 읽고, sample을 읽는 그 0.001초 틈새 사이에 앞 뒤가 안맞는 반쪽짜리 데이터를 읽게 된다.
-            # 그래서 repeatable_read를 사용한다. 
-            # 내가 이 트랜젝션을 시작한 순간의 사진 (스냅샷)을 찍어두고, 끝날때까지 똑같은 시점의 데이터만 보여줘 수준으로
+            # 격리수준: repeatable read
+            # 트랜잭션 시작 시점의 스냅샷으로 고정 -> session.samples를 같은 시점 기준으로 읽기 위함.
+            # 기본값 read commited는 select마다 최신 데이터를 봐서, 중간에 다른 요청이 수정하면 두 결과가 어긋날 수 있음.
             if repeatable_read:
                 conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
             yield conn
@@ -54,12 +56,16 @@ class PostgresRepository:
             raise
         except Exception as exc:
             conn.rollback()
+            # 이미 있는 번호(PK/UNIQUE)를 또 넣으려고 하면 500 서버 폭주 에러 대신 409 중복 에러로 바꿔서 알려줌.
             if exc.__class__.__name__ in {"UniqueViolation", "IntegrityError"}:
                 raise ApiError(409, "identity_conflict", "이미 사용된 결과 또는 이벤트 식별자입니다.") from None
             raise ApiError(503, "storage_unavailable", "저장소를 다시 연결해 주세요.") from None
         finally:
             conn.close()
 
+    # 판정 정책(예: draft-web-v1, draft-web-v2)을 DB에 등록.
+    # ON CONFLICT DO NOTHING: 이미 똑같은 정책 ID가 들어있으면 에러 내지 말고 그냥 넘어가라는 뜻.
+    # 단, 이름은 같은데 안의 기준값 내용이 다르면 409 에러(policy_id_conflict)로 막아줌.
     def ensure_policy(self, policy):
         body = canonical(policy)
         with self.connection() as conn:
@@ -74,6 +80,7 @@ class PostgresRepository:
             if row is None or canonical(_decode_json(row["body"])) != body:
                 raise ApiError(409, "policy_id_conflict", "이미 등록된 정책 ID의 내용이 다릅니다.")
 
+    # '측정 시작' 버튼을 눌렀을 때, 혹시 똑같은 요청(client_id 또는 idem_key)으로 이미 만들어진 세션이 있는지 먼저 찾아봄.
     def find_create(self, owner, key, payload, conn=None):
         if conn is None:
             with self.connection() as connection:
@@ -85,6 +92,7 @@ class PostgresRepository:
         if not matches:
             return None
         decoded = [_decode_json(row["body"]) for row in matches]
+        # 이미 있는 시작 번호인데 아까 보냈던 요청 내용(payload)과 다르면 409 에러로 거부.
         if (
             any(bool(row["deleted"]) or item.get("create") != payload for row, item in zip(matches, decoded))
             or len(matches) > 1
@@ -92,16 +100,15 @@ class PostgresRepository:
             raise ApiError(409, "idempotency_conflict", "같은 시작 식별자에 다른 내용이 있습니다.")
         return decoded[0]
 
+    # 새 측정 세션을 만듬.
     def create(self, owner, key, payload, record):
         session = record["session"]
         with self.connection() as conn:
             existing = self.find_create(owner, key, payload, conn)
             if existing is not None:
                 return existing
-            # (Race Condition) 방어
-            # SQLite처럼 파일 전체를 잠그지 않으므로, 0.001초 차이로 동시에 들어온 두 요청이 모두 위 find_create를 통과할 수 있습니다.
-            # 이때 ON CONFLICT DO NOTHING으로 DB UNIQUE 무결성 제약조건에 부딪힌 두 번째 요청이 에러로 죽지 않게 한 뒤,
-            # inserted.rowcount == 0 이면 방금 먼저 들어간 첫 번째 요청의 세션을 다시 조회(find_create)해 멱등성을 보장합니다.
+            # Race Condition 방어
+            # 새 세션을 만듦. 동시에 2개가 들어와도 on conflict do nothing으로 에러 안내고 첫 번째 세션을 돌려줌
             inserted = conn.execute(
                 """
                 INSERT INTO sessions (
@@ -133,6 +140,7 @@ class PostgresRepository:
                 raise ApiError(409, "idempotency_conflict", "같은 시작 식별자에 다른 내용이 있습니다.")
             return record
 
+    # 세션 1개의 기본 정보(body)만 꺼내오는 내부 도우미 함수. 없거나 삭제된 세션이면 404 에러.
     def _metadata(self, conn, owner, session_id):
         row = conn.execute(
             "SELECT body FROM sessions WHERE id = %s AND owner = %s AND deleted = FALSE",
@@ -146,6 +154,7 @@ class PostgresRepository:
         with self.connection() as conn:
             return self._metadata(conn, owner, session_id)
 
+    # 세션 정보 + 경고 이벤트 목록(events)만 함께 읽음. (표 2개를 읽으므로 repeatable_read 스냅샷을 켭니다)
     def load_events(self, owner, session_id):
         with self.connection(repeatable_read=True) as conn:
             record = self._metadata(conn, owner, session_id)
@@ -156,6 +165,8 @@ class PostgresRepository:
             record["events"] = {row["seq"]: _decode_json(row["body"]) for row in rows}
             return record
 
+    # 타임라인 그래프에 그릴 1분 단위 요약 구간(timeline_buckets)을 읽어옴.
+    # 읽는 도중에 다른 요청이 세션을 고쳐서 버전(revision)이 바뀌었으면 409 에러로 알려줌.
     def load_timeline_buckets(self, owner, session_id, low, high, revision):
         with self.connection(repeatable_read=True) as conn:
             record = self._metadata(conn, owner, session_id)
@@ -167,6 +178,7 @@ class PostgresRepository:
             ).fetchall()
             return [_decode_json(row["body"]) for row in rows]
 
+    # 세션 1개의 전체 기록(세션 기본정보 + 5초 단위 샘플 + 이벤트)을 모두 읽어옴.
     def load(self, owner, session_id):
         with self.connection(repeatable_read=True) as conn:
             record = self._metadata(conn, owner, session_id)
@@ -182,11 +194,9 @@ class PostgresRepository:
             record["events"] = {row["seq"]: _decode_json(row["body"]) for row in event_rows}
             return record
 
+    # N+1 문제 해결
+    # 통계화면에서 세션 100개를 조회할 때 for 문으로 300번 물어보는 대신, any(%s)에 리스트를 통째로 넣어 딱 3번만 물어봄
     def load_many(self, owner, session_ids):
-        """ N+1 쿼리 제거
-        for문 안에서 load()를 N번 부르는 대신, session_ids 리스트를 ANY(%s)로 넘겨
-        세션이 100개여도 단 1번의 트랜잭션(쿼리 3번)으로 한꺼번에 묶어 조회합니다.
-        """
         if not session_ids:
             return []
         ids = list(session_ids)
@@ -218,6 +228,7 @@ class PostgresRepository:
                 records_by_id[row["session_id"]]["events"][row["seq"]] = _decode_json(row["body"])
             return [records_by_id[sid] for sid in ids if sid in records_by_id]
 
+    # 내(owner)가 측정한 세션 목록 전체를 가져옴.
     def list(self, owner):
         with self.connection() as conn:
             rows = conn.execute(
@@ -226,16 +237,14 @@ class PostgresRepository:
             ).fetchall()
             return [_decode_json(row["body"])["session"] for row in rows]
 
+    # 측정 중에 들어온 5초 샘플(samples), 이벤트(events), 1분 요약(timeline_buckets)을 DB에 저장.
     def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session = record["session"]
         session_id, revision = session["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}
         stored["revision"] = revision + 1
         with self.connection() as conn:
-            # 낙관적 락(Optimistic Lock — revision 비교)
-            # 읽을 때 자물쇠를 걸어 다른 요청을 줄 세우지 않고, 저장(UPDATE)하는 순간에만
-            # "내가 처음 읽었던 버전 번호(WHERE revision = %s)가 아직 그대로인가?"를 확인합니다.
-            # 만약 그새 다른 요청이 먼저 수정해서 revision이 올라갔다면 updated.rowcount가 0이 되어 409 충돌로 안전하게 막아냅니다.
+            # where revision = %s 로 내가 읽었던 버전 번호가 맞을 때만 저장하고 +1 올려서 덮어쓰기 방지
             updated = conn.execute(
                 """
                 UPDATE sessions
@@ -296,6 +305,7 @@ class PostgresRepository:
                     (session_id, bucket["elapsed_start_ms"], canonical(bucket)),
                 )
 
+    # 세션 삭제 시 하위 샘플은 지우되, sessions 줄은 아예 안 지우고, deleted = true 표시만 남김(삭제된 세션이 다시 살아나는 것 방지)
     def delete(self, owner, session_id):
         with self.connection() as conn:
             row = conn.execute(
@@ -311,4 +321,3 @@ class PostgresRepository:
                 "UPDATE sessions SET status = 'abandoned', body = '{}'::jsonb, deleted = TRUE, revision = revision + 1 WHERE id = %s",
                 (session_id,),
             )
-
