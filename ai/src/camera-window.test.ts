@@ -4,6 +4,7 @@ import policy from './policy.json';
 import {
   cameraObservation,
   defaultCameraWindowOptions,
+  hiddenCameraWindowOptions,
   draftCameraChangeThresholds,
   judgeCameraChange,
   summarizeCameraWindow,
@@ -50,6 +51,21 @@ describe('summarizeCameraWindow', () => {
       frames: 2,
     });
     expect(summarizeCameraWindow([], baseline)).toMatchObject({ ok: false, reason: 'no_sensor' });
+  });
+
+  it('hidden-tab windows accept one frame but still never fill missing data', () => {
+    // Hidden Chrome tab: ~1 analysed frame per 1 s window (measured 2026-11-14).
+    const one = summarizeCameraWindow([ok(0, 0.44)], baseline, hiddenCameraWindowOptions);
+    expect(one).toMatchObject({ ok: true, frames: 1 });
+    if (one.ok) expect(one.rChange).toBeCloseTo(0.1, 6);
+    expect(summarizeCameraWindow([], baseline, hiddenCameraWindowOptions)).toMatchObject({
+      ok: false,
+      reason: 'no_sensor',
+    });
+    expect(
+      summarizeCameraWindow([fail('missing_points')], baseline, hiddenCameraWindowOptions),
+    ).toMatchObject({ ok: false, reason: 'low_confidence' });
+    expect(hiddenCameraWindowOptions.minCoverage).toBe(defaultCameraWindowOptions.minCoverage);
   });
 
   it('does not fill a low-coverage window with normal values', () => {

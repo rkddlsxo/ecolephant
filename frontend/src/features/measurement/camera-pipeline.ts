@@ -3,6 +3,9 @@ import {
   advanceCalibration,
   cameraFeatures,
   cameraObservation,
+  defaultCameraWindowOptions,
+  guideFit,
+  hiddenCameraWindowOptions,
   initialCalibration,
   summarizeCameraWindow,
 } from '@ecolephant/ai';
@@ -11,8 +14,11 @@ import type {
   CalibrationState,
   CameraBaseline,
   FeatureResult,
+  GuideFit,
+  GuideIssue,
   Observation,
 } from '@ecolephant/ai';
+import { backgroundMode, backgroundProbe } from './background-probe';
 import type { PostureModelAdapter } from './model-adapter';
 import { createMediaPipeAdapter, VideoNotReadyError } from './pose/mediapipe-adapter';
 
@@ -38,6 +44,11 @@ export interface PipelineView {
   progress: number;
   lastRestart: CalibrationRestart | null;
   hasBaseline: boolean;
+  /**
+   * Person-shaped guide check on the latest analysed frame: 'ok', an issue to show, or null
+   * before any frame. During calibration a frame outside the guide restarts the 3 s segment.
+   */
+  guide: GuideIssue | 'ok' | null;
   error: string | null;
 }
 
@@ -49,6 +60,7 @@ export const initialPipelineView: PipelineView = {
   progress: 0,
   lastRestart: null,
   hasBaseline: false,
+  guide: null,
   error: null,
 };
 
@@ -78,6 +90,25 @@ export interface CameraPipelineOptions {
   intervalMs?: number;
   /** How long analysed frames are kept for window summaries. */
   bufferMs?: number;
+  /**
+   * Only count calibration frames taken inside the person-shaped guide (default true).
+   * `?guide=off` in the page URL turns this off if the draft guide limits do not suit a setup.
+   */
+  requireGuide?: boolean;
+  /**
+   * True while the page is hidden and still analysing (dev `?bg=timer` only for now). Hidden
+   * tabs run timers ~1/s, so windows then need 1 analysed frame instead of 3 (DEC-007/010).
+   */
+  hiddenAnalysis?: () => boolean;
+}
+
+function hiddenAnalysisByPage() {
+  return typeof document !== 'undefined' && document.hidden && backgroundMode() === 'timer';
+}
+
+function guideRequiredByUrl() {
+  if (typeof window === 'undefined') return true;
+  return new URLSearchParams(window.location.search).get('guide') !== 'off';
 }
 
 export class CameraPipeline {
@@ -96,12 +127,16 @@ export class CameraPipeline {
   private readonly now;
   private readonly intervalMs;
   private readonly bufferMs;
+  private readonly requireGuide;
+  private readonly hiddenAnalysis;
 
   constructor(options: CameraPipelineOptions = {}) {
     this.createAdapter = options.createAdapter ?? (() => createMediaPipeAdapter());
     this.now = options.now ?? (() => performance.now());
     this.intervalMs = options.intervalMs ?? 1000 / 15;
     this.bufferMs = options.bufferMs ?? 10_000;
+    this.requireGuide = options.requireGuide ?? guideRequiredByUrl();
+    this.hiddenAnalysis = options.hiddenAnalysis ?? hiddenAnalysisByPage;
   }
 
   get hasBaseline() {
@@ -140,7 +175,10 @@ export class CameraPipeline {
     const results = this.frames
       .filter((frame) => frame.t >= startMs && frame.t < endMs)
       .map((frame) => frame.result);
-    return cameraObservation(summarizeCameraWindow(results, this.baseline));
+    const windowOptions = this.hiddenAnalysis()
+      ? hiddenCameraWindowOptions
+      : defaultCameraWindowOptions;
+    return cameraObservation(summarizeCameraWindow(results, this.baseline, windowOptions));
   }
 
   /** Forget the baseline and buffered frames (tests, sign-out). */
@@ -204,36 +242,56 @@ export class CameraPipeline {
     try {
       const frame = await this.adapter.analyze(this.video, started);
       if (run !== this.generation) return;
-      this.accept(cameraFeatures(frame), frame.timestampMs);
+      this.probe(true);
+      this.accept(cameraFeatures(frame), frame.timestampMs, guideFit(frame));
     } catch (error) {
       // A frame that is not ready (VideoNotReadyError) or fails is skipped. Too few analysed
       // frames in a window make that window no_sensor; nothing is filled in as normal.
       void (error instanceof VideoNotReadyError);
+      this.probe(false);
     }
     if (run !== this.generation) return;
     const elapsed = this.now() - started;
     this.schedule(run, Math.max(0, this.intervalMs - elapsed));
   }
 
-  private accept(result: FeatureResult, t: number) {
+  /** Dev-only background probe (`?bg=timer`): counts analysed frames, nothing else. */
+  private probe(ok: boolean) {
+    if (backgroundMode() !== 'timer') return;
+    if (!backgroundProbe.running) backgroundProbe.start();
+    backgroundProbe.frame(ok, this.video?.readyState ?? null);
+  }
+
+  private accept(result: FeatureResult, t: number, guide: GuideFit) {
     this.analysed.push(t);
     this.analysed = this.analysed.filter((time) => time > t - 1000);
+    const guideView = guide.fit ? 'ok' : guide.issue;
     if (this.calibration) {
+      if (this.requireGuide && !guide.fit && result.ok) {
+        // Usable frame but outside the guide: start the stable segment again so the baseline
+        // is always taken at a similar position and distance.
+        this.calibration = initialCalibration();
+        this.publish({ progress: 0, lastRestart: null, guide: guideView });
+        return;
+      }
       const next = advanceCalibration(this.calibration, result);
       if (next.status === 'done') {
         this.baseline = { r0: next.baseline.r0, h0: next.baseline.h0, n0: next.baseline.n0 };
         this.calibration = null;
         this.frames = [];
-        this.publish({ calibrating: false, progress: 1, hasBaseline: true }, true);
+        this.publish(
+          { calibrating: false, progress: 1, hasBaseline: true, guide: guideView },
+          true,
+        );
       } else {
         this.calibration = next;
-        this.publish({ progress: next.progress, lastRestart: next.lastRestart });
+        this.publish({ progress: next.progress, lastRestart: next.lastRestart, guide: guideView });
       }
       return;
     }
     this.frames.push({ t, result });
     this.frames = this.frames.filter((frame) => frame.t >= t - this.bufferMs);
-    this.publish({});
+    this.publish({ guide: guideView });
   }
 
   /** Throttled UI updates (≤4 per second) so React does not re-render on every frame. */

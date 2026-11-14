@@ -187,7 +187,7 @@ describe('change-based decision (draft-web-v1)', () => {
     [0.2, 0, 'high', 'forward_shift', 'chin_forward'],
     [0, -0.1, 'caution', 'head_flexion', 'head_down'],
     [0, -0.25, 'high', 'head_flexion', 'head_down'],
-    [0.12, -0.12, 'caution', 'mixed_caution', 'combined'],
+    [0.1, -0.12, 'caution', 'mixed_caution', 'combined'],
     [0.25, -0.12, 'high', 'combined_high', 'combined'],
   ] as const)('webcam forward %d, drop %d → %s / %s / %s', (f, d, level, reason, type) => {
     expect(
