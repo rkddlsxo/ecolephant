@@ -27,6 +27,7 @@ export { headFlexionDeg } from './head-motion';
 export type { FlexionFailure, FlexionResult } from './head-motion';
 export {
   defaultCameraWindowOptions,
+  hiddenCameraWindowOptions,
   cameraObservation,
   draftCameraChangeThresholds,
   judgeCameraChange,
@@ -41,3 +42,38 @@ export type {
   CameraWindowSummary,
   PostureType,
 } from './camera-window';
+export { calibrationTips, defaultGuide, guideFit, guideLabel } from './guide-fit';
+export type { GuideFit, GuideIssue, GuideShape } from './guide-fit';
+export { recommendStretch, stretchCaution, stretches, stretchesForType } from './stretching';
+export type {
+  Stretch,
+  StretchAttempt,
+  StretchHistory,
+  StretchId,
+  StretchReason,
+  StretchRecommendation,
+} from './stretching';
+export {
+  alertMessage,
+  defaultAlertSettings,
+  inQuietHours,
+  shouldPlaySound,
+} from './alert-messages';
+export type { AlertMessage, AlertSettings, AlertSound } from './alert-messages';
+export {
+  advancePitchCalibration,
+  advanceWearCheck,
+  draftPitchCalibrationOptions,
+  draftWearCheckOptions,
+  initialPitchCalibration,
+  wearShiftMessage,
+} from './airpods-calibration';
+export type {
+  PitchCalibrationOptions,
+  PitchCalibrationState,
+  PitchRestart,
+  PitchSample,
+  WearCheckInput,
+  WearCheckOptions,
+  WearCheckState,
+} from './airpods-calibration';

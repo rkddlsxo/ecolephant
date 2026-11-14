@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { backgroundMode } from '../measurement/background-probe';
 
 export type CameraStatus = 'idle' | 'requesting' | 'playing' | 'stopped' | 'error';
 const initialMessage = '카메라 켜기를 누르면 브라우저에서 권한을 요청합니다.';
@@ -59,6 +60,8 @@ export function useWebcam() {
   useEffect(() => {
     mounted.current = true;
     const hidden = () => {
+      // Dev-only `?bg=timer`: keep the camera on to measure background analysis (DEC-010).
+      if (backgroundMode() === 'timer') return;
       if (document.hidden && (streamRef.current || requesting.current))
         stop('화면이 비활성화되어 카메라를 껐어요. 다시 켜려면 버튼을 눌러 주세요.');
     };

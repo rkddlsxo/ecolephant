@@ -11,6 +11,7 @@ import type { ActiveMode, AlertCommand, DerivedWindow, Mode } from '@ecolephant/
 import { api, errorMessage, isMissingSession } from '../../api/client';
 import type { EventPayload, Sample, Session, SessionCreate, SessionEvent } from '../../api/client';
 import { queryClient } from '../../api/query';
+import { backgroundMode, backgroundProbe } from './background-probe';
 import { cameraPipeline } from './camera-pipeline';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 import { usePreferences } from '../../state/preferences';
@@ -257,7 +258,11 @@ class MeasurementController {
     const gap = target - this.cursor > 1500;
     while (this.cursor < target && this.samples.length < policy.transport.memory_queue_windows) {
       const duration = Math.min(1000, target - this.cursor);
-      const stale = gap || this.cursor < this.unavailableUntil || document.hidden;
+      // `?bg=timer` (dev only) keeps measuring on a hidden tab; windows with too few analysed
+      // frames still become no_sensor in the camera pipeline, never normal.
+      const hiddenStops =
+        document.hidden && !(store.input === 'camera' && backgroundMode() === 'timer');
+      const stale = gap || this.cursor < this.unavailableUntil || hiddenStops;
       // Real camera: the window after the calibration state machine stores a baseline ends it.
       if (this.calibrationUntil === Number.POSITIVE_INFINITY && !cameraPipeline.calibrating)
         this.calibrationUntil = this.cursor;
@@ -295,6 +300,8 @@ class MeasurementController {
         duration_ms: duration,
         calibration_epoch: store.epoch,
       });
+      if (store.input === 'camera' && backgroundProbe.running)
+        backgroundProbe.window(sample.quality);
       if (sample.active_mode !== this.lastMode) {
         this.addEvent({
           type: 'mode_changed',
