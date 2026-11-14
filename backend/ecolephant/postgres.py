@@ -19,15 +19,21 @@ def _decode_json(value):
 
 
 class PostgresRepository:
-    def __init__(self, dsn, connect_fn=None, initialize_schema=False):
+    def __init__(self, dsn, connect_fn=None, initialize_schema=False, pool_size=8):
         self.dsn = dsn
         self._connect_fn = connect_fn
+        # thread = 8 수에 맞춰 DB 연결을 미리 8개 만들어둠. 
+        # 필요할 때마다 하나씩 빌려쓰고 반납.
+        self.pool_size = pool_size
+        self._pool = []
         if initialize_schema:
             with self.connection() as conn:
                 conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
     # DB와 connection을 새로 여는 함수
     def _open_connection(self):
+        if self._pool:
+            return self._pool.pop()
         if self._connect_fn is not None:
             return self._connect_fn(self.dsn)
         import psycopg
@@ -61,7 +67,12 @@ class PostgresRepository:
                 raise ApiError(409, "identity_conflict", "이미 사용된 결과 또는 이벤트 식별자입니다.") from None
             raise ApiError(503, "storage_unavailable", "저장소를 다시 연결해 주세요.") from None
         finally:
-            conn.close()
+            #close 하지 말고, 앞 손님이 쓰던 트랜잭션만 깨끗히 비운 뒤(rollback) 보관함에 맞춰 반납.
+            conn.rollback()
+            if len(self._pool) < self.pool_size:
+                self._pool.append(conn)
+            else:    
+                conn.close()
 
     # 판정 정책(예: draft-web-v1, draft-web-v2)을 DB에 등록.
     # ON CONFLICT DO NOTHING: 이미 똑같은 정책 ID가 들어있으면 에러 내지 말고 그냥 넘어가라는 뜻.
