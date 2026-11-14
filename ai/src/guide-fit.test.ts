@@ -59,6 +59,9 @@ describe('guide fit', () => {
     const close = frame({ leftShoulder: p(0.85, 0.75), rightShoulder: p(0.15, 0.75) });
     expect(guideFit(far).issue).toBe('too_far');
     expect(guideFit(close).issue).toBe('too_close');
+    // 2026-11-14: leaning in to ~0.56 of the width used to stay "fit" (max was 0.62).
+    const leaning = frame({ leftShoulder: p(0.78, 0.75), rightShoulder: p(0.22, 0.75) });
+    expect(guideFit(leaning).issue).toBe('too_close');
   });
 
   it("gives left/right in the person's own direction", () => {

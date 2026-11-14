@@ -1,9 +1,9 @@
 {
-  "policy_id": "draft-web-v1",
-  "revision": "0.2",
+  "policy_id": "draft-web-v2",
+  "revision": "0.1",
   "release_approved": false,
   "camera_mapping_status": "unvalidated",
-  "status": "변화율 판정 초안(DEC-002, 팀 동의 2026-11-10). 기준값은 실험 전 초기 제안값, 운영 사용 금지",
+  "status": "변화율 판정 초안(DEC-002, 팀 동의 2026-11-10). draft-web-v1에서 앞쏠림 기준만 0.07/0.12로 낮춤(2026-11-14 1인 시범 측정, 목을 조금만 내민 자세도 주의로 잡도록 수연 결정). 기준값은 실험 전 초기 제안값, 운영 사용 금지",
   "thresholds_deg": {
     "caution": 15,
     "high": 30
@@ -11,8 +11,8 @@
   "camera_judgement": "change",
   "camera_change_thresholds": {
     "forward": {
-      "caution": 0.1,
-      "high": 0.2
+      "caution": 0.07,
+      "high": 0.12
     },
     "drop": {
       "caution": -0.1,

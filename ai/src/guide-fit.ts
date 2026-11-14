@@ -31,7 +31,8 @@ export const defaultGuide: GuideShape = {
   centerX: 0.5,
   centerTolerance: 0.12,
   // ~60 cm from a typical 70° laptop camera puts 40 cm shoulders near 0.45 of the width.
-  shoulderWidth: { min: 0.3, max: 0.62 },
+  // max 0.62 -> 0.52 after the 2026-11-14 laptop check: leaning close stayed "fit" too long.
+  shoulderWidth: { min: 0.3, max: 0.52 },
   shoulderY: { min: 0.55, max: 0.95 },
   earY: { min: 0.15, max: 0.6 },
   maxTiltDeg: 8,

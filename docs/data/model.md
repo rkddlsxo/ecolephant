@@ -40,7 +40,7 @@ erDiagram
 SQLite와 DynamoDB 어댑터는 정책 ID별 원본을 조건부 등록하고 세션에도 당시 설정을 저장합니다.
 동일 ID에 다른 내용을 등록하면 409로 거부합니다. 정책 목록에서 제거한 세션도 기존 시작 요청의 재시도와 결과 전송이 가능합니다.
 과거 snapshot 없는 `draft-web-v0`만 고정된 최초 초안으로 복원하며, 다른 버전의 snapshot이 없으면 처리를 중단합니다.
-기본 정책(`contracts/policy.json`, `draft-web-v0`, 각도 판정)에 더해 `contracts/policies/*.json`의 정책을 함께 제공합니다. 앱은 변화량 판정 정책 `draft-web-v1`을 씁니다(원본: `backend/harness/fixtures/policy/change-v1.json`, `npm run contracts:sync`로 복사).
+기본 정책(`contracts/policy.json`, `draft-web-v0`, 각도 판정)에 더해 `contracts/policies/*.json`의 정책을 함께 제공합니다. 앱은 변화량 판정 정책 `draft-web-v2`를 씁니다(원본: `backend/harness/fixtures/policy/change-v2.json`, `npm run contracts:sync`로 복사). `draft-web-v1`(원본 `change-v1.json`)은 이전 기록 검사를 위해 계속 제공합니다. 정책 ID의 내용은 처음 저장된 대로 고정되므로 기준을 바꾸면 새 ID를 만듭니다.
 정책 원본은 개인 결과와 별개로 유지됩니다. 정책 철회 시 진행 중 세션을 어떻게 중단할지는 운영 전 결정이 필요합니다.
 DynamoDB의 중단된 삭제는 재시도할 수 있으며, 이벤트 ID가 다른 세션에 재사용된 경우 그 식별자를 보존합니다.
 내부 `append_state`에는 연속 순번·끝 시각·보정 epoch·집계 합(각도 합과 각도가 있는 시간)과 마지막 알림 시각을 보관합니다. 결과 창과 같은 트랜잭션에서 갱신하며 원본 영상·관절점·IMU는 포함하지 않습니다.

@@ -17,6 +17,7 @@ from ecolephant.contracts import BASE, POLICY, SPEC  # noqa: E402
 from ecolephant.metrics import aggregate  # noqa: E402
 
 V1 = json.loads((BASE / 'policies' / 'draft-web-v1.json').read_text(encoding='utf-8'))
+V2 = json.loads((BASE / 'policies' / 'draft-web-v2.json').read_text(encoding='utf-8'))
 
 
 def window(seq, *, mode='webcam', forward=0.0, drop=0.0, nose=None, head=None, level='normal',
@@ -74,10 +75,13 @@ class ChangePolicyTests(unittest.TestCase):
 
     def test_packaged_catalog_serves_both_angle_and_change_profiles(self):
         catalog = policies.load_catalog()
-        self.assertEqual(set(catalog), {POLICY['policy_id'], V1['policy_id']})
-        self.assertEqual(V1['camera_judgement'], 'change')
-        self.assertFalse(V1['release_approved'])
-        self.assertEqual(V1['camera_mapping_status'], 'unvalidated')
+        self.assertEqual(set(catalog), {POLICY['policy_id'], V1['policy_id'], V2['policy_id']})
+        for profile in (V1, V2):
+            self.assertEqual(profile['camera_judgement'], 'change')
+            self.assertFalse(profile['release_approved'])
+            self.assertEqual(profile['camera_mapping_status'], 'unvalidated')
+        # Policy contents are immutable per ID, so changed thresholds need a new ID.
+        self.assertNotEqual(V1['camera_change_thresholds'], V2['camera_change_thresholds'])
 
     def test_change_windows_are_accepted_and_statistics_skip_missing_angles(self):
         opened = self.open()

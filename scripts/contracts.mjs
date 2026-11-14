@@ -7,12 +7,17 @@ const check = process.argv.includes('--check');
 const files = [
   ['docs/api/openapi.json', 'backend/ecolephant/contracts/openapi.json'],
   ['backend/harness/fixtures/policy/example.json', 'backend/ecolephant/contracts/policy.json'],
-  // 앱은 변화율 판정 정책(v1)을 쓰고, 서버는 v0(기본)과 v1을 모두 제공함
+  // 앱은 변화율 판정 정책(v2)을 쓰고, 서버는 v0(기본)·v1·v2를 모두 제공함.
+  // 정책 ID의 내용은 서버에 처음 저장된 대로 고정되므로, 기준을 바꾸면 새 ID를 만든다.
   [
     'backend/harness/fixtures/policy/change-v1.json',
     'backend/ecolephant/contracts/policies/draft-web-v1.json',
   ],
-  ['backend/harness/fixtures/policy/change-v1.json', 'ai/src/policy.json'],
+  [
+    'backend/harness/fixtures/policy/change-v2.json',
+    'backend/ecolephant/contracts/policies/draft-web-v2.json',
+  ],
+  ['backend/harness/fixtures/policy/change-v2.json', 'ai/src/policy.json'],
 ];
 for (const [source, target] of files) {
   const input = fs.readFileSync(path.join(root, source));
