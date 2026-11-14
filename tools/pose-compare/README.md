@@ -13,20 +13,25 @@
 ## 1. 설치 (WSL, 저장소 루트에서)
 
 ```bash
+sudo apt-get install -y libgles2 libegl1      # WSL: MediaPipe Python이 찾는 libGLESv2.so.2
 python3 -m venv .venv-pose
 source .venv-pose/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # ultralytics보다 먼저
 pip install -r tools/pose-compare/requirements.txt
 python -m pytest tools/pose-compare -q
 ```
 
-성공하면 `10 passed`가 나옵니다.
+성공하면 `11 passed`가 나옵니다.
+
+- CPU판 torch를 먼저 설치하는 이유: `ultralytics`가 GPU(CUDA)판 torch와 nvidia 패키지 수 GB를 끌어와 설치가 멈추거나 디스크가 부족해질 수 있습니다. 분석은 CPU로 충분합니다.
+- `OSError: libGLESv2.so.2: cannot open shared object file`이 나오면 첫 줄(`libgles2 libegl1`)을 설치하지 않은 것입니다.
 
 ## 2. 모델 파일 준비
 
 | 모델 | 준비 |
 |---|---|
 | MediaPipe lite | `frontend/public/mediapipe/pose_landmarker_lite.task` (프론트에서 쓰는 파일 그대로) |
-| MoveNet Lightning | Kaggle Models `google/movenet` → singlepose-lightning TFLite(float16) 내려받기 |
+| MoveNet Lightning | `wget -O .data/pose-compare/movenet_lightning.tflite "https://tfhub.dev/google/lite-model/movenet/singlepose/lightning/tflite/float16/4?lite-format=tflite"` (TensorFlow MoveNet 튜토리얼과 같은 주소, 로그인 불필요, 약 3~5MB) |
 | RTMPose-t | 처음 실행할 때 rtmlib가 자동으로 내려받음 |
 | YOLO11n-pose | 처음 실행할 때 ultralytics가 `yolo11n-pose.pt`를 자동으로 내려받음 |
 
@@ -43,22 +48,44 @@ python tools/pose-compare/extract.py .data/pose-compare/video.mp4 --model yolo11
 같은 모델을 다시 돌리면 분석할 때 마지막 결과만 씁니다.
 긴 영상은 `--stride 3`처럼 건너뛰어도 되지만, **모든 모델에 같은 값**을 씁니다.
 
-## 4. Sapiens 기준 만들기 (Colab GPU)
+## 4. Sapiens 기준 만들기 (Colab T4 GPU)
+
+공식 Sapiens 데모는 사람 검출기(mmdet) 설치가 무거워서, 사람이 한 명 앉아 있는 비교 영상에 맞춰
+**검출기 없이 몸 가운데를 잘라 넣는** `sapiens_colab.py`를 씁니다.
+
+1. 프레임 내보내기와 몸 가운데 x 구하기 (WSL)
 
 ```bash
 python tools/pose-compare/extract.py .data/pose-compare/video.mp4 --dump-frames 5
+python -c "import pandas as pd; d=pd.read_csv('.data/pose-compare/points.csv'); d=d[(d.model=='mediapipe')&d.point.str.contains('shoulder')]; print(round(d.groupby('frame').x.mean().median()))"
+cd .data/pose-compare && python -m zipfile -c frames.zip frames/ && cd -
 ```
 
-`.data/pose-compare/frames/`의 JPG를 Colab에 올려 Sapiens pose 데모를 `--save_json`으로 돌리고, JSON 폴더를 다시 내려받습니다.
-Colab에 올린 프레임은 끝나면 지웁니다 (본인 영상만, 동의 범위 안에서).
+2. Colab(런타임 → T4 GPU)에 `frames.zip`과 `tools/pose-compare/sapiens_colab.py`를 올리고 실행
+
+```python
+!unzip -q frames.zip
+!wget -q -O pose03b.pt2 "https://huggingface.co/facebook/sapiens-pose-0.3b-torchscript/resolve/main/sapiens_0.3b_goliath_best_goliath_AP_573_torchscript.pt2"
+!python sapiens_colab.py --cx <위에서 나온 값> --width 1280 --height 720
+!zip -qr sapiens_json.zip sapiens_json
+from google.colab import files; files.download('sapiens_json.zip')
+```
+
+- `torch.jit.load` FutureWarning은 무시해도 됩니다.
+- 칸 사이에 오래(약 40분 이상) 두면 런타임이 초기화될 수 있습니다. 연달아 실행하고, 초기화되면 처음부터 다시 합니다.
+- 끝나면 **런타임 → 런타임 연결 해제 및 삭제**로 올린 프레임을 지웁니다 (본인 영상만, 동의 범위 안에서).
+
+3. 가져오기 (WSL)
 
 ```bash
+python -m zipfile -e sapiens_json.zip .data/pose-compare/
 python tools/pose-compare/import_sapiens.py .data/pose-compare/sapiens_json --fps 30 --width 1280 --height 720 --check .data/pose-compare/frames/frame_000000.jpg
 python tools/pose-compare/import_sapiens.py .data/pose-compare/sapiens_json --fps 30 --width 1280 --height 720
 ```
 
-첫 줄은 점 이름이 맞게 찍혔는지 확인하는 이미지(`check_frame_000000.jpg`)를 만듭니다. 틀리면 `--index`로 인덱스를 고칩니다.
-`--fps`, `--width`, `--height`는 원본 영상 값입니다.
+첫 줄은 점이 맞게 찍혔는지 확인하는 이미지(`check_frame_000000.jpg`)를 만듭니다. 틀리면 `--index`로 인덱스를 고칩니다.
+`--fps`, `--width`, `--height`는 원본 영상 값입니다. Goliath 308점의 앞 17개는 COCO 순서라 기본 인덱스 그대로 맞습니다(2026-11-14 확인).
+Sapiens는 5프레임마다 1장만 돌리므로 표의 Sapiens 누락률(Q1)은 의미가 없습니다.
 
 ## 5. 지표 계산
 

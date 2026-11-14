@@ -138,3 +138,11 @@ def test_sapiens_index_override_needs_five_values():
     assert import_sapiens.parse_index("0,3,4,5,6")["right_shoulder"] == 6
     with pytest.raises(SystemExit):
         import_sapiens.parse_index("0,3,4")
+
+
+def test_sapiens_crop_stays_inside_frame():
+    from sapiens_colab import crop_x0
+
+    assert crop_x0(659, 1280, 720) == (389, 540)  # 3:4 crop around the body centre
+    assert crop_x0(10, 1280, 720)[0] == 0  # clamped at the left edge
+    assert crop_x0(1270, 1280, 720)[0] == 1280 - 540  # and at the right edge
