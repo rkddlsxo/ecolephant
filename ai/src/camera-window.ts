@@ -42,6 +42,19 @@ export const defaultCameraWindowOptions: CameraWindowOptions = {
   minFrames: 3,
 };
 
+/**
+ * Hidden tab (DEC-007/010, measured 2026-11-14 on Windows + Chrome): timers on a hidden tab run
+ * once per second, so the camera keeps going but only ~1 frame lands in each 1 s window (stable
+ * for 15 min, no failed frames). With 3 frames required every hidden window became no_sensor.
+ * One frame is enough here because alerts still need 20 s of consecutive windows. Single-frame
+ * windows are noisier and the motion check (250-500 ms reference) is effectively off, so this
+ * applies only while the page is hidden; coverage and the no-normal-fill rule stay the same.
+ */
+export const hiddenCameraWindowOptions: CameraWindowOptions = {
+  ...defaultCameraWindowOptions,
+  minFrames: 1,
+};
+
 export type CameraWindowFailure = 'no_sensor' | 'low_confidence' | 'motion';
 
 export type CameraWindowSummary =

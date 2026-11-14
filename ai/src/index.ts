@@ -27,6 +27,7 @@ export { headFlexionDeg } from './head-motion';
 export type { FlexionFailure, FlexionResult } from './head-motion';
 export {
   defaultCameraWindowOptions,
+  hiddenCameraWindowOptions,
   cameraObservation,
   draftCameraChangeThresholds,
   judgeCameraChange,

@@ -3,7 +3,9 @@ import {
   advanceCalibration,
   cameraFeatures,
   cameraObservation,
+  defaultCameraWindowOptions,
   guideFit,
+  hiddenCameraWindowOptions,
   initialCalibration,
   summarizeCameraWindow,
 } from '@ecolephant/ai';
@@ -93,6 +95,15 @@ export interface CameraPipelineOptions {
    * `?guide=off` in the page URL turns this off if the draft guide limits do not suit a setup.
    */
   requireGuide?: boolean;
+  /**
+   * True while the page is hidden and still analysing (dev `?bg=timer` only for now). Hidden
+   * tabs run timers ~1/s, so windows then need 1 analysed frame instead of 3 (DEC-007/010).
+   */
+  hiddenAnalysis?: () => boolean;
+}
+
+function hiddenAnalysisByPage() {
+  return typeof document !== 'undefined' && document.hidden && backgroundMode() === 'timer';
 }
 
 function guideRequiredByUrl() {
@@ -117,6 +128,7 @@ export class CameraPipeline {
   private readonly intervalMs;
   private readonly bufferMs;
   private readonly requireGuide;
+  private readonly hiddenAnalysis;
 
   constructor(options: CameraPipelineOptions = {}) {
     this.createAdapter = options.createAdapter ?? (() => createMediaPipeAdapter());
@@ -124,6 +136,7 @@ export class CameraPipeline {
     this.intervalMs = options.intervalMs ?? 1000 / 15;
     this.bufferMs = options.bufferMs ?? 10_000;
     this.requireGuide = options.requireGuide ?? guideRequiredByUrl();
+    this.hiddenAnalysis = options.hiddenAnalysis ?? hiddenAnalysisByPage;
   }
 
   get hasBaseline() {
@@ -162,7 +175,10 @@ export class CameraPipeline {
     const results = this.frames
       .filter((frame) => frame.t >= startMs && frame.t < endMs)
       .map((frame) => frame.result);
-    return cameraObservation(summarizeCameraWindow(results, this.baseline));
+    const windowOptions = this.hiddenAnalysis()
+      ? hiddenCameraWindowOptions
+      : defaultCameraWindowOptions;
+    return cameraObservation(summarizeCameraWindow(results, this.baseline, windowOptions));
   }
 
   /** Forget the baseline and buffered frames (tests, sign-out). */

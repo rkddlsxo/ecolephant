@@ -104,6 +104,32 @@ describe('CameraPipeline', () => {
     });
   });
 
+  it('accepts a single analysed frame per window only while the page is hidden', async () => {
+    let hidden = false;
+    const hiddenPipeline = new CameraPipeline({
+      createAdapter: () => adapter,
+      now: () => Date.now(),
+      requireGuide: false,
+      hiddenAnalysis: () => hidden,
+    });
+    hiddenPipeline.attach(video);
+    hiddenPipeline.beginCalibration();
+    await vi.advanceTimersByTimeAsync(4000);
+    shape.current = { forward: 0.3 };
+    const start = Date.now();
+    await vi.advanceTimersByTimeAsync(1000);
+    // A slice holding one analysed frame stands in for a hidden tab's 1 fps window.
+    const one = start + 500;
+    const slice: [number, number] = [one, one + 1000 / 15];
+    expect(hiddenPipeline.observe(...slice)).toEqual({ cameraChange: null, quality: 'no_sensor' });
+    hidden = true;
+    expect(hiddenPipeline.observe(...slice).cameraChange?.forward).toBeCloseTo(0.3, 2);
+    // Still never normal without data.
+    const empty = Date.now() + 60_000;
+    expect(hiddenPipeline.observe(empty, empty + 1000)).toMatchObject({ quality: 'no_sensor' });
+    hiddenPipeline.reset();
+  });
+
   it('restarts calibration with a reason when the person moves', async () => {
     pipeline.attach(video);
     pipeline.beginCalibration();
