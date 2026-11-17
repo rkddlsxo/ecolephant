@@ -2,7 +2,8 @@
 from pathlib import Path
 import unittest
 
-from backend.ecolephant.redis_store import InMemoryRedisStub, RedisCoordinator
+from backend.ecolephant.errors import ApiError
+from backend.ecolephant.redis_store import InMemoryRedisStub, RATE_LIMIT_LUA_SCRIPT, RedisCoordinator
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,6 +48,34 @@ class RedisDay5IdempotencyLockTest(unittest.TestCase):
         # Q1 시나리오 검증: 만약 1번 백엔드가 에러로 죽어 release를 못 했더라도, 10초(TTL)가 지나면 자동 삭제되어 영구 먹통(Deadlock)이 풀려야 합니다!
         clock.advance(10.1)
         self.assertTrue(was_worker_2.acquire_idempotency_lock("user-1", "idem-abc", ttl_seconds=10))
+
+    def test_lua_rate_limiter_allows_within_limit_and_raises_429_on_burst(self):
+        """[Day 6 검증] Lua 스크립트 기반 Rate Limiter는 한도(limit) 내 요청은 통과시키고, 초과 요청은 429 rate_limit_exceeded로 즉시 차단하며 윈도우 만료 후 복구되어야 합니다."""
+        self.assertIn("redis.call('INCR', KEYS[1])", RATE_LIMIT_LUA_SCRIPT)
+        self.assertIn("redis.call('EXPIRE', KEYS[1]", RATE_LIMIT_LUA_SCRIPT)
+
+        clock = FakeClock()
+        shared_redis = InMemoryRedisStub(clock=clock)
+        was_worker_1 = RedisCoordinator(client=shared_redis)
+        was_worker_2 = RedisCoordinator(client=shared_redis)
+
+        # 허용 케이스: 1번·2번 WAS로 번갈아 들어온 3번의 요청(limit=3)은 모두 통과
+        self.assertTrue(was_worker_1.enforce_rate_limit("user-burst", limit=3, window_seconds=60))
+        self.assertTrue(was_worker_2.enforce_rate_limit("user-burst", limit=3, window_seconds=60))
+        self.assertTrue(was_worker_1.enforce_rate_limit("user-burst", limit=3, window_seconds=60))
+
+        # 거부 케이스 (Negative Test): 4번째 요청이 들어오면 429 Too Many Requests(rate_limit_exceeded)로 차단!
+        with self.assertRaises(ApiError) as ctx:
+            was_worker_2.enforce_rate_limit("user-burst", limit=3, window_seconds=60)
+        self.assertEqual(ctx.exception.status, 429)
+        self.assertEqual(ctx.exception.code, "rate_limit_exceeded")
+
+        # 다른 사용자는 영향받지 않고 정상 통과
+        self.assertTrue(was_worker_1.enforce_rate_limit("other-user", limit=3, window_seconds=60))
+
+        # 60초 윈도우가 지나면 카운터가 초기화되어 다시 요청이 통과되어야 합니다!
+        clock.advance(60.1)
+        self.assertTrue(was_worker_1.enforce_rate_limit("user-burst", limit=3, window_seconds=60))
 
 
 if __name__ == "__main__":
