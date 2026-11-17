@@ -95,6 +95,25 @@ class RedisDay5IdempotencyLockTest(unittest.TestCase):
         coord.invalidate_statistics("user-1", "include_active=true")
         self.assertIsNone(coord.get_cached_statistics("user-1", "include_active=true"))
 
+    def test_circuit_fallback_returns_none_without_crashing_when_redis_is_down(self):
+        """[Day 8 검증] 운영 중 Redis 연결 장애가 발생해도 500 에러로 죽지 않고 None(False)을 반환해 원본 DB로 안전하게 우회(Fallback)해야 합니다."""
+
+        class BrokenRedisClient:
+            def get(self, key):
+                raise ConnectionError("Redis connection refused")
+
+            def set(self, key, value, nx=False, ex=None):
+                raise ConnectionError("Redis connection refused")
+
+            def delete(self, *keys):
+                raise ConnectionError("Redis connection refused")
+
+        coord = RedisCoordinator(client=BrokenRedisClient())
+        # Redis가 완전히 죽어있어도 예외가 밖으로 터지지 않고 None / False를 반환해 DB Fallback이 작동해야 합니다!
+        self.assertIsNone(coord.get_cached_statistics("user-1", "include_active=true"))
+        self.assertFalse(coord.set_cached_statistics("user-1", {"good_ratio": 0.9}, "include_active=true"))
+        self.assertFalse(coord.invalidate_statistics("user-1", "include_active=true"))
+
 
 if __name__ == "__main__":
     unittest.main()

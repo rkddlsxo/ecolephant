@@ -96,19 +96,31 @@ class RedisCoordinator:
 
     def get_cached_statistics(self, owner, query_key="default"):
         cache_key = self._stats_cache_key(owner, query_key)
-        raw = self._client.get(cache_key)
+        try:
+            raw = self._client.get(cache_key)
+        except Exception:
+            return None
         if raw is None:
-            return none
+            return None
         return json.loads(raw)
-        pass
 
+    # Redis 컨테이너가 죽었을 때 서비스 전체가 500 에러로 뻗지 않도록
+    # try ... except Exception으로 감싸서 조용히 무시하고 원본 DB로 우회(Circuit Fallback)하게 만듭니다.
     def set_cached_statistics(self, owner, payload, query_key="default", ttl_seconds=5):
         cache_key = self._stats_cache_key(owner, query_key)
-        self._client.set(cache_key, json.dumps(payload, separators=(",", ":"), sort_keys=True), ex=ttl_seconds)
+        try:
+            self._client.set(cache_key, json.dumps(payload, separators=(",", ":"), sort_keys=True), ex=ttl_seconds)
+        except Exception:
+            return False
+        return True
 
     def invalidate_statistics(self, owner, query_key="default"):
         cache_key = self._stats_cache_key(owner, query_key)
-        self._client.delete(cache_key)
+        try:
+            self._client.delete(cache_key)
+        except Exception:
+            return False
+        return True
 
         
 
