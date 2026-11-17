@@ -89,5 +89,26 @@ class RedisCoordinator:
         if not allowed:
             raise ApiError(429, "rate_limit_exceeded", "요청이 너무 많습니다. 잠시후 다시 시도해 주세요.")
         return True
+
+    # 실시간 통계 캐싱 (Cache-Aside) 및 데이터 변경 시 즉시 삭제 (Write-Invalidation)
+    def _stats_cache_key(self, owner, query_key="default"):
+        return f"stats_cache:{owner}:{query_key}"
+
+    def get_cached_statistics(self, owner, query_key="default"):
+        cache_key = self._stats_cache_key(owner, query_key)
+        raw = self._client.get(cache_key)
+        if raw is None:
+            return none
+        return json.loads(raw)
+        pass
+
+    def set_cached_statistics(self, owner, payload, query_key="default", ttl_seconds=5):
+        cache_key = self._stats_cache_key(owner, query_key)
+        self._client.set(cache_key, json.dumps(payload, separators=(",", ":"), sort_keys=True), ex=ttl_seconds)
+
+    def invalidate_statistics(self, owner, query_key="default"):
+        cache_key = self._stats_cache_key(owner, query_key)
+        self._client.delete(cache_key)
+
         
 

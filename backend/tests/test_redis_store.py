@@ -77,6 +77,24 @@ class RedisDay5IdempotencyLockTest(unittest.TestCase):
         clock.advance(60.1)
         self.assertTrue(was_worker_1.enforce_rate_limit("user-burst", limit=3, window_seconds=60))
 
+    def test_statistics_cache_aside_and_write_invalidation(self):
+        """[Day 7 검증] 실시간 통계는 Cache-Aside로 히트 시 즉시 반환하고, 새 데이터 저장/세션 삭제 시 invalidate로 즉시 무효화되어야 합니다."""
+        clock = FakeClock()
+        shared_redis = InMemoryRedisStub(clock=clock)
+        coord = RedisCoordinator(client=shared_redis)
+
+        # 초기 상태: 캐시 미스(None)
+        self.assertIsNone(coord.get_cached_statistics("user-1", "include_active=true"))
+
+        # DB 조회 후 5초 TTL로 캐시 저장 -> 즉시 조회 시 Cache Hit!
+        sample_stats = {"good_ratio": 0.85, "sessions_count": 3}
+        coord.set_cached_statistics("user-1", sample_stats, "include_active=true", ttl_seconds=5)
+        self.assertEqual(coord.get_cached_statistics("user-1", "include_active=true"), sample_stats)
+
+        # Write-Invalidation: 세션 삭제나 배치 추가 시 invalidate_statistics 호출 -> 즉시 None(무효화) 확인!
+        coord.invalidate_statistics("user-1", "include_active=true")
+        self.assertIsNone(coord.get_cached_statistics("user-1", "include_active=true"))
+
 
 if __name__ == "__main__":
     unittest.main()
