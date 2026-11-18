@@ -7,10 +7,8 @@ import sqlite3
 from .contracts import canonical
 from .errors import ApiError
 
-# 지금의 sessions 테이블은 세션의 시작 시간 (started_at), 상태(status: 측정 중/완료), 총 측정 시간 (duration_ms) 등을
-# body TEXT 하나에 JSON 문자열로 뭉뚱그려 저장하므로, 조건 검색 시 DB 인덱스를 타지 못하고 파이썬에서 매번 json.loads()로 파싱해야 합니다.
-
-# 이런식의 코드는 긴 소설책 한 줄 (Text)처럼 보여서 조건을 건 것만 찾아줘 이럴때 DB가 바로 못 찾고, 파이썬이 모든 줄을 다 꺼내서 읽어야했다.
+# 지금 sessions 테이블은 1NF를 위반했다.
+# 1NF는 한 칸에 더 쪼갤 수 없는 값 하나만 넣으라는 규칙인데, JSON 문자열 안에 속성 4개를 넣었으니 이 규칙을 어긴것.
 class SQLiteRepository:
     def __init__(self, database):
         self.database = str(database)
@@ -143,12 +141,12 @@ class SQLiteRepository:
                 records_by_id[r["session_id"]]["events"][r["seq"]] = json.loads(r["body"])
             return [records_by_id[sid] for sid in session_ids if sid in records_by_id]
 
-
+    # 1NF를 위반해서 프론트엔드가 원하는대로하는거를 보려면, 다 가져온뒤에 하나씩 봐야한다. (json.loads)
     def list(self, owner):
         with self.connection() as conn:
             return [json.loads(row["body"])["session"] for row in conn.execute("SELECT body FROM sessions WHERE owner=? AND deleted=0", (owner,))]
 
-#샘플/ 이벤트 추가 저장하기
+    #샘플/ 이벤트 추가 저장하기
     def commit(self, owner, record, samples=(), events=(), timeline_buckets=()):
         session_id, revision = record["session"]["id"], record["revision"]
         stored = {k: v for k, v in record.items() if k not in {"samples", "events"}}

@@ -168,7 +168,7 @@ class FakePostgresConnection:
         self.rolled_back = True
 
     def close(self):
-        pass
+        self.closed = True
 
 
 def make_sample_record(session_id="sess-1", client_id="client-1", revision=0):
@@ -299,16 +299,50 @@ class PostgresRepositoryDay2ConcurrencyTest(unittest.TestCase):
                 ],
             )
 
-        connections.clear()
+        # 커넥션 풀이 도입되었으므로 앞선 10번의 트랜잭션(create 5회 + commit 5회) 동안 단 1개의 연결만 열려 재사용되었음을 먼저 확인!
+        self.assertEqual(len(connections), 1)
+        connections[0].queries.clear()
+
         records = repo.load_many("user-1", session_ids)
         self.assertEqual([r["session"]["id"] for r in records], session_ids)
         # 5개 세션 각각의 samples(seq=1)가 빠짐없이 채워져 있어야 합니다!
         for rec in records:
             self.assertIn(1, rec["samples"])
-        # 트랜잭션 딱 1번, SELECT 쿼리 딱 3번(sessions, samples, events)만 실행되었는지 증명!
+        # load_many 호출 시에도 새 연결을 열지 않고(총 연결 1개 유지), SELECT 쿼리 딱 3번(sessions, samples, events)만 실행되었는지 증명!
         self.assertEqual(len(connections), 1)
         select_queries = [q for q, _ in connections[0].queries if q.startswith("SELECT")]
         self.assertEqual(len(select_queries), 3)
+
+    def test_connection_pool_reuses_connection_and_enforces_pool_size_limit(self):
+        """[Day 4 검증] 커넥션 풀(pool_size)은 매 요청마다 새 연결을 열지 않고 재사용하며, pool_size 초과 연결은 close()해야 합니다."""
+        opened = []
+
+        def open_conn(_):
+            conn = FakePostgresConnection(self.state)
+            opened.append(conn)
+            return conn
+
+        repo = PostgresRepository("postgresql://localhost/ecolephant", connect_fn=open_conn, pool_size=2)
+        payload, record = make_sample_record(session_id="sess-pool", revision=0)
+
+        # 연속 5번 쿼리를 실행해도 풀에서 꺼내 재사용하므로 실제 open_conn 호출은 단 1번이어야 합니다.
+        repo.create("user-1", "idem-pool", payload, record)
+        for _ in range(4):
+            repo.load("user-1", "sess-pool")
+
+        self.assertEqual(len(opened), 1)
+        self.assertEqual(len(repo._pool), 1)
+        self.assertTrue(opened[0].rolled_back)
+
+        # 동시에 3개의 연결이 열렸다가 반납되는 상황 재현: pool_size=2이므로 2개만 보관함에 남고 3번째 연결은 close()되어야 합니다.
+        with repo.connection() as c1, repo.connection() as c2, repo.connection() as c3:
+            self.assertIsNotNone(c1)
+            self.assertIsNotNone(c2)
+            self.assertIsNotNone(c3)
+
+        self.assertEqual(len(opened), 3)
+        self.assertEqual(len(repo._pool), 2)
+        self.assertTrue(getattr(opened[0], "closed", False))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,4 @@
--- PostgreSQL 정규화 스키마 (투명 라벨 컬럼 + JSONB 하이브리드 구조)
--- 기존 SQLite의 검은 비닐봉지(body TEXT)에서 자주 필터링·정렬하는 핵심 속성을
--- 독립 컬럼(status, requested_mode, policy_id, data_source, started_at, ended_at)으로 분리했습니다.
+-- PostgreSQL 스키마: 자주 검색하는 값은 컬럼으로, 나머지는 JSONB (body)에 저장
 
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -8,7 +6,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     client_id TEXT NOT NULL,
     idem_key TEXT NOT NULL,
 
-    -- 서랍장 겉면의 투명 라벨 컬럼들: JSON 파싱 없이 DB가 즉시 필터링·정렬·인덱싱할 수 있습니다.
+    -- JSON 파싱 없이 DB가 즉시 필터링·정렬·인덱싱할 수 있습니다.
     status TEXT NOT NULL DEFAULT 'active', -- 현재상태 (active="측정중", completed=완료)
     requested_mode TEXT NOT NULL DEFAULT 'imu',--측정모드 (imu=센서, webcam =카메라, combined = 둘다)
     policy_id TEXT NOT NULL, --어떤 자세 기준표(정책)로 측정했는지
@@ -58,8 +56,8 @@ CREATE TABLE IF NOT EXISTS policies (
     body JSONB NOT NULL
 );
 
---주인(owner)별로 먼저 모으고 시작 시각(started_at).상태(status) 순으로 정렬하는 책갈피 (복합 인덱스)
---이미 삭제된 (deleted = TRUE) 세션은 조회하지 않으므로 제외해 인덱스 용량을 아낍니다 (partial Index).
+--내 세션 목록 조회를 빠르게 하는 인덱스
+--삭제된 세션은 제외해서 용량 절약
 CREATE INDEX IF NOT EXISTS idx_sessions_owner_started
     ON sessions (owner,started_at,status)
     WHERE deleted = FALSE;

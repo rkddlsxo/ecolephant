@@ -1,21 +1,25 @@
 name: Jira PR Sync
 
 # ==============================================================================
-# GitHub PR <-> Jira (ecolephant.atlassian.net) 자동 연동 워크플로
+# GitHub PR <-> Jira (ecolephant.atlassian.net) 자동 티켓 발급 및 상태 연동 워크플로
 # ------------------------------------------------------------------------------
 # 역할:
 # 1. 팀원이 포크(Fork) 저장소나 브랜치에서 PR을 생성·수정·머지할 때,
-#    브랜치명·PR 제목·PR 본문에서 `ECOLEPHANT-숫자` 티켓 키를 자동 추출합니다.
-# 2. 해당 Jira 티켓에 GitHub PR 원격 링크(Remote Issue Link)를 등록/갱신합니다.
-# 3. PR 상태에 맞춰 Jira 카드 상태를 자동으로 이동합니다:
-#    - Draft PR 열림        -> 진행 중 (transition id: 21)
-#    - 일반 PR 열림/재오픈   -> 검토 중 (transition id: 31)
-#    - PR 머지됨(Merged)    -> 완료    (transition id: 41)
+#    브랜치명·PR 제목·PR 본문(HTML 주석 제외)에서 `ECOLEPHANT-숫자` 티켓 키를 찾습니다.
+# 2. 만약 티켓 키가 없으면(비워두고 PR만 올린 경우):
+#    - Jira에 PR 제목으로 새 티켓을 자동 생성하여 번호(예: ECOLEPHANT-25)를 발급받습니다.
+#    - GitHub PR 제목 끝에 `(ECOLEPHANT-25)`를 자동으로 붙이고 본문 티켓 칸도 채웁니다.
+# 3. 해당 Jira 티켓에 GitHub PR 원격 링크(Remote Issue Link)를 등록/갱신합니다.
+# 4. PR 상태에 맞춰 Jira 카드 상태를 자동으로 이동합니다:
+#    - Draft PR 열림        -> 진행 중 (In Progress)
+#    - 일반 PR 열림/재오픈   -> 검토 중 (In Review, 없으면 진행 중으로 대체)
+#    - PR 머지됨(Merged)    -> 완료    (Done)
 #
 # 필요한 GitHub Secrets (Repository Settings -> Secrets and variables -> Actions):
-# - JIRA_USER_EMAIL : Atlassian 계정 이메일 (예: sungah@inha.edu)
-# - JIRA_API_TOKEN  : Atlassian API 토큰 (https://id.atlassian.com/manage-profile/security/api-tokens)
-# - JIRA_BASE_URL   : (선택) 기본값 https://ecolephant.atlassian.net
+# - JIRA_USER_EMAIL  : Atlassian 계정 이메일
+# - JIRA_API_TOKEN   : Atlassian API 토큰 (https://id.atlassian.com/manage-profile/security/api-tokens)
+# - JIRA_BASE_URL    : (선택) 기본값 https://ecolephant.atlassian.net
+# - JIRA_PROJECT_KEY : (선택) 기본값 ECOLEPHANT
 # ==============================================================================
 
 on:
@@ -28,18 +32,25 @@ on:
       - converted_to_draft
       - closed
 
+# 같은 PR에서 이벤트가 연속으로 발생할 때 중복 티켓이 생성되지 않도록 순차 실행합니다.
+concurrency:
+  group: jira-sync-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   sync-jira:
     name: Sync PR to Jira (ECOLEPHANT)
     runs-on: ubuntu-latest
     steps:
-      - name: Link PR and transition Jira work item
+      - name: Auto-assign or link Jira ticket and transition status
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || 'https://ecolephant.atlassian.net' }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY || 'ECOLEPHANT' }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -63,68 +74,215 @@ jobs:
           import urllib.request
 
           base_url = os.environ.get("JIRA_BASE_URL", "https://ecolephant.atlassian.net").rstrip("/")
+          project_key = os.environ.get("JIRA_PROJECT_KEY", "ECOLEPHANT").strip().upper() or "ECOLEPHANT"
           email = os.environ.get("JIRA_USER_EMAIL", "").strip()
           token = os.environ.get("JIRA_API_TOKEN", "").strip()
+          gh_token = os.environ.get("GITHUB_TOKEN", "").strip()
 
-          pr_number = os.environ.get("PR_NUMBER", "")
+          pr_number = os.environ.get("PR_NUMBER", "").strip()
+          repo = os.environ.get("REPO_FULL_NAME", "rkddlsxo/ecolephant").strip()
+
+          if not email or not token:
+              print("::notice::JIRA_USER_EMAIL 또는 JIRA_API_TOKEN 시크릿이 아직 설정되지 않아 Jira 자동 동기화를 건너뜁니다.")
+              sys.exit(0)
+
+          jira_auth = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
+          jira_headers = {
+              "Authorization": f"Basic {jira_auth}",
+              "Accept": "application/json",
+              "Content-Type": "application/json",
+          }
+
+          gh_headers = {
+              "Accept": "application/vnd.github+json",
+              "Content-Type": "application/json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          if gh_token:
+              gh_headers["Authorization"] = f"Bearer {gh_token}"
+
+          def http_json(url: str, headers: dict, method: str = "GET", payload: dict | None = None):
+              data = json.dumps(payload).encode("utf-8") if payload is not None else None
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as resp:
+                      raw = resp.read().decode("utf-8")
+                      return resp.status, (json.loads(raw) if raw else {})
+              except urllib.error.HTTPError as e:
+                  err_body = e.read().decode("utf-8", errors="replace")
+                  print(f"::warning::HTTP {method} {url} failed ({e.code}): {err_body}")
+                  return e.code, {}
+
+          def jira_request(method: str, path: str, payload: dict | None = None):
+              return http_json(f"{base_url}{path}", jira_headers, method=method, payload=payload)
+
+          # 직전 실행에서 이미 PR 제목에 티켓 번호를 붙였을 수 있으므로 최신 PR 정보를 다시 조회합니다.
           pr_title = os.environ.get("PR_TITLE", "")
-          pr_body = os.environ.get("PR_BODY", "")
+          pr_body = os.environ.get("PR_BODY") or ""
           pr_url = os.environ.get("PR_URL", "")
           pr_state = os.environ.get("PR_STATE", "open").lower()
           pr_draft = os.environ.get("PR_DRAFT", "false").lower() == "true"
           pr_merged = os.environ.get("PR_MERGED", "false").lower() == "true"
           pr_author = os.environ.get("PR_AUTHOR", "")
           head_ref = os.environ.get("HEAD_REF", "")
-          repo = os.environ.get("REPO_FULL_NAME", "rkddlsxo/ecolephant")
 
-          search_text = f"{head_ref}\n{pr_title}\n{pr_body}"
-          keys = sorted(
-              set(re.findall(r"\bECOLEPHANT-\d+\b", search_text, flags=re.IGNORECASE)),
-              key=lambda k: int(k.split("-")[1]),
-          )
-          keys = [k.upper() for k in keys]
+          if gh_token and repo and pr_number:
+              gh_code, live_pr = http_json(
+                  f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+                  gh_headers,
+              )
+              if 200 <= gh_code < 300 and live_pr:
+                  pr_title = live_pr.get("title") or pr_title
+                  pr_body = live_pr.get("body") or ""
+                  pr_url = live_pr.get("html_url") or pr_url
+                  pr_state = (live_pr.get("state") or pr_state).lower()
+                  pr_draft = bool(live_pr.get("draft", pr_draft))
+                  pr_merged = bool(live_pr.get("merged", pr_merged))
+                  pr_author = (live_pr.get("user") or {}).get("login") or pr_author
+                  head_ref = (live_pr.get("head") or {}).get("ref") or head_ref
+
+          # PR 본문은 'Jira 티켓:' / '관련 Jira:' / 'Closes' 등 명시적 선언 줄에서만 티켓 번호를 추출합니다.
+          clean_body = re.sub(r"<!--.*?-->", "", pr_body, flags=re.DOTALL)
+          explicit_body_lines = [
+              line for line in clean_body.splitlines()
+              if re.search(r"(jira\s*티켓\s*:|관련\s*jira\s*:|\b(?:closes|fixes|resolves|part\s+of|refs)\b)", line, flags=re.IGNORECASE)
+          ]
+          key_pattern = rf"\b{re.escape(project_key)}-\d+\b"
+          found = re.findall(key_pattern, "\n".join([head_ref, pr_title, *explicit_body_lines]), flags=re.IGNORECASE)
+          keys = sorted({k.upper() for k in found}, key=lambda k: int(k.split("-")[1]))
+
+          def resolve_issue_type_id() -> str | None:
+              code, proj = jira_request("GET", f"/rest/api/3/project/{project_key}")
+              issue_types = [
+                  it for it in (proj.get("issueTypes") or [])
+                  if not it.get("subtask", False)
+              ] if 200 <= code < 300 else []
+              preferred_names = ("작업", "task", "할 일", "스토리", "story")
+              for pref in preferred_names:
+                  for it in issue_types:
+                      if (it.get("name") or "").strip().lower() == pref:
+                          return str(it["id"])
+              return str(issue_types[0]["id"]) if issue_types else None
+
+          def create_jira_ticket() -> str | None:
+              issue_type_id = resolve_issue_type_id()
+              issuetype_field = {"id": issue_type_id} if issue_type_id else {"name": "Task"}
+              adf_description = {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {"type": "text", "text": f"GitHub PR #{pr_number} (@{pr_author}, 브랜치: {head_ref}) 생성 시 자동 발급된 티켓입니다: "},
+                              {
+                                  "type": "text",
+                                  "text": pr_url,
+                                  "marks": [{"type": "link", "attrs": {"href": pr_url}}],
+                              },
+                          ],
+                      }
+                  ],
+              }
+              payload = {
+                  "fields": {
+                      "project": {"key": project_key},
+                      "summary": pr_title.strip() or f"PR #{pr_number}",
+                      "issuetype": issuetype_field,
+                      "description": adf_description,
+                  }
+              }
+              code, created = jira_request("POST", "/rest/api/3/issue", payload)
+              if 200 <= code < 300 and created.get("key"):
+                  return str(created["key"]).upper()
+              return None
+
+          def write_key_back_to_pr(new_key: str) -> None:
+              if not (gh_token and repo and pr_number):
+                  return
+              updated_title = pr_title if new_key in pr_title.upper() else f"{pr_title.rstrip()} ({new_key})"
+              ticket_line_re = re.compile(r"^(-\s*Jira\s*티켓[ \t]*:[ \t]*)(?:`?[A-Z]+-`?)?[ \t]*\r?$", flags=re.MULTILINE | re.IGNORECASE)
+              if ticket_line_re.search(pr_body):
+                  updated_body = ticket_line_re.sub(rf"\1`{new_key}`", pr_body, count=1)
+              else:
+                  updated_body = pr_body
+              patch_payload = {"title": updated_title}
+              if updated_body != pr_body:
+                  patch_payload["body"] = updated_body
+              gh_code, _ = http_json(
+                  f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+                  gh_headers,
+                  method="PATCH",
+                  payload=patch_payload,
+              )
+              if 200 <= gh_code < 300:
+                  print(f"[{new_key}] Updated GitHub PR #{pr_number} title/body automatically.")
+
+          # 티켓 번호 없이 열렸거나 머지된 PR이면 새 Jira 티켓을 자동 생성해 PR에 기입합니다.
+          if not keys and (pr_state == "open" or pr_merged):
+              print(f"No {project_key}-<number> key found. Creating a new Jira ticket automatically...")
+              created_key = create_jira_ticket()
+              if created_key:
+                  print(f"Created new Jira ticket: {created_key}")
+                  write_key_back_to_pr(created_key)
+                  pr_title = f"{pr_title.rstrip()} ({created_key})"
+                  keys = [created_key]
 
           if not keys:
-              print("No ECOLEPHANT-<number> key found in branch, title, or body. Skipping Jira sync.")
+              print(f"No {project_key}-<number> key to sync (PR state={pr_state}). Skipping.")
               sys.exit(0)
 
-          print(f"Found Jira keys: {', '.join(keys)}")
-
-          if not email or not token:
-              print("::notice::JIRA_USER_EMAIL 또는 JIRA_API_TOKEN 시크릿이 아직 설정되지 않아 Jira 자동 동기화를 건너뜁니다.")
-              sys.exit(0)
-
-          auth_header = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
-          headers = {
-              "Authorization": f"Basic {auth_header}",
-              "Accept": "application/json",
-              "Content-Type": "application/json",
-          }
-
-          def jira_request(method: str, path: str, payload: dict | None = None):
-              data = json.dumps(payload).encode("utf-8") if payload is not None else None
-              req = urllib.request.Request(f"{base_url}{path}", data=data, headers=headers, method=method)
-              try:
-                  with urllib.request.urlopen(req, timeout=15) as resp:
-                      body = resp.read().decode("utf-8")
-                      return resp.status, (json.loads(body) if body else {})
-              except urllib.error.HTTPError as e:
-                  err_body = e.read().decode("utf-8", errors="replace")
-                  print(f"::warning::Jira API {method} {path} failed ({e.code}): {err_body}")
-                  return e.code, {}
+          print(f"Syncing Jira keys: {', '.join(keys)}")
 
           if pr_merged:
-              target_transition_id = "41"  # 완료
+              desired_stage = "done"
               status_label = "Merged"
           elif pr_state == "open" and pr_draft:
-              target_transition_id = "21"  # 진행 중
+              desired_stage = "in_progress"
               status_label = "Draft"
           elif pr_state == "open":
-              target_transition_id = "31"  # 검토 중
+              desired_stage = "in_review"
               status_label = "In Review"
           else:
-              target_transition_id = None
+              desired_stage = None
               status_label = "Closed"
+
+          def pick_transition_id(issue_key: str, stage: str) -> str | None:
+              code, data = jira_request("GET", f"/rest/api/3/issue/{issue_key}/transitions")
+              transitions = (data.get("transitions") or []) if 200 <= code < 300 else []
+              if not transitions:
+                  return {"in_progress": "21", "in_review": "31", "done": "41"}.get(stage)
+
+              def match_keywords(keywords: tuple[str, ...]) -> str | None:
+                  for tr in transitions:
+                      tr_name = (tr.get("name") or "").strip().lower()
+                      to_name = ((tr.get("to") or {}).get("name") or "").strip().lower()
+                      if any(kw in tr_name or kw in to_name for kw in keywords):
+                          return str(tr["id"])
+                  return None
+
+              if stage == "done":
+                  tid = match_keywords(("완료", "done", "closed", "해결"))
+                  if tid:
+                      return tid
+                  for tr in transitions:
+                      if ((tr.get("to") or {}).get("statusCategory") or {}).get("key") == "done":
+                          return str(tr["id"])
+              elif stage == "in_review":
+                  tid = match_keywords(("검토", "리뷰", "review"))
+                  if tid:
+                      return tid
+                  # 보드에 '검토 중' 칸이 따로 없는 경우 '진행 중'으로 이동
+                  stage = "in_progress"
+
+              if stage == "in_progress":
+                  tid = match_keywords(("진행", "progress", "doing"))
+                  if tid:
+                      return tid
+                  for tr in transitions:
+                      if ((tr.get("to") or {}).get("statusCategory") or {}).get("key") == "indeterminate":
+                          return str(tr["id"])
+              return None
 
           for key in keys:
               # 1. PR 원격 링크 등록/갱신 (globalId 기준으로 멱등 업데이트)
@@ -153,13 +311,14 @@ jobs:
                   print(f"[{key}] Linked PR #{pr_number} (resolved={pr_merged})")
 
               # 2. 티켓 상태 자동 전환
-              if target_transition_id:
-                  t_code, _ = jira_request(
-                      "POST",
-                      f"/rest/api/3/issue/{key}/transitions",
-                      {"transition": {"id": target_transition_id}},
-                  )
-                  if 200 <= t_code < 300:
-                      print(f"[{key}] Transitioned to transition_id={target_transition_id} ({status_label})")
+              if desired_stage:
+                  tid = pick_transition_id(key, desired_stage)
+                  if tid:
+                      t_code, _ = jira_request(
+                          "POST",
+                          f"/rest/api/3/issue/{key}/transitions",
+                          {"transition": {"id": tid}},
+                      )
+                      if 200 <= t_code < 300:
+                          print(f"[{key}] Transitioned via id={tid} ({status_label})")
           PY
-

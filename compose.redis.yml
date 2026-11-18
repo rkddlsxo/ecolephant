@@ -1,0 +1,19 @@
+# 기동 순서: redis(공용 초고속 칠판) -> backend(2대)
+services:
+  redis:
+    image: redis:7-alpine
+    # --maxmemory 128mb : Redis가 서버 메모리를 무제한으로 먹어서 서버가 뻗지(OOM) 않도록 최대 128MB로 제한합니다.
+    # --maxmemory-policy allkeys-lru : 128MB가 꽉 차면 가장 옛날에 안 쓴 데이터(LRU)부터 자동으로 지워서 빈자리를 만듭니다.
+    # 
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      # 내 PC(127.0.0.1)에서만 접속 가능하도록 외부 직접 접근을 차단합니다.
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      # Redis에게 "살아있니?(ping)"라고 물어봐서 "PONG" 대답이 올 때만 정상(healthy)으로 인정합니다.
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+    restart: unless-stopped
