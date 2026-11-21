@@ -92,6 +92,22 @@
       progress {
         width: 100%;
       }
+      #nextstep {
+        padding: 8px;
+        margin-bottom: 8px;
+        border-left: 4px solid #4a90e2;
+        background: #1a2533;
+      }
+      #notice {
+        padding: 8px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        background: #6b1e1e;
+        font-weight: 600;
+      }
+      input.missing {
+        outline: 3px solid #e74c3c;
+      }
       #summary {
         white-space: pre-wrap;
         font-size: 13px;
@@ -126,8 +142,10 @@
         <div id="timer"></div>
       </section>
       <aside>
+        <div id="nextstep"></div>
+        <div id="notice" hidden></div>
         <div id="status"></div>
-        <p>기준 자세 진행</p>
+        <p id="caliblabel">기준 자세 진행</p>
         <progress id="calib" max="1" value="0"></progress>
         <p>
           순서: 카메라 켜기 → 가이드 안에 앉기 → 기준 자세 잡기(3초) → 측면 폰 녹화 켜기 → 녹화

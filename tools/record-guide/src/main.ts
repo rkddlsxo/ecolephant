@@ -52,6 +52,9 @@ const recordBtn = $<HTMLButtonElement>('record');
 const stopBtn = $<HTMLButtonElement>('stop');
 const againBtn = $<HTMLButtonElement>('again');
 const summaryEl = $('summary');
+const noticeEl = $('notice');
+const nextStepEl = $('nextstep');
+const calibLabelEl = $('caliblabel');
 
 type Mode = 'off' | 'preview' | 'calibrating' | 'ready' | 'countdown' | 'recording' | 'saved';
 let mode: Mode = 'off';
@@ -94,6 +97,16 @@ function say(text: string) {
 }
 
 // ---------- UI helpers ----------
+const NEXT_STEP: Record<Mode, string> = {
+  off: '다음: 참가자 ID·회차를 넣고 카메라 켜기',
+  preview: '다음: 가이드 안에 앉아서 기준 자세 잡기 (녹화 시작은 기준 자세 저장 후에 눌려요)',
+  calibrating: '바른 자세로 3초 가만히…',
+  ready: '다음: 측면 폰 녹화를 켜고 녹화 시작',
+  countdown: '곧 녹화가 시작돼요',
+  recording: '녹화 중 — 지시를 따라 주세요',
+  saved: '저장 완료 — 다음 녹화를 하려면 다음 녹화',
+};
+
 function setMode(next: Mode) {
   mode = next;
   cameraBtn.disabled = next !== 'off';
@@ -102,7 +115,15 @@ function setMode(next: Mode) {
   stopBtn.disabled = !(next === 'recording' || next === 'countdown');
   againBtn.disabled = next !== 'saved';
   participantEl.disabled = sessionEl.disabled = next === 'recording' || next === 'countdown';
+  nextStepEl.textContent = NEXT_STEP[next];
 }
+
+/** Stays until the next button press, unlike the per-frame status line. */
+function notice(text: string) {
+  noticeEl.textContent = text;
+  noticeEl.hidden = !text;
+}
+
 function status(text: string, tone: 'ok' | 'warn' | 'info' = 'info') {
   statusEl.textContent = text;
   statusEl.dataset.tone = tone;
@@ -199,6 +220,7 @@ function calibrate(frame: CameraFrame, guide: GuideFit) {
   if (next.status === 'done') {
     baseline = { r0: next.baseline.r0, h0: next.baseline.h0, n0: next.baseline.n0 ?? null };
     progressEl.value = 1;
+    calibLabelEl.textContent = '기준 자세: 저장 완료 ✓';
     setMode('ready');
     status('기준 자세 저장 완료. 녹화를 시작할 수 있어요.', 'ok');
     beep(880, 150, 0.2);
@@ -302,6 +324,8 @@ cameraBtn.onclick = async () => {
 };
 
 calibBtn.onclick = () => {
+  notice('');
+  calibLabelEl.textContent = '기준 자세 진행';
   calibration = initialCalibration();
   baseline = null;
   progressEl.value = 0;
@@ -313,9 +337,14 @@ recordBtn.onclick = () => {
   try {
     stem = fileStem(participantEl.value, sessionEl.value);
   } catch (e) {
-    status((e as Error).message, 'warn');
+    // The status line is rewritten every frame, so the reason goes to the persistent notice.
+    notice((e as Error).message);
+    participantEl.classList.add('missing');
+    participantEl.focus();
     return;
   }
+  notice('');
+  participantEl.classList.remove('missing');
   mimeType =
     ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) =>
       MediaRecorder.isTypeSupported(t),
