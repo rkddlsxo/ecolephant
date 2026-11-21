@@ -18,6 +18,7 @@ from cva import (
     cva_deg,
     find_sticker,
     near_side,
+    shift_segments,
     summarize_segments,
 )
 
@@ -143,3 +144,10 @@ def test_cli_on_synthetic_video(tmp_path, monkeypatch):
     assert upright_cva > 50 > forward_cva
     assert label_video.main([str(video), "--check", "15"]) == 0
     assert (tmp_path / ".data/cva/p00_side_check_000015.jpg").exists()
+
+
+def test_shift_segments_moves_beep_relative_times_into_side_video_time():
+    segs = [{"start_ms": 2000, "end_ms": 12000, "label": "upright", "note": "기준"}]
+    out = shift_segments(segs, 4120)
+    assert out == [{"start_ms": 6120.0, "end_ms": 16120.0, "label": "upright", "note": "기준"}]
+    assert segs[0]["start_ms"] == 2000  # input untouched

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>에코끼리 녹화 도구 (로컬 전용)</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #111;
+        color: #eee;
+      }
+      header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 10px 16px;
+        background: #1c1c1c;
+      }
+      header .dev {
+        color: #f5a623;
+        font-weight: 600;
+      }
+      label {
+        font-size: 14px;
+      }
+      input[type='text'] {
+        width: 70px;
+      }
+      button {
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 16px;
+        padding: 16px;
+      }
+      .stage {
+        position: relative;
+        background: #000;
+        aspect-ratio: 16 / 9;
+      }
+      .stage video,
+      .stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .stage video {
+        transform: scaleX(-1);
+      }
+      #flash {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+      }
+      #flash.on {
+        opacity: 1;
+      }
+      #prompt {
+        font-size: 34px;
+        font-weight: 700;
+        text-align: center;
+        margin: 12px 0 4px;
+        min-height: 44px;
+      }
+      #timer {
+        font-size: 22px;
+        text-align: center;
+        color: #aaa;
+        min-height: 30px;
+      }
+      #status {
+        padding: 8px;
+        border-radius: 6px;
+        background: #222;
+      }
+      #status[data-tone='ok'] {
+        background: #1e4d2b;
+      }
+      #status[data-tone='warn'] {
+        background: #5a3d0b;
+      }
+      progress {
+        width: 100%;
+      }
+      #summary {
+        white-space: pre-wrap;
+        font-size: 13px;
+        color: #ccc;
+      }
+      aside p {
+        font-size: 13px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="dev">개발용 · 서비스 화면 아님 · 파일은 이 컴퓨터에만 저장</span>
+      <label>참가자 <input id="participant" type="text" placeholder="P05" /></label>
+      <label>회차 <input id="session" type="text" placeholder="1" /></label>
+      <label><input id="speak" type="checkbox" checked /> 음성 안내</label>
+      <button id="camera">카메라 켜기</button>
+      <button id="calibrate">기준 자세 잡기</button>
+      <button id="record">녹화 시작</button>
+      <button id="stop">멈추기</button>
+      <button id="again">파일 다시 받기</button>
+      <button id="next">다음 녹화</button>
+    </header>
+    <main>
+      <section>
+        <div class="stage">
+          <video id="video" playsinline muted></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <div id="prompt"></div>
+        <div id="timer"></div>
+      </section>
+      <aside>
+        <div id="status"></div>
+        <p>기준 자세 진행</p>
+        <progress id="calib" max="1" value="0"></progress>
+        <p>
+          순서: 카메라 켜기 → 가이드 안에 앉기 → 기준 자세 잡기(3초) → 측면 폰 녹화 켜기 → 녹화
+          시작. 시작 2초 뒤 큰 삐 소리와 화면 깜빡임이 두 영상을 맞추는 신호예요.
+        </p>
+        <div id="summary"></div>
+      </aside>
+    </main>
+    <div id="flash"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

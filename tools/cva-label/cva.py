@@ -178,3 +178,15 @@ def summarize_segments(
             )
         )
     return out
+
+
+def shift_segments(segments: Iterable[dict], sync_ms: float) -> list[dict]:
+    """Segments written relative to the sync beep (beep = 0, tools/record-guide) → side-video time.
+
+    `sync_ms` is when the beep is heard in the side video. Negative results (a segment before the
+    side video started) are kept so the summary shows them as empty instead of silently moving them.
+    """
+    return [
+        {**s, "start_ms": float(s["start_ms"]) + sync_ms, "end_ms": float(s["end_ms"]) + sync_ms}
+        for s in segments
+    ]

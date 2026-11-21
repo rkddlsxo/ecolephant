@@ -27,7 +27,7 @@ from pathlib import Path
 
 import judge
 
-VIDEO_EXT = (".mp4", ".mov", ".MP4", ".MOV")
+VIDEO_EXT = (".mp4", ".mov", ".webm", ".MP4", ".MOV", ".WEBM")
 
 
 def extract_landmarks(video: Path, task: Path, analysis_fps: float) -> list[judge.Frame]:
@@ -219,7 +219,7 @@ def main() -> None:
     if args.only:
         videos = [v for v in videos if v.stem in args.only]
     if not videos:
-        raise SystemExit(f"{args.data_dir}에 영상(.mp4/.mov)이 없습니다")
+        raise SystemExit(f"{args.data_dir}에 영상(.mp4/.mov/.webm)이 없습니다")
     out_dir = args.data_dir / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
 

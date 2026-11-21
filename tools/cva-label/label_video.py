@@ -5,6 +5,7 @@ Usage (WSL, repository root, `.venv-pose` from tools/pose-compare):
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --mediapipe-task frontend/public/mediapipe/pose_landmarker_lite.task
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --segments .data/cva/p01_segments.json
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --check 0
+  python tools/cva-label/label_video.py .data/cva/P05_s1_side.mp4 --segments .data/cva/P05_s1.segments.json --sync-ms 4120
 
 Outputs stay in the local, git-ignored `.data/cva/` folder. Nothing is uploaded.
 """
@@ -29,6 +30,7 @@ from cva import (
     approx_cva,
     cva_deg,
     find_sticker,
+    shift_segments,
     summarize_segments,
 )
 
@@ -60,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mediapipe-task", help="주면 귀–어깨 근사 CVA도 함께 계산")
     ap.add_argument("--min-conf", type=float, default=0.5, help="근사 CVA에 쓸 점 최소 신뢰도")
     ap.add_argument("--segments", help="자세 구간 JSON [{start_ms,end_ms,label}] → 구간별 요약")
+    ap.add_argument(
+        "--sync-ms",
+        type=float,
+        default=None,
+        help="구간 JSON이 맞춤 신호(삐 소리)=0 기준일 때, 측면 영상에서 삐 소리가 난 시각(ms)",
+    )
     ap.add_argument("--threshold", type=float, default=50.0, help="참고 기준 각도 (기본 50°)")
     ap.add_argument("--check", type=int, default=None, help="이 프레임에 찾은 점·선을 그린 확인 이미지만 저장")
     args = ap.parse_args(argv)
@@ -142,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.segments:
         segments = json.loads(Path(args.segments).read_text(encoding="utf-8"))
+        if args.sync_ms is not None:
+            segments = shift_segments(segments, args.sync_ms)
         summary = summarize_segments(rows, segments, args.threshold)
         summary_path = out.with_name(out.stem + "_segments.csv")
         with summary_path.open("w", newline="", encoding="utf-8") as f:
