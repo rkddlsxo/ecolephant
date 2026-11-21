@@ -27,6 +27,29 @@ class InMemoryBrokerQueue:
     def pending_count(self):
         return len(self._ready)
 
+    def unacked_count(self):
+        return len(self._unacked)
+
+    # [Day 10] 우체통에서 편지 1통 꺼내기 (Prefetch=1 제한: 앞 편지 완료 도장을 찍기 전엔 새 편지를 안 줌)
+    def consume_one(self):
+        if len(self._unacked) >= self.prefetch_count or not self._ready:
+            return None
+        msg = self._ready.popleft()
+        tag = self._next_tag
+        self._next_tag += 1
+        self._unacked[tag] = msg
+        return tag, msg["body"]
+
+    # [Day 10] Manual ACK (수동 완료 도장): DB 저장까지 무사히 끝났을 때만 호출해 우체통에서 완전히 지웁니다.
+    def basic_ack(self, delivery_tag):
+        self._unacked.pop(delivery_tag, None)
+
+    # [Day 10] Manual NACK (실패 반송): DB 저장 도중 에러가 나면 편지를 버리지 않고 다시 줄 맨 앞(appendleft)으로 돌려놓습니다.
+    def basic_nack(self, delivery_tag, requeue=True):
+        msg = self._unacked.pop(delivery_tag, None)
+        if msg is not None and requeue:
+            self._ready.appendleft(msg)
+
 
 class BatchQueueCoordinator:
     """Producer 측 Facade. 브로커 발행과 장애 시 fallback 경로를 캡슐화한다."""
@@ -62,3 +85,16 @@ class BatchQueueCoordinator:
                 return "fallback_direct"
             # fallback이 없으면 예외를 삼키지 않고 호출자에게 재전파(re-raise)
             raise
+
+    # [Day 10 핵심 함수] 집배원 워커(Consumer): 우체통에서 편지 1통을 꺼내 DB에 저장하고 도장 찍기!
+    def process_next(self, processor_fn):
+        item = self.broker.consume_one()
+        if item is None:
+            return False
+        delivery_tag, raw_body = item
+        payload = json.loads(raw_body)
+        # TODO (Day 10):
+        # 1. try 블록에서 processor_fn(payload)를 실행하고 성공하면 self.broker.basic_ack(delivery_tag) 완료 도장을 찍은 뒤 True를 반환하세요!
+        # 2. except Exception 블록에서는 편지가 날아가지 않게 self.broker.basic_nack(delivery_tag, requeue=True)로 다시 우체통에 돌려놓고 에러를 raise 하세요!
+        pass
+
