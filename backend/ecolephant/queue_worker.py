@@ -85,16 +85,18 @@ class BatchQueueCoordinator:
                 return "fallback_direct"
             # fallback이 없으면 예외를 삼키지 않고 호출자에게 재전파(re-raise)
             raise
-
-    # [Day 10 핵심 함수] 집배원 워커(Consumer): 우체통에서 편지 1통을 꺼내 DB에 저장하고 도장 찍기!
     def process_next(self, processor_fn):
         item = self.broker.consume_one()
         if item is None:
             return False
         delivery_tag, raw_body = item
         payload = json.loads(raw_body)
-        # TODO (Day 10):
-        # 1. try 블록에서 processor_fn(payload)를 실행하고 성공하면 self.broker.basic_ack(delivery_tag) 완료 도장을 찍은 뒤 True를 반환하세요!
-        # 2. except Exception 블록에서는 편지가 날아가지 않게 self.broker.basic_nack(delivery_tag, requeue=True)로 다시 우체통에 돌려놓고 에러를 raise 하세요!
+        try:
+            processor_fn(payload)
+            self.broker.basic_ack(delivery_tag)
+            return True
+        except Exception:
+            self.broker.basic_nack(delivery_tag, requeue=True)
+            raise
         pass
 
