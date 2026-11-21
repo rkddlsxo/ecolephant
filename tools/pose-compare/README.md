@@ -21,7 +21,7 @@ pip install -r tools/pose-compare/requirements.txt
 python -m pytest tools/pose-compare -q
 ```
 
-성공하면 `11 passed`가 나옵니다.
+성공하면 `26 passed`가 나옵니다.
 
 - CPU판 torch를 먼저 설치하는 이유: `ultralytics`가 GPU(CUDA)판 torch와 nvidia 패키지 수 GB를 끌어와 설치가 멈추거나 디스크가 부족해질 수 있습니다. 분석은 CPU로 충분합니다.
 - `OSError: libGLESv2.so.2: cannot open shared object file`이 나오면 첫 줄(`libgles2 libegl1`)을 설치하지 않은 것입니다.
@@ -102,9 +102,63 @@ python tools/pose-compare/metrics.py .data/pose-compare/points.csv --segments .d
 모델마다 점 번호 체계가 다릅니다 (MediaPipe 33점, 나머지 COCO 17점). 처음 한 번은 결과 CSV의 좌표를 프레임 위에 찍어 보거나,
 `--max-frames 30`으로 짧게 돌려 값이 상식적인지(귀가 어깨보다 위, 왼귀 x > 오른귀 x 등) 확인합니다.
 
+## 7. 녹화 영상으로 서비스 판정 평가하기 (`evaluate_segments.py`)
+
+팀원이 노트북 카메라 앱으로 찍은 영상에 **서비스와 같은 판정 규칙**을 적용해, 지시한 자세 구간을 잘 잡는지 봅니다.
+판정 규칙은 `judge.py`가 TypeScript 코드를 그대로 옮긴 것입니다
+(`pose-result.ts` 품질 판정, `camera-features.ts` 특징값, `calibration.ts` 3초 보정, `camera-window.ts` 1초 창).
+TypeScript 쪽 규칙을 바꾸면 `judge.py`도 같이 고칩니다. 기준값은 `ai/src/policy.json`에서 읽습니다.
+
+1. 영상과 구간표를 같은 이름으로 둡니다 (git 제외 폴더).
+
+```
+.data/test-b/P01.mp4      # .mov도 됨
+.data/test-b/P01.csv      # label,start,end (초). 첫 줄은 기준 자세 upright
+```
+
+```
+label,start,end
+upright,2,15
+chin_forward,18,27
+head_down,30,39
+combined,42,51
+trunk_lean,54,63
+turn,66,75
+upright,78,87
+```
+
+label은 `upright`, `chin_forward`, `head_down`, `combined`, `trunk_lean`, `turn` 중 하나입니다. 2회 반복한 영상은 같은 순서로 이어 적습니다.
+
+2. 실행 (저장소 루트, `.venv-pose` 활성화)
+
+```bash
+python tools/pose-compare/evaluate_segments.py
+```
+
+처음에는 영상마다 MediaPipe를 돌려 `.data/test-b/cache/`에 관절점을 저장하고, 다음부터는 저장한 값을 씁니다(`--refresh`로 다시 추출).
+사람별 구간 판정 표와 전체 지표가 출력되고, `.data/test-b/results/`에 `segments.csv`·`windows.csv`·`summary.json`(파생값만)이 저장됩니다.
+기준값을 바꿔 보려면 정책 JSON을 복사해 고친 뒤 `--policy 경로`로 실행합니다(영상은 다시 분석하지 않음).
+
+**지표 정의** (`claude/에코끼리_검증실험_준비.md` 2장을 지시 라벨용으로 맞춤)
+
+- 구간 판정: 구간 안에 완전히 들어가는 1초 창의 판정 중 가장 많은 단계(동률이면 더 나쁜 쪽). 창의 절반 넘게 판단 불가면 `unknown`, 창이 3개 미만이면 `too_short`
+- 재현율: `chin_forward`·`head_down`·`combined` 구간 중 주의 이상으로 판정된 비율 (`unknown`·`too_short`는 분모에서 빼고 개수 보고)
+- 오탐: 기준으로 쓴 첫 `upright`를 뺀 나머지 `upright` 구간 중 주의 이상 비율
+- 판단 불가 비율: 평가 구간의 1초 창 중 판단 불가 비율
+- 유형 일치: 잡은 위험 자세 구간 중 자세 유형(턱 내밀기·고개 숙임·복합)이 지시와 같은 비율
+- `trunk_lean`, `turn`은 목표 계산에 넣지 않고 판정 결과만 표에 나옵니다
+
+**서비스와 다른 점**
+
+- 정답은 측면 CVA가 아니라 **지시한 자세**입니다. 사람이 지시를 덜 따랐는지는 알 수 없고, 주의/높음 단계가 맞는지(일치율)는 계산하지 않습니다
+- 보정 중 사람 모양 가이드 확인(`guideFit`)은 하지 않습니다. 기준 자세는 첫 `upright` 구간 안에서 흔들림 없는 3초를 찾습니다(못 찾으면 그 영상은 오류로 표시)
+- 1초 창은 영상 시작(0초)부터 셉니다. 분석 속도는 브라우저 상한과 같은 15fps로 맞춥니다(`--analysis-fps`)
+- MediaPipe Python과 브라우저(WebAssembly·GPU) 결과는 조금 다를 수 있습니다
+
 ## 알려진 차이·제한
 
 - RTMPose는 rtmlib의 YOLOX-tiny 사람 검출기를 씁니다. 브라우저 계획은 RTMDet-nano라서 속도·누락률이 다를 수 있습니다.
 - YOLO11은 AGPL-3.0입니다. 내 컴퓨터에서 비교만 하고 서비스에 넣지 않습니다.
 - 모델 실행 코드(`extract.py`의 각 runner)는 클라우드에서 모델을 내려받을 수 없어 실제 모델로 검증하지 못했습니다.
   지표 계산(`metrics.py`, `import_sapiens.py`)만 합성 데이터 테스트로 검증했습니다.
+- `evaluate_segments.py`의 MediaPipe 추출 부분도 같은 이유로 클라우드에서는 실제 영상으로 돌려 보지 못했습니다. 판정·지표(`judge.py`)는 합성 관절점 테스트로 검증했습니다.
