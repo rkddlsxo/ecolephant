@@ -6,6 +6,11 @@ import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '..
 import { Select } from '../components/Select';
 import { CameraPreview } from '../components/CameraPreview';
 import { CalibrationControl } from '../features/measurement/CalibrationControl';
+import {
+  airpodsHelperEnabled,
+  startProblem,
+  useAirPods,
+} from '../features/measurement/airpods/airpods-link';
 import { useCameraPipeline } from '../features/measurement/camera-pipeline';
 import { measurement } from '../features/measurement/controller';
 import { usePolicyCheck } from '../features/measurement/policy';
@@ -58,10 +63,18 @@ export function MeasurePage() {
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
   const camera = state.input === 'camera';
   const pipeline = useCameraPipeline();
-  // Real input is webcam-only until AirPods are connected.
-  const mode: Mode = camera ? 'webcam' : selectedMode;
+  const airpods = useAirPods();
+  // Real input is webcam-only unless the dev flag `?airpods=helper` connects the AirPods helper.
+  const helper = airpodsHelperEnabled();
+  const mode: Mode = camera && !helper ? 'webcam' : selectedMode;
   const policyCheck = usePolicyCheck(mode);
-  const cameraReady = !camera || (pipeline.status === 'running' && pipeline.hasBaseline);
+  const cameraReady =
+    !camera ||
+    startProblem(mode, {
+      cameraBaseline: pipeline.status === 'running' && pipeline.hasBaseline,
+      helperEnabled: helper,
+      airpodsBaseline: airpods.hasBaseline,
+    }) === null;
 
   useEffect(() => {
     if (!state.alert || document.hidden) return;
@@ -128,7 +141,7 @@ export function MeasurePage() {
           <Select<Mode>
             label="측정 방식"
             value={running ? state.mode : mode}
-            disabled={running || camera}
+            disabled={running || (camera && !helper)}
             onChange={setSelectedMode}
             options={modeOptions}
           />
@@ -214,7 +227,12 @@ export function MeasurePage() {
         <div className="button-row service-actions">
           {!running && (
             <Button
-              disabled={policyCheck.status !== 'ok' || !cameraReady || pipeline.calibrating}
+              disabled={
+                policyCheck.status !== 'ok' ||
+                !cameraReady ||
+                pipeline.calibrating ||
+                airpods.calibrating
+              }
               onClick={() => void measurement.start(mode).catch(() => undefined)}
             >
               {policyCheck.status === 'loading'
