@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { policy, type Level, type Mode, type PostureType, type Scenario } from '@ecolephant/ai';
+import { policy, type Level, type Mode, type Scenario } from '@ecolephant/ai';
 import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
 import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
 import { Select } from '../components/Select';
@@ -18,11 +18,12 @@ const levelLabel: Record<Level, string> = {
   high: '높음',
   unknown: '판단 불가',
 };
-const postureLabel: Record<PostureType, string> = {
-  chin_forward: '턱 내밀기',
-  head_down: '고개 숙임',
-  combined: '복합',
-};
+/**
+ * One label for any detected type (2026-11-21): the front-camera type (chin forward / head down /
+ * both) was unreliable in the test videos, so only the level is shown with "거북목 자세".
+ * The type is still recorded with each window.
+ */
+const postureLabel = '거북목 자세';
 const inputOptions: { value: MeasurementInput; label: string }[] = [
   { value: 'camera', label: '실제 카메라' },
   { value: 'demo', label: '테스트 입력' },
@@ -171,7 +172,7 @@ export function MeasurePage() {
                 : state.phase === 'recalibrating'
                   ? '기준 재설정 중'
                   : state.latest
-                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel[state.latest.posture_type]}` : ''}`
+                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel}` : ''}`
                     : '대기'}
             </strong>
           </div>
