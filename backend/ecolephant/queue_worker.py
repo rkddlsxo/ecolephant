@@ -30,7 +30,7 @@ class InMemoryBrokerQueue:
     def unacked_count(self):
         return len(self._unacked)
 
-    # [Day 10] 우체통에서 편지 1통 꺼내기 (Prefetch=1 제한: 앞 편지 완료 도장을 찍기 전엔 새 편지를 안 줌)
+    # 우체통에서 편지 1통 꺼내기 (Prefetch=1 제한: 앞 편지 완료 도장을 찍기 전엔 새 편지를 안 줌)
     def consume_one(self):
         if len(self._unacked) >= self.prefetch_count or not self._ready:
             return None
@@ -40,11 +40,11 @@ class InMemoryBrokerQueue:
         self._unacked[tag] = msg
         return tag, msg["body"]
 
-    # [Day 10] Manual ACK (수동 완료 도장): DB 저장까지 무사히 끝났을 때만 호출해 우체통에서 완전히 지웁니다.
+    # Manual ACK (수동 완료 도장): DB 저장까지 무사히 끝났을 때만 호출해 우체통에서 완전히 지웁니다.
     def basic_ack(self, delivery_tag):
         self._unacked.pop(delivery_tag, None)
 
-    # [Day 10] Manual NACK (실패 반송): DB 저장 도중 에러가 나면 편지를 버리지 않고 다시 줄 맨 앞(appendleft)으로 돌려놓습니다.
+    # Manual NACK (실패 반송): DB 저장 도중 에러가 나면 편지를 버리지 않고 다시 줄 맨 앞(appendleft)으로 돌려놓습니다.
     def basic_nack(self, delivery_tag, requeue=True):
         msg = self._unacked.pop(delivery_tag, None)
         if msg is not None and requeue:
