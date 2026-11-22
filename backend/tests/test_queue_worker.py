@@ -42,6 +42,32 @@ class RabbitMQDay9ProducerTest(unittest.TestCase):
         self.assertEqual(len(fallback_saved), 1)
         self.assertEqual(fallback_saved[0][1], "sess-1")
 
+    def test_consumer_manual_ack_deletes_on_success_and_nack_requeues_on_failure(self):
+        """[Day 10 Consumer 검증] 워커가 DB 저장에 실패하면 basic_nack(requeue=True)로 메시지가 다시 대기열에 복구되고, 재시도 성공 시 basic_ack로 완전히 제거되어야 합니다."""
+        broker = InMemoryBrokerQueue(prefetch_count=1)
+        coord = BatchQueueCoordinator(broker=broker)
+        coord.enqueue_batch("user-1", "sess-10", [{"seq": 1, "duration_ms": 5000}])
+        self.assertEqual(broker.pending_count(), 1)
+
+        # 거부/장애 케이스: 워커가 메시지를 꺼내 DB에 저장하는 도중 RuntimeError가 발생하면?
+        # 메시지가 증발하지 않고 basic_nack(requeue=True)에 의해 다시 대기열(pending_count=1, unacked_count=0)로 돌아와야 합니다!
+        def failing_db_writer(_payload):
+            raise RuntimeError("DB connection lost during batch write")
+
+        with self.assertRaises(RuntimeError):
+            coord.process_next(failing_db_writer)
+
+        self.assertEqual(broker.unacked_count(), 0)
+        self.assertEqual(broker.pending_count(), 1)
+
+        # 허용 케이스: DB가 복구된 뒤 다음 워커가 다시 꺼내서 성공하면 basic_ack가 호출되어 대기열이 0이 됩니다!
+        processed = []
+        self.assertTrue(coord.process_next(lambda payload: processed.append(payload)))
+        self.assertEqual(len(processed), 1)
+        self.assertEqual(processed[0]["session_id"], "sess-10")
+        self.assertEqual(broker.pending_count(), 0)
+        self.assertEqual(broker.unacked_count(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
