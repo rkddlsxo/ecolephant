@@ -1,4 +1,4 @@
-#빈 우분투 서버를 운영 서버로 만드는 전 과정을 멱등성 (여러번 실행해도 안전함)있게 순서대로 정의합니다.
+# 빈 우분투 서버를 운영 서버로 만드는 전 과정을 멱등성 있게 순서대로 정의
 ---
 - name: Provision and deploy Ecolephant on Ubuntu EC2
   hosts: all
@@ -10,7 +10,7 @@
     dynamodb_table: ecolephant-results
     allowed_origin: https://localhost
 
-  #aws 보안 그룹에만 의존하지 않고 리눅스 호스트 내부 방화벽(ufw)도 함께 설정해 보안을 강화합니다.
+  # aws 보안 그룹에만 의존하지 않고 리눅스 호스트 내부 방화벽(ufw)도 함께 설정해 보안을 강화
   tasks:
     - name: Update apt package cache and install base packages
       ansible.builtin.apt:
@@ -89,6 +89,27 @@
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
         mode: "0755"
+
+    # t4g.small(RAM 2GB)에 컨테이너들이 올라갈 때 순간적인 메모리 스파이크로 서버가 죽지(OOM) 않도록 디스크에 2GB 비상 메모리(/swapfile)를 만듭니다.
+    - name: Allocate and enable 2GB swapfile for t4g.small memory safety
+      ansible.builtin.shell: |
+        if [ ! -f /swapfile ]; then
+          fallocate -l 2G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+        fi
+        swapon -s | grep -q '/swapfile' || swapon /swapfile
+      args:
+        creates: /swapfile
+
+    # 리눅스 기본값(vm.swappiness=60)으로 두면 RAM이 아직 40%나 남았는데도 느린 디스크 스왑을 먼저 써서 서버가 멈칫거립니다(Swap Thrashing).
+    # 그래서 vm.swappiness를 "10"으로 낮춰서 "RAM이 90% 찰 때까지는 무조건 빠른 RAM만 쓰고, 진짜 비상시에만 스왑을 써라!"라고 튜닝합니다.
+    - name: Tune vm.swappiness to 10 to prevent premature swap thrashing
+      ansible.posix.sysctl:
+        name: vm.swappiness
+        value: "10"
+        state: present
+        reload: true
 
 #systemd 서비스로 등록하고 enabled: true를 켜서 ec2가 재부팅되어도 앱과 모니터링 컨테이너가 자동 시작되게 설정
     - name: Install systemd service unit for Ecolephant stack

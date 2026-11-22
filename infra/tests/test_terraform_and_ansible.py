@@ -124,6 +124,14 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.verify_aws_capstone_readiness(instance_profile="custom-unapproved-profile")
 
+    def test_ansible_playbook_configures_2gb_swapfile_and_swappiness_10(self):
+        """[Day 17 & 19 검증] Ansible 플레이북은 t4g.small OOM 및 스왑 쓰래싱 방지를 위해 2G /swapfile과 vm.swappiness=10 설정을 포함해야 합니다."""
+        playbook = (ANSIBLE_DIR / "playbook.yml").read_text(encoding="utf-8")
+        self.assertIn("fallocate -l 2G /swapfile", playbook)
+        self.assertIn("mkswap /swapfile", playbook)
+        self.assertIn("name: vm.swappiness", playbook)
+        self.assertIn('value: "10"', playbook)
+
 
 if __name__ == "__main__":
     unittest.main()
