@@ -72,6 +72,15 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
                         f"{wf.name} {idx}행: GitHub Actions는 step/job if 조건문에 secrets.* 직접 참조를 허용하지 않습니다",
                     )
 
+    def test_alertmanager_enforces_env_webhook_and_send_resolved(self):
+        """[Day 13 검증] Alertmanager는 웹훅 URL을 평문 노출 없이 환경변수(${SLACK_WEBHOOK_URL})로 받고 send_resolved: true를 켜야 합니다."""
+        am_text = (ROOT / "deploy" / "monitoring" / "alertmanager.yml").read_text(encoding="utf-8")
+        prom_text = (ROOT / "deploy" / "monitoring" / "prometheus.yml").read_text(encoding="utf-8")
+        self.assertIn("${SLACK_WEBHOOK_URL}", am_text)
+        self.assertNotIn("hooks.slack.com/services/", am_text)
+        self.assertIn("send_resolved: true", am_text)
+        self.assertIn("alertmanager:9093", prom_text)
+
 
 if __name__ == "__main__":
     unittest.main()

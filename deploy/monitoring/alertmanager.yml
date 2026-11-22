@@ -1,0 +1,19 @@
+# Prometheus에서 감지한 장애(CPU 80% 초과, 메모리 15% 미만 등)를 팀 슬랙(Slack) 채널로 즉시 발송하는 Alertmanager 설정
+route:
+  # 같은 종류의 알람이 수십 개 동시에 터질 때 슬랙 알림이 도배되지 않도록 알람 이름(alertname)별로 하나로 묶어서 보냅니다.
+  group_by: ["alertname", "project"]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 2h
+  receiver: "slack-notifications"
+
+receivers:
+  - name: "slack-notifications"
+    slack_configs:
+      # 실제 슬랙 웹훅 주소는 코드에 평문으로 적지 않고 환경변수(SLACK_WEBHOOK_URL)에서 주입받아 보안을 지킴.
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        send_resolved: true
+        channel: "#ecolephant-alerts"
+        # 장애가 발생했을 때뿐 아니라 복구 완료(resolved)되었을 때도 슬랙 알림을 보내도록.
+        title: "[{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}"
+        text: "{{ .CommonAnnotations.description }}"
