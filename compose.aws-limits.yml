@@ -1,0 +1,27 @@
+# AWS t4g.small (2 vCPU / 2GB RAM) 저사양 서버 OOM(메모리 초과 다운) 방지용 컨테이너별 메모리 제한표
+# 전체 2048MB 중 컨테이너 총합을 약 1376MB로 제한하고, 나머지 ~670MB는 리눅스 OS 커널과 버퍼 캐시 여유분으로 남깁니다.
+services:
+  backend:
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+
+  web:
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: 0.25
+
+  postgres:
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+
+  redis:
+    mem_limit: 160m
+    memswap_limit: 160m
+    cpus: 0.25
+
+  rabbitmq:
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5

@@ -90,6 +90,7 @@ data "aws_iam_policy_document" "ec2_assume_role" {
 }
 
 resource "aws_iam_role" "ec2_backend" {
+  count              = var.existing_iam_instance_profile == "" ? 1 : 0
   name               = "${var.project_name}-ec2-backend-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
 }
@@ -112,16 +113,18 @@ data "aws_iam_policy_document" "ec2_dynamodb_access" {
 }
 
 # 서버에 aws키를 두지 않는 핵심
-# ec2용 iam instance profile
+# ec2용 iam instance profile (사전 지급된 SafeInstanceProfile-inha-capstone-20이 있으면 새로 만들지 않고 재사용)
 resource "aws_iam_role_policy" "ec2_dynamodb_access" {
+  count  = var.existing_iam_instance_profile == "" ? 1 : 0
   name   = "${var.project_name}-ec2-dynamodb-policy"
-  role   = aws_iam_role.ec2_backend.id
+  role   = aws_iam_role.ec2_backend[0].id
   policy = data.aws_iam_policy_document.ec2_dynamodb_access.json
 }
 
 resource "aws_iam_instance_profile" "ec2_backend" {
-  name = "${var.project_name}-ec2-instance-profile"
-  role = aws_iam_role.ec2_backend.name
+  count = var.existing_iam_instance_profile == "" ? 1 : 0
+  name  = "${var.project_name}-ec2-instance-profile"
+  role  = aws_iam_role.ec2_backend[0].name
 }
 
 # 외부에서는 웹(80/443)과 ansible배포용 ssh(22)만 열고 내부 컨테이너 포트는 차단하는 보안그룹
@@ -170,7 +173,7 @@ resource "aws_instance" "app" {
   ami                         = data.aws_ami.ubuntu_arm64.id
   instance_type               = var.instance_type
   vpc_security_group_ids      = [aws_security_group.app.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2_backend.name
+  iam_instance_profile        = var.existing_iam_instance_profile != "" ? var.existing_iam_instance_profile : aws_iam_instance_profile.ec2_backend[0].name
   key_name                    = var.ssh_public_key != "" ? aws_key_pair.deployer[0].key_name : null
   associate_public_ip_address = true
 
@@ -187,7 +190,8 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-    Name = "${var.project_name}-app-server"
+    Name  = "${var.project_name}-app-server"
+    Owner = var.team_account_name
   }
 }
 

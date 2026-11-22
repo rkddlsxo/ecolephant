@@ -72,6 +72,38 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
                         f"{wf.name} {idx}행: GitHub Actions는 step/job if 조건문에 secrets.* 직접 참조를 허용하지 않습니다",
                     )
 
+    def test_alertmanager_enforces_env_webhook_and_send_resolved(self):
+        """[Day 13 검증] Alertmanager는 웹훅 URL을 평문 노출 없이 환경변수(${SLACK_WEBHOOK_URL})로 받고 send_resolved: true를 켜야 합니다."""
+        am_text = (ROOT / "deploy" / "monitoring" / "alertmanager.yml").read_text(encoding="utf-8")
+        prom_text = (ROOT / "deploy" / "monitoring" / "prometheus.yml").read_text(encoding="utf-8")
+        self.assertIn("${SLACK_WEBHOOK_URL}", am_text)
+        self.assertNotIn("hooks.slack.com/services/", am_text)
+        self.assertIn("send_resolved: true", am_text)
+        self.assertIn("alertmanager:9093", prom_text)
+
+    def test_helm_chart_and_values_align_replicas_pool_and_memory_bounds(self):
+        """[Day 14 검증] Helm 차트(Chart.yaml, values.yaml)는 백엔드 이중화(replicaCount: 2), 커넥션 풀(poolSize: 8), 메모리 보호 설정을 포함해야 합니다."""
+        chart_text = (ROOT / "deploy" / "helm" / "ecolephant" / "Chart.yaml").read_text(encoding="utf-8")
+        values_text = (ROOT / "deploy" / "helm" / "ecolephant" / "values.yaml").read_text(encoding="utf-8")
+        self.assertIn("apiVersion: v2", chart_text)
+        self.assertIn("name: ecolephant", chart_text)
+        self.assertIn("replicaCount: 2", values_text)
+        self.assertIn("poolSize: 8", values_text)
+        self.assertIn("threads: 8", values_text)
+        self.assertIn("maxmemory: 128mb", values_text)
+
+    def test_aws_limits_and_capstone_instance_profile_integration(self):
+        """[Day 15 검증] t4g.small(2GB) OOM 방지용 compose.aws-limits.yml 메모리 상한과 인하대 캡스톤 사전 지급 SafeInstanceProfile-inha-capstone-20 연동을 확인합니다."""
+        limits_text = (ROOT / "compose.aws-limits.yml").read_text(encoding="utf-8")
+        vars_tf = (TF_MAIN / "variables.tf").read_text(encoding="utf-8")
+        main_tf = (TF_MAIN / "main.tf").read_text(encoding="utf-8")
+        self.assertIn("mem_limit: 256m", limits_text)
+        self.assertIn("memswap_limit: 256m", limits_text)
+        self.assertIn("mem_limit: 384m", limits_text)
+        self.assertIn("SafeInstanceProfile-inha-capstone-20", vars_tf)
+        self.assertIn("inha-capstone-20", vars_tf)
+        self.assertIn("var.existing_iam_instance_profile", main_tf)
+
 
 if __name__ == "__main__":
     unittest.main()

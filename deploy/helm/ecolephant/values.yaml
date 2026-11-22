@@ -1,0 +1,25 @@
+# Helm 한 줄 배포 핵심 설정표
+# 서버 대수, 메모리 제한, 커넥션 풀 숫자를 코드 안이 아니라 이 파일 한곳에서 통합 관리합니다.
+backend:
+  image: ecolephant-backend:latest
+  port: 5000
+  replicaCount: 2
+  poolSize: 8
+  threads: 8
+  healthcheckPath: /health
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storageSize: 10Gi
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  maxmemory: 128mb
+  evictionPolicy: allkeys-lru
+
+rabbitmq:
+  enabled: true
+  image: rabbitmq:3.13-management-alpine
+  memoryHighWatermark: "0.4"
