@@ -1,0 +1,9 @@
+# Helm 차트 신분증
+# 여러 개의 서버 설정(백엔드, DB, Redis, RabbitMQ)을 하나의 패키지('ecolephant')로 묶어서 명령어 한 줄로 배포
+
+apiVersion: v2
+name: ecolephant
+description: Ecolephant posture analysis backend, cache, queue, and observability Helm chart
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

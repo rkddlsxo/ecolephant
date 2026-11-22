@@ -81,6 +81,17 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("send_resolved: true", am_text)
         self.assertIn("alertmanager:9093", prom_text)
 
+    def test_helm_chart_and_values_align_replicas_pool_and_memory_bounds(self):
+        """[Day 14 검증] Helm 차트(Chart.yaml, values.yaml)는 백엔드 이중화(replicaCount: 2), 커넥션 풀(poolSize: 8), 메모리 보호 설정을 포함해야 합니다."""
+        chart_text = (ROOT / "deploy" / "helm" / "ecolephant" / "Chart.yaml").read_text(encoding="utf-8")
+        values_text = (ROOT / "deploy" / "helm" / "ecolephant" / "values.yaml").read_text(encoding="utf-8")
+        self.assertIn("apiVersion: v2", chart_text)
+        self.assertIn("name: ecolephant", chart_text)
+        self.assertIn("replicaCount: 2", values_text)
+        self.assertIn("poolSize: 8", values_text)
+        self.assertIn("threads: 8", values_text)
+        self.assertIn("maxmemory: 128mb", values_text)
+
 
 if __name__ == "__main__":
     unittest.main()
