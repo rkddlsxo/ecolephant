@@ -104,6 +104,26 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("inha-capstone-20", vars_tf)
         self.assertIn("var.existing_iam_instance_profile", main_tf)
 
+    def test_aws_preflight_check_blocks_wrong_region_and_unapproved_profile(self):
+        """[Day 16 검증] AWS 프리플라이트 점검기는 서울 리전(ap-northeast-2)과 SafeInstanceProfile-inha-capstone-20만 허용하고 그 외에는 ValueError로 차단해야 합니다."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("aws_preflight_check", ROOT / "scripts" / "aws-preflight-check.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # 허용 케이스: 서울 리전 + 인하대 캡스톤 사전 지급 프로필
+        result = module.verify_aws_capstone_readiness()
+        self.assertTrue(result["ready"])
+
+        # 거부 케이스 1: 엉뚱한 리전(us-east-1) 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(region="us-east-1")
+
+        # 거부 케이스 2: 지급되지 않은 임의 IAM 프로필 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(instance_profile="custom-unapproved-profile")
+
 
 if __name__ == "__main__":
     unittest.main()
