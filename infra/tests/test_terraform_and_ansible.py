@@ -104,6 +104,52 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("inha-capstone-20", vars_tf)
         self.assertIn("var.existing_iam_instance_profile", main_tf)
 
+    def test_aws_preflight_check_blocks_wrong_region_and_unapproved_profile(self):
+        """[Day 16 검증] AWS 프리플라이트 점검기는 서울 리전(ap-northeast-2)과 SafeInstanceProfile-inha-capstone-20만 허용하고 그 외에는 ValueError로 차단해야 합니다."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("aws_preflight_check", ROOT / "scripts" / "aws-preflight-check.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # 허용 케이스: 서울 리전 + 인하대 캡스톤 사전 지급 프로필
+        result = module.verify_aws_capstone_readiness()
+        self.assertTrue(result["ready"])
+
+        # 거부 케이스 1: 엉뚱한 리전(us-east-1) 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(region="us-east-1")
+
+        # 거부 케이스 2: 지급되지 않은 임의 IAM 프로필 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(instance_profile="custom-unapproved-profile")
+
+    def test_ansible_playbook_configures_2gb_swapfile_and_swappiness_10(self):
+        """[Day 17 & 19 검증] Ansible 플레이북은 t4g.small OOM 및 스왑 쓰래싱 방지를 위해 2G /swapfile과 vm.swappiness=10 설정을 포함해야 합니다."""
+        playbook = (ANSIBLE_DIR / "playbook.yml").read_text(encoding="utf-8")
+        self.assertIn("fallocate -l 2G /swapfile", playbook)
+        self.assertIn("mkswap /swapfile", playbook)
+        self.assertIn("name: vm.swappiness", playbook)
+        self.assertIn('value: "10"', playbook)
+
+    def test_memory_budget_guarantees_512mb_os_headroom_and_poster_metrics_exist(self):
+        """[Day 18~20 검증] t4g.small(2048MB)에서 컨테이너 총 메모리(1376MB)를 뺀 OS 여유분이 512MB 이상(672MB)이어야 하며 포스터 지표 문서가 존재해야 합니다."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("verify_memory_budget", ROOT / "scripts" / "verify-memory-budget.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        budget = module.calculate_container_memory_budget()
+        self.assertTrue(budget["safe"])
+        self.assertEqual(budget["allocated_containers_mb"], 1376)
+        self.assertEqual(budget["os_headroom_mb"], 672)
+        self.assertGreaterEqual(budget["os_headroom_mb"], 512)
+
+        poster_doc = (ROOT / "docs" / "deploy" / "poster-metrics-summary.md").read_text(encoding="utf-8")
+        self.assertIn("Before vs After", poster_doc)
+        self.assertIn("vm.swappiness=10", poster_doc)
+
 
 if __name__ == "__main__":
     unittest.main()
