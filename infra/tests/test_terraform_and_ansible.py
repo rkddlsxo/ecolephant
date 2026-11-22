@@ -132,6 +132,24 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("name: vm.swappiness", playbook)
         self.assertIn('value: "10"', playbook)
 
+    def test_memory_budget_guarantees_512mb_os_headroom_and_poster_metrics_exist(self):
+        """[Day 18~20 검증] t4g.small(2048MB)에서 컨테이너 총 메모리(1376MB)를 뺀 OS 여유분이 512MB 이상(672MB)이어야 하며 포스터 지표 문서가 존재해야 합니다."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("verify_memory_budget", ROOT / "scripts" / "verify-memory-budget.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        budget = module.calculate_container_memory_budget()
+        self.assertTrue(budget["safe"])
+        self.assertEqual(budget["allocated_containers_mb"], 1376)
+        self.assertEqual(budget["os_headroom_mb"], 672)
+        self.assertGreaterEqual(budget["os_headroom_mb"], 512)
+
+        poster_doc = (ROOT / "docs" / "deploy" / "poster-metrics-summary.md").read_text(encoding="utf-8")
+        self.assertIn("Before vs After", poster_doc)
+        self.assertIn("vm.swappiness=10", poster_doc)
+
 
 if __name__ == "__main__":
     unittest.main()
