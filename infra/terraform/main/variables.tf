@@ -37,6 +37,11 @@ variable "existing_iam_instance_profile" {
   default = "SafeInstanceProfile-inha-capstone-20"
 }
 
+variable "existing_iam_role_name" {
+  type    = string
+  default = "SafeRole-inha-capstone-20"
+}
+
 variable "team_account_name" {
   type    = string
   default = "inha-capstone-20"

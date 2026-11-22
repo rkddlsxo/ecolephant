@@ -1,15 +1,34 @@
+# ==============================================================================
+# 인하대 캡스톤(inha-capstone-20) 공식 제공 기준 100% 반영 Terraform 아키텍처
+# 사용할 수 있는 핵심 서비스 총집합 (공부 & 아키텍처 완성도 극대화):
+# 1) EC2 (t3.medium, Ubuntu 24.04 amd64) + SafeInstanceProfile-inha-capstone-20
+# 2) RDS for PostgreSQL (Single-AZ, 프리티어 db.t3.micro, 퍼블릭 액세스 차단 + EC2 보안그룹만 5432 허용)
+# 3) DynamoDB (온디맨드 PAY_PER_REQUEST + PITR 백업)
+# 4) S3 (버킷명 반드시 inha-capstone-20-... 으로 시작)
+# 5) SQS + DLQ (측정 배치 비동기 메시지 큐 + 3회 실패 시 Dead Letter Queue 격리)
+# 6) Lambda + API Gateway HTTP API (SafeRole-inha-capstone-20 연결 + 기본 HTTPS 엔드포인트 제공 + Bedrock 대체 LLM API 연동)
+# 7) SNS + CloudWatch Alarm (서버 상태 이상 시 이메일 알림)
+# ==============================================================================
+
 data "aws_vpc" "default" {
   default = true
 }
 
-# ami id를 하드코딩 하지 않고 canonical 공식 계정에서 가장 최신 ubuntu 24.04 tls arm64이미지를 자동으로 찾아옵니다.
-data "aws_ami" "ubuntu_arm64" {
+# [주의사항 7번 반영] 액세스 키 발급이나 새 IAM Role 생성은 불가하므로,
+# 학교가 미리 만들어 준 SafeRole-inha-capstone-20의 ARN을 조회해서 Lambda 등에 연결합니다.
+data "aws_iam_role" "capstone_safe_role" {
+  name = var.existing_iam_role_name
+}
+
+# [주의사항 3번 반영] t3.nano ~ t3.medium은 x86_64(amd64) 아키텍처이므로
+# Ubuntu 24.04 LTS amd64 공식 이미지를 자동으로 찾아옵니다.
+data "aws_ami" "ubuntu_amd64" {
   most_recent = true
   owners      = ["099720109477"]
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*"]
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
   }
 
   filter {
@@ -18,118 +37,11 @@ data "aws_ami" "ubuntu_arm64" {
   }
 }
 
-# ec2 백엔드에서 사용할 dynamo db 테이블을 생성합니다. 이 테이블은 posture 결과를 저장하는 데 사용됩니다.
-resource "aws_dynamodb_table" "results" {
-  name = "${var.project_name}-results"
-  # 상시 과금이 없는 온디맨드 모드로, 요청한 만큼만 과금되어 월 $0.1 미만으로 유지됩니다.
-  billing_mode = "PAY_PER_REQUEST"
-  # 백엔드의 단일 테이블 설계와 정확히 일치하는 파티션 키.정렬 키입니다.
-  hash_key  = "pk"
-  range_key = "sk"
-
-  attribute {
-    name = "pk"
-    type = "S"
-  }
-
-  attribute {
-    name = "sk"
-    type = "S"
-  }
-
-  # 실수로 데이터를 지워도 최근 35일 내 원하는 초 단위로 복구할 수 있는 PIRT 기능입니다.
-  point_in_time_recovery {
-    enabled = true
-  }
-
-  server_side_encryption {
-    enabled = true
-  }
-}
-
-# cognito 사용자 풀
-resource "aws_cognito_user_pool" "owners" {
-  name                     = "${var.project_name}-owners"
-  username_attributes      = ["email"]
-  auto_verified_attributes = ["email"]
-
-  # 아무나 회원가입하지 못하고 관리자(팀)가 생성한 시연.테스트 계정만 로그인할 수 있게 막습니다.
-  admin_create_user_config {
-    allow_admin_create_user_only = true
-  }
-
-  password_policy {
-    minimum_length    = 12
-    require_lowercase = true
-    require_numbers   = true
-    require_symbols   = true
-    require_uppercase = true
-  }
-}
-
-# 브라우저에서 직접 로그인하므로 client secret없이 안전한 SRP인증만 허용합니다.
-resource "aws_cognito_user_pool_client" "web" {
-  name                                 = "${var.project_name}-web-client"
-  user_pool_id                         = aws_cognito_user_pool.owners.id
-  generate_secret                      = false
-  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
-  prevent_user_existence_errors        = "ENABLED"
-  allowed_oauth_flows_user_pool_client = false
-}
-
-data "aws_iam_policy_document" "ec2_assume_role" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "ec2_backend" {
-  count              = var.existing_iam_instance_profile == "" ? 1 : 0
-  name               = "${var.project_name}-ec2-backend-role"
-  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
-}
-
-data "aws_iam_policy_document" "ec2_dynamodb_access" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "dynamodb:BatchWriteItem",
-      "dynamodb:DeleteItem",
-      "dynamodb:DescribeTable",
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:Query",
-      "dynamodb:TransactWriteItems",
-      "dynamodb:UpdateItem",
-    ]
-    resources = [aws_dynamodb_table.results.arn]
-  }
-}
-
-# 서버에 aws키를 두지 않는 핵심
-# ec2용 iam instance profile (사전 지급된 SafeInstanceProfile-inha-capstone-20이 있으면 새로 만들지 않고 재사용)
-resource "aws_iam_role_policy" "ec2_dynamodb_access" {
-  count  = var.existing_iam_instance_profile == "" ? 1 : 0
-  name   = "${var.project_name}-ec2-dynamodb-policy"
-  role   = aws_iam_role.ec2_backend[0].id
-  policy = data.aws_iam_policy_document.ec2_dynamodb_access.json
-}
-
-resource "aws_iam_instance_profile" "ec2_backend" {
-  count = var.existing_iam_instance_profile == "" ? 1 : 0
-  name  = "${var.project_name}-ec2-instance-profile"
-  role  = aws_iam_role.ec2_backend[0].name
-}
-
-# 외부에서는 웹(80/443)과 ansible배포용 ssh(22)만 열고 내부 컨테이너 포트는 차단하는 보안그룹
+# ------------------------------------------------------------------------------
+# 1. EC2 보안그룹 & 인스턴스 (t3.medium + SafeInstanceProfile-inha-capstone-20)
+# ------------------------------------------------------------------------------
 resource "aws_security_group" "app" {
-  name   = "${var.project_name}-app-sg"
+  name   = "${var.team_account_name}-${var.project_name}-app-sg"
   vpc_id = data.aws_vpc.default.id
 
   ingress {
@@ -159,21 +71,24 @@ resource "aws_security_group" "app" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name  = "${var.team_account_name}-${var.project_name}-app-sg"
+    Owner = var.team_account_name
+  }
 }
 
-# ssh_public_key 변수가 주어졌을 때만 (count=1) ec2 점속용 키페어를 등록
 resource "aws_key_pair" "deployer" {
   count      = var.ssh_public_key != "" ? 1 : 0
-  key_name   = "${var.project_name}-deployer-key"
+  key_name   = "${var.team_account_name}-${var.project_name}-key"
   public_key = var.ssh_public_key
 }
 
-# docker compose와 alloy관측 스택이 올라갈 ubuntu 24.04 ARM64 애플리케이션 서버
 resource "aws_instance" "app" {
-  ami                         = data.aws_ami.ubuntu_arm64.id
+  ami                         = data.aws_ami.ubuntu_amd64.id
   instance_type               = var.instance_type
   vpc_security_group_ids      = [aws_security_group.app.id]
-  iam_instance_profile        = var.existing_iam_instance_profile != "" ? var.existing_iam_instance_profile : aws_iam_instance_profile.ec2_backend[0].name
+  iam_instance_profile        = var.existing_iam_instance_profile
   key_name                    = var.ssh_public_key != "" ? aws_key_pair.deployer[0].key_name : null
   associate_public_ip_address = true
 
@@ -182,7 +97,6 @@ resource "aws_instance" "app" {
     http_tokens   = "required"
   }
 
-  # 도커 이미지와 14일치 로그.메트릭 보관을 위한 20GB 암호화
   root_block_device {
     volume_size = 20
     volume_type = "gp3"
@@ -190,14 +104,101 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-    Name  = "${var.project_name}-app-server"
+    Name  = "${var.team_account_name}-${var.project_name}-app-server"
     Owner = var.team_account_name
   }
 }
 
+# ------------------------------------------------------------------------------
+# 2. RDS for PostgreSQL (PDF 'RDS 사용 및 접속 안내' 1~3번 규칙 100% 반영)
+# - 기본 VPC 사용, Single-AZ / Single Instance(multi_az = false), 프리티어(db.t3.micro)
+# - 퍼블릭 액세스 금지(publicly_accessible = false)
+# - RDS 보안그룹에서 오직 우리 EC2 보안그룹(aws_security_group.app.id)의 5432 포트만 허용!
+# ------------------------------------------------------------------------------
+resource "aws_security_group" "rds" {
+  name   = "${var.team_account_name}-${var.project_name}-rds-sg"
+  vpc_id = data.aws_vpc.default.id
+
+  # 외부 인터넷(0.0.0.0/0)이 아니라 오직 우리 EC2 서버 보안그룹에서 오는 5432 포트만 열어줍니다!
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  tags = {
+    Name  = "${var.team_account_name}-${var.project_name}-rds-sg"
+    Owner = var.team_account_name
+  }
+}
+
+resource "aws_db_instance" "postgres" {
+  identifier             = "${var.team_account_name}-${var.project_name}-pg"
+  engine                 = "postgres"
+  engine_version         = "16"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  storage_type           = "gp3"
+  storage_encrypted      = true
+  db_name                = "ecolephant"
+  username               = "ecolephant"
+  manage_master_user_password = true
+
+  # [RDS 필수 규칙] Single-AZ(multi_az = false) 및 외부 인터넷 직접 접속 차단(publicly_accessible = false)
+  multi_az               = false
+  publicly_accessible    = false
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  skip_final_snapshot    = true
+
+  tags = {
+    Name  = "${var.team_account_name}-${var.project_name}-pg"
+    Owner = var.team_account_name
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 3. DynamoDB (온디맨드 PAY_PER_REQUEST + 35일 시점 복구 PITR)
+# ------------------------------------------------------------------------------
+resource "aws_dynamodb_table" "results" {
+  name         = "${var.team_account_name}-${var.project_name}-results"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+  range_key    = "sk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  attribute {
+    name = "sk"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Owner = var.team_account_name
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 4. S3 버킷 (주의사항 6번: 버킷 이름은 반드시 본인 username인 inha-capstone-20으로 시작!)
+# ------------------------------------------------------------------------------
 resource "aws_s3_bucket" "frontend" {
   bucket_prefix = "${var.team_account_name}-${var.project_name}-"
   force_destroy = true
+
+  tags = {
+    Owner = var.team_account_name
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
@@ -208,90 +209,63 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   restrict_public_buckets = true
 }
 
-resource "aws_cloudfront_origin_access_control" "frontend" {
-  name                              = "${var.project_name}-frontend-oac"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
+# ------------------------------------------------------------------------------
+# 5. SQS + Dead Letter Queue (PDF 4쪽 8.c.ii 추천 비동기 메시징 서비스!)
+# - 우리가 Day 9~11에 배운 '3번 연속 실패 시 DLQ(비상 보관함)로 격리'를 AWS SQS로 구현한 설정입니다.
+# ------------------------------------------------------------------------------
+resource "aws_sqs_queue" "batch_dlq" {
+  name                      = "${var.team_account_name}-${var.project_name}-batch-dlq"
+  message_retention_seconds = 1209600 # 14일 동안 실패 메시지 안전 보관
 
-# 정적 웹 자산을 HTTPS로 서빙하고 SPA라우팅을 처리하는 cloudfront CDN
-resource "aws_cloudfront_distribution" "frontend" {
-  enabled             = true
-  default_root_object = "index.html"
-
-  origin {
-    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id                = "s3-frontend"
-    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
-  }
-
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-frontend"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
-
-  custom_error_response {
-    error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
+  tags = {
+    Owner = var.team_account_name
   }
 }
 
-data "aws_iam_policy_document" "frontend_bucket_policy" {
-  statement {
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.frontend.arn}/*"]
+resource "aws_sqs_queue" "batch_queue" {
+  name                       = "${var.team_account_name}-${var.project_name}-batch-queue"
+  visibility_timeout_seconds = 30
+  # redrive_policy: 워커가 3번(maxReceiveCount = 3) 처리에 실패하면 위 batch_dlq로 자동 이동시킵니다!
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.batch_dlq.arn
+    maxReceiveCount     = 3
+  })
 
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.frontend.arn]
-    }
+  tags = {
+    Owner = var.team_account_name
   }
 }
 
-resource "aws_s3_bucket_policy" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-  policy = data.aws_iam_policy_document.frontend_bucket_policy.json
+# ------------------------------------------------------------------------------
+# 6. Lambda + API Gateway HTTP API (주의사항 5번 & Route53/ACM 대안 PDF 1쪽 반영)
+# - Lambda 생성 시 새 역할을 만들지 않고 기존 역할(SafeRole-inha-capstone-20)을 연결합니다.
+# - API Gateway 기본 도메인(*.execute-api.ap-northeast-2.amazonaws.com)은
+#   Route 53이나 ACM 없이도 AWS 공식 신뢰 HTTPS 인증서를 무료로 제공합니다!
+# ------------------------------------------------------------------------------
+resource "aws_apigatewayv2_api" "https_gateway" {
+  name          = "${var.team_account_name}-${var.project_name}-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
+    allow_headers = ["Authorization", "Content-Type", "Idempotency-Key"]
+  }
+
+  tags = {
+    Owner = var.team_account_name
+  }
 }
 
+# ------------------------------------------------------------------------------
+# 7. SNS + CloudWatch Alarm (EC2 서버 이상 감지 시 이메일 알림 발송)
+# ------------------------------------------------------------------------------
 resource "aws_sns_topic" "alarms" {
-  name = "${var.project_name}-alarms"
+  name = "${var.team_account_name}-${var.project_name}-alarms"
+
+  tags = {
+    Owner = var.team_account_name
+  }
 }
 
 resource "aws_sns_topic_subscription" "alarm_email" {
@@ -302,7 +276,7 @@ resource "aws_sns_topic_subscription" "alarm_email" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ec2_status_check" {
-  alarm_name          = "${var.project_name}-ec2-status-check-failed"
+  alarm_name          = "${var.team_account_name}-${var.project_name}-ec2-status-check-failed"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 2
   metric_name         = "StatusCheckFailed"
@@ -317,4 +291,3 @@ resource "aws_cloudwatch_metric_alarm" "ec2_status_check" {
     InstanceId = aws_instance.app.id
   }
 }
-

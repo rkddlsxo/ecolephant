@@ -23,15 +23,17 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
     def test_main_terraform_avoids_expensive_resources_and_hardens_security(self):
         main_tf = (TF_MAIN / "main.tf").read_text(encoding="utf-8")
         forbidden_resources = (
+            'resource "aws_route53_zone"',
+            'resource "aws_acm_certificate"',
             'resource "aws_nat_gateway"',
             'resource "aws_eip"',
-            'resource "aws_db_instance"',
             'resource "aws_rds_cluster"',
             'resource "aws_eks_cluster"',
             'resource "aws_lb"',
+            'resource "aws_iam_role"',
         )
         for resource in forbidden_resources:
-            self.assertNotIn(resource, main_tf, f"비용 사고 방지 위반 리소스 발견: {resource}")
+            self.assertNotIn(resource, main_tf, f"인하대 캡스톤 지원 불가/오버킬 리소스 발견: {resource}")
 
         self.assertIn('billing_mode = "PAY_PER_REQUEST"', main_tf)
         self.assertIn("point_in_time_recovery", main_tf)
@@ -39,6 +41,13 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("encrypted   = true", main_tf)
         self.assertIn("block_public_acls       = true", main_tf)
         self.assertIn("restrict_public_buckets = true", main_tf)
+        # RDS 필수 가이드: Single-AZ(multi_az = false), 퍼블릭 액세스 차단(publicly_accessible = false)
+        self.assertIn("multi_az               = false", main_tf)
+        self.assertIn("publicly_accessible    = false", main_tf)
+        # SQS + DLQ 및 API Gateway HTTPS 엔드포인트 포함 확인
+        self.assertIn('resource "aws_sqs_queue" "batch_queue"', main_tf)
+        self.assertIn('resource "aws_sqs_queue" "batch_dlq"', main_tf)
+        self.assertIn('resource "aws_apigatewayv2_api" "https_gateway"', main_tf)
 
     def test_ansible_playbook_configures_ufw_systemd_and_rolling_update(self):
         playbook = (ANSIBLE_DIR / "playbook.yml").read_text(encoding="utf-8")
@@ -157,6 +166,31 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         poster_doc = (ROOT / "docs" / "deploy" / "poster-metrics-summary.md").read_text(encoding="utf-8")
         self.assertIn("Before vs After", poster_doc)
         self.assertIn("vm.swappiness=10", poster_doc)
+
+    def test_bedrock_ai_coach_lambda_handler_and_fallback_before_key_issuance(self):
+        """[Lambda + Bedrock 대체 LLM API 검증] 키 발급 전(또는 장애 시)에는 규칙 기반 코칭으로 Fallback하고, 키 주입 시 LLM 응답을 반환해야 합니다."""
+        from backend.ecolephant.aws_ai_coach import generate_ai_posture_coaching, lambda_handler
+
+        stats = {"good_ratio": 0.62, "warning_count": 5, "dominant_issue": "forward_head"}
+
+        # 1) 키 발급 전(3일 대기 중) Fallback 검증
+        fallback_res = generate_ai_posture_coaching(stats, api_url="", api_key="")
+        self.assertEqual(fallback_res["source"], "fallback_rule")
+        self.assertIn("62.0%", fallback_res["coaching"])
+
+        # 2) 슬랙 DM으로 API 키 발급 후 Bedrock LLM 정상 호출 검증
+        llm_res = generate_ai_posture_coaching(
+            stats,
+            api_url="https://llm.nxtcloud.kr/v1/complete",
+            api_key="nxt-test-key",
+            transport_fn=lambda url, key, prompt: {"coaching": "턱을 당기고 목 스트레칭을 30초 진행해 보세요."},
+        )
+        self.assertEqual(llm_res["source"], "bedrock_llm")
+        self.assertIn("스트레칭", llm_res["coaching"])
+
+        # 3) AWS Lambda + API Gateway 엔트리포인트 검증
+        http_resp = lambda_handler({"body": '{"good_ratio": 0.85, "warning_count": 1}'})
+        self.assertEqual(http_resp["statusCode"], 200)
 
 
 if __name__ == "__main__":
