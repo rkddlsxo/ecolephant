@@ -92,6 +92,18 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         self.assertIn("threads: 8", values_text)
         self.assertIn("maxmemory: 128mb", values_text)
 
+    def test_aws_limits_and_capstone_instance_profile_integration(self):
+        """[Day 15 검증] t4g.small(2GB) OOM 방지용 compose.aws-limits.yml 메모리 상한과 인하대 캡스톤 사전 지급 SafeInstanceProfile-inha-capstone-20 연동을 확인합니다."""
+        limits_text = (ROOT / "compose.aws-limits.yml").read_text(encoding="utf-8")
+        vars_tf = (TF_MAIN / "variables.tf").read_text(encoding="utf-8")
+        main_tf = (TF_MAIN / "main.tf").read_text(encoding="utf-8")
+        self.assertIn("mem_limit: 256m", limits_text)
+        self.assertIn("memswap_limit: 256m", limits_text)
+        self.assertIn("mem_limit: 384m", limits_text)
+        self.assertIn("SafeInstanceProfile-inha-capstone-20", vars_tf)
+        self.assertIn("inha-capstone-20", vars_tf)
+        self.assertIn("var.existing_iam_instance_profile", main_tf)
+
 
 if __name__ == "__main__":
     unittest.main()
