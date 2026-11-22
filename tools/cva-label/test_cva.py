@@ -151,3 +151,20 @@ def test_shift_segments_moves_beep_relative_times_into_side_video_time():
     out = shift_segments(segs, 4120)
     assert out == [{"start_ms": 6120.0, "end_ms": 16120.0, "label": "upright", "note": "기준"}]
     assert segs[0]["start_ms"] == 2000  # input untouched
+
+
+def test_c7_ignores_large_same_colour_region_and_blobs_far_from_the_ear():
+    import cv2
+
+    img = np.full((600, 800, 3), 200, np.uint8)
+    cv2.circle(img, (400, 150), 10, (0, 200, 0), -1)  # tragus, green
+    cv2.circle(img, (330, 280), 8, (200, 60, 0), -1)  # real C7 sticker, blue (BGR)
+    cv2.rectangle(img, (200, 400), (600, 600), (120, 40, 20), -1)  # navy shirt, much larger
+    cv2.circle(img, (700, 100), 9, (200, 60, 0), -1)  # blue thing above the ear
+    tragus = find_sticker(img, DEFAULT_TRAGUS_HSV, max_area=3000, min_fill=0.45)
+    # Old behaviour: the largest blue region wins (the shirt).
+    assert find_sticker(img, DEFAULT_C7_HSV).y > 400
+    c7 = find_sticker(img, DEFAULT_C7_HSV, max_area=3000, min_fill=0.45, below=tragus, max_dist=240)
+    assert c7 == Pt(pytest.approx(330, abs=1), pytest.approx(280, abs=1))
+    # Too far from the ear → nothing rather than a wrong point.
+    assert find_sticker(img, DEFAULT_C7_HSV, max_area=3000, below=tragus, max_dist=50) is None

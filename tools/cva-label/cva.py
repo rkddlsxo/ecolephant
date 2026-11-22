@@ -57,21 +57,59 @@ DEFAULT_TRAGUS_HSV = HsvRange((40, 80, 60), (85, 255, 255))  # green
 DEFAULT_C7_HSV = HsvRange((95, 80, 60), (130, 255, 255))  # blue
 
 
-def find_sticker(bgr: np.ndarray, hsv_range: HsvRange, min_area: int = 30) -> Pt | None:
-    """Centre of the largest blob in the colour range, or None when none is big enough."""
+@dataclass(frozen=True)
+class Blob:
+    pt: Pt
+    area: int
+    fill: float  # area / bounding-box area: ~0.79 for a round sticker, low for clothing edges
+
+
+def sticker_candidates(bgr: np.ndarray, hsv_range: HsvRange) -> list[Blob]:
+    """Every connected blob in the colour range, largest first."""
     import cv2
 
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, np.array(hsv_range.lower), np.array(hsv_range.upper))
     count, _, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    best = None
-    best_area = 0
+    blobs = []
     for label in range(1, count):
         area = int(stats[label, cv2.CC_STAT_AREA])
-        if area >= min_area and area > best_area:
-            best_area = area
-            best = Pt(float(centroids[label][0]), float(centroids[label][1]))
-    return best
+        box = int(stats[label, cv2.CC_STAT_WIDTH]) * int(stats[label, cv2.CC_STAT_HEIGHT])
+        blobs.append(
+            Blob(Pt(float(centroids[label][0]), float(centroids[label][1])), area, area / box)
+        )
+    return sorted(blobs, key=lambda b: b.area, reverse=True)
+
+
+def find_sticker(
+    bgr: np.ndarray,
+    hsv_range: HsvRange,
+    min_area: int = 30,
+    max_area: int | None = None,
+    min_fill: float = 0.0,
+    below: Pt | None = None,
+    max_dist: float | None = None,
+) -> Pt | None:
+    """Centre of the largest sticker-like blob, or None.
+
+    `max_area`/`min_fill` drop large or ragged regions of the same colour (a navy shirt, a blue
+    cushion). `below`/`max_dist` keep only blobs lower than that point (C7 is below the tragus)
+    and within `max_dist` pixels of it.
+    """
+    for blob in sticker_candidates(bgr, hsv_range):
+        if blob.area < min_area:
+            break
+        if max_area is not None and blob.area > max_area:
+            continue
+        if blob.fill < min_fill:
+            continue
+        if below is not None:
+            if blob.pt.y <= below.y:
+                continue
+            if max_dist is not None and math.hypot(blob.pt.x - below.x, blob.pt.y - below.y) > max_dist:
+                continue
+        return blob.pt
+    return None
 
 
 @dataclass(frozen=True)

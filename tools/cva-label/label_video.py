@@ -59,6 +59,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tragus-hsv", default=None, help="귀구슬 스티커 HSV 범위 h1,s1,v1,h2,s2,v2 (기본 초록)")
     ap.add_argument("--c7-hsv", default=None, help="C7 스티커 HSV 범위 (기본 파랑)")
     ap.add_argument("--min-area", type=int, default=30, help="스티커로 인정할 최소 픽셀 수")
+    ap.add_argument("--max-area", type=int, default=3000, help="이보다 큰 같은 색 영역(옷·쿠션)은 스티커가 아님")
+    ap.add_argument("--min-fill", type=float, default=0.45, help="둥근 정도 (영역/테두리 상자, 원은 약 0.79)")
+    ap.add_argument(
+        "--c7-max-dist",
+        type=float,
+        default=0.4,
+        help="C7은 귀구슬보다 아래, 이 거리(영상 높이 대비 비율) 안에서만 찾음",
+    )
     ap.add_argument("--mediapipe-task", help="주면 귀–어깨 근사 CVA도 함께 계산")
     ap.add_argument("--min-conf", type=float, default=0.5, help="근사 CVA에 쓸 점 최소 신뢰도")
     ap.add_argument("--segments", help="자세 구간 JSON [{start_ms,end_ms,label}] → 구간별 요약")
@@ -104,8 +112,13 @@ def main(argv: list[str] | None = None) -> int:
             if args.check is None and index % max(1, args.stride):
                 continue
             ts = index * 1000.0 / fps
-            tragus = find_sticker(bgr, tragus_hsv, args.min_area)
-            c7 = find_sticker(bgr, c7_hsv, args.min_area)
+            shape = dict(min_area=args.min_area, max_area=args.max_area, min_fill=args.min_fill)
+            tragus = find_sticker(bgr, tragus_hsv, **shape)
+            c7 = (
+                find_sticker(bgr, c7_hsv, **shape, below=tragus, max_dist=args.c7_max_dist * bgr.shape[0])
+                if tragus
+                else None
+            )
             sticker = cva_deg(tragus, c7) if tragus and c7 and (tragus.x, tragus.y) != (c7.x, c7.y) else None
             approx = approx_cva(runner(bgr, ts), args.min_conf) if runner else None
             if args.check is not None:
