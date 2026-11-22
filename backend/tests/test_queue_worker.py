@@ -68,6 +68,39 @@ class RabbitMQDay9ProducerTest(unittest.TestCase):
         self.assertEqual(broker.pending_count(), 0)
         self.assertEqual(broker.unacked_count(), 0)
 
+    def test_dlq_isolates_poison_message_after_max_retries_and_replays_zero_loss(self):
+        """[Day 11 DLQ 검증] max_retries(3회) 연속 실패한 메시지는 앞길을 막지 않도록 DLQ로 격리되고, DB 복구 후 replay_dead_letters()로 무손실 재처리되어야 합니다."""
+        broker = InMemoryBrokerQueue(prefetch_count=1, max_retries=3)
+        coord = BatchQueueCoordinator(broker=broker)
+        coord.enqueue_batch("user-1", "sess-dlq", [{"seq": 1, "duration_ms": 5000}])
+
+        def always_fail(_payload):
+            raise RuntimeError("DB temporarily restarting")
+
+        # 1번째, 2번째 실패까지는 아직 max_retries(3) 미만이므로 원래 대기열(pending_count=1, dlq_count=0)로 돌아옵니다.
+        for _ in range(2):
+            with self.assertRaises(RuntimeError):
+                coord.process_next(always_fail)
+            self.assertEqual(broker.pending_count(), 1)
+            self.assertEqual(broker.dlq_count(), 0)
+
+        # 3번째 실패(attempts == 3 == max_retries) 시에는 더 이상 줄 맨 앞을 막지 않도록 비상 보관함(DLQ)으로 격리됩니다!
+        with self.assertRaises(RuntimeError):
+            coord.process_next(always_fail)
+        self.assertEqual(broker.pending_count(), 0)
+        self.assertEqual(broker.dlq_count(), 1)
+
+        # DB가 정상 복구된 뒤 replay_dead_letters()를 호출하면 DLQ에서 다시 대기열로 1건이 복구되고 정상 처리됩니다!
+        replayed = coord.replay_dead_letters()
+        self.assertEqual(replayed, 1)
+        self.assertEqual(broker.dlq_count(), 0)
+        self.assertEqual(broker.pending_count(), 1)
+
+        recovered = []
+        self.assertTrue(coord.process_next(lambda payload: recovered.append(payload)))
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["session_id"], "sess-dlq")
+
 
 if __name__ == "__main__":
     unittest.main()

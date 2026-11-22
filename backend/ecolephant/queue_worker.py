@@ -6,15 +6,17 @@ import json
 # 가짜 브로커 (RabbitMQ 흉내)
 class InMemoryBrokerQueue:
 
-    def __init__(self, prefetch_count=1):
+    def __init__(self, prefetch_count=1, max_retries=3):
         self.prefetch_count = prefetch_count  # ACK 없이 동시에 줄 수 있는 최대 개수
+        self.max_retries = max_retries        # 최대 재시도 횟수 (초과 시 DLQ로 이동)
         self._ready = deque()                 # 대기 중인 메시지 (FIFO)
         self._unacked = {}                    # 꺼내갔지만 ACK 안 된 메시지 {번호: 메시지}
+        self._dlq = deque()                   # [Day 11] 여러 번 실패한 편지를 모아두는 비상 보관함 (Dead Letter Queue)
         self._next_tag = 1                    # 메시지 번호 (1씩 증가)
 
     # 넣기: 대기 줄 맨 뒤에 추가
     def publish(self, queue_name, body, persistent=True):
-        self._ready.append({"queue": queue_name, "body": body, "persistent": bool(persistent)})
+        self._ready.append({"queue": queue_name, "body": body, "persistent": bool(persistent), "attempts": 0})
         return True
 
     def pending_count(self):
@@ -22,6 +24,9 @@ class InMemoryBrokerQueue:
 
     def unacked_count(self):
         return len(self._unacked)  # 처리 중 개수
+
+    def dlq_count(self):
+        return len(self._dlq)      # [Day 11] 비상 보관함(DLQ)에 쌓인 실패 메시지 개수
 
     # 꺼내기: Ready → Unacked로 옮기고 번호 붙여서 반환
     def consume_one(self):
@@ -38,11 +43,26 @@ class InMemoryBrokerQueue:
     def basic_ack(self, delivery_tag):
         self._unacked.pop(delivery_tag, None)
 
-    # NACK: 실패 → 대기 줄 맨 앞으로 되돌림 (재시도)
+    # NACK: 실패 → 재시도 횟수(attempts)가 max_retries 미만이면 대기 줄 맨 앞으로 되돌리고, 초과하면 DLQ(비상 보관함)로 격리!
     def basic_nack(self, delivery_tag, requeue=True):
         msg = self._unacked.pop(delivery_tag, None)
-        if msg is not None and requeue:
+        if msg is None:
+            return
+        msg["attempts"] = msg.get("attempts", 0) + 1
+        if requeue and msg["attempts"] < self.max_retries:
             self._ready.appendleft(msg)
+        else:
+            self._dlq.append(msg)
+
+    # DLQ(비상 보관함)에 격리된 실패 편지들을 다시 원래 대기 줄(_ready)로 꺼내서 재처리(Replay)
+    def replay_dlq(self):
+        replayed = 0
+        while self._dlq:
+            msg = self._dlq.popleft()
+            msg["attempts"] = 0
+            self._ready.append(msg)
+            replayed += 1
+        return replayed
 
 
 class BatchQueueCoordinator:
@@ -82,3 +102,7 @@ class BatchQueueCoordinator:
         except Exception:
             self.broker.basic_nack(delivery_tag, requeue=True)
             raise
+
+    # 보관함(DLQ)에 쌓인 실패 메시지를 다시 원래 큐로 복구하고, 몇 개 복구했는지 반환
+    def replay_dead_letters(self):
+        return self.broker.replay_dlq()
