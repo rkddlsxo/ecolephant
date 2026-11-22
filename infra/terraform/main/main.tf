@@ -196,7 +196,7 @@ resource "aws_instance" "app" {
 }
 
 resource "aws_s3_bucket" "frontend" {
-  bucket_prefix = "${var.project_name}-frontend-"
+  bucket_prefix = "${var.team_account_name}-${var.project_name}-"
   force_destroy = true
 }
 

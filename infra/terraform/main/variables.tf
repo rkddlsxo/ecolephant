@@ -12,7 +12,7 @@ variable "project_name" {
 
 variable "instance_type" {
   type    = string
-  default = "t4g.small"
+  default = "t3.medium"
 }
 
 variable "allowed_ssh_cidr" {

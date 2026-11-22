@@ -124,6 +124,14 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.verify_aws_capstone_readiness(instance_profile="custom-unapproved-profile")
 
+        # 거부 케이스 3: t3.nano ~ t3.medium 외의 EC2 타입(예: t3.large, t4g.small) 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(instance_type="t3.large")
+
+        # 거부 케이스 4: inha-capstone-20으로 시작하지 않는 S3 버킷명 차단
+        with self.assertRaises(ValueError):
+            module.verify_aws_capstone_readiness(s3_bucket_name="my-random-bucket")
+
     def test_ansible_playbook_configures_2gb_swapfile_and_swappiness_10(self):
         """[Day 17 & 19 검증] Ansible 플레이북은 t4g.small OOM 및 스왑 쓰래싱 방지를 위해 2G /swapfile과 vm.swappiness=10 설정을 포함해야 합니다."""
         playbook = (ANSIBLE_DIR / "playbook.yml").read_text(encoding="utf-8")
