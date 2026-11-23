@@ -192,6 +192,27 @@ class TerraformAndAnsibleContractTests(unittest.TestCase):
         http_resp = lambda_handler({"body": '{"good_ratio": 0.85, "warning_count": 1}'})
         self.assertEqual(http_resp["statusCode"], 200)
 
+    def test_s3_telemetry_datalake_hive_partitioning_and_bucket_prefix_guard(self):
+        """[5일 플랜 Day 1 검증] 현대차 커넥티드카 스타일 S3 데이터 레이크는 year/month/day Hive 파티션 경로로 저장하고 미승인 버킷명을 차단해야 합니다."""
+        from backend.ecolephant.telemetry_datalake import archive_completed_session_to_s3, build_s3_partition_key
+
+        key = build_s3_partition_key("2026-11-23T14:30:00Z", "sess-101")
+        self.assertEqual(key, "telemetry/year=2026/month=11/day=23/session_sess-101.json")
+
+        uploaded = []
+        record = {"session": {"id": "sess-101", "started_at": "2026-11-23T14:30:00Z", "status": "completed"}}
+        meta = archive_completed_session_to_s3(
+            "inha-capstone-20-ecolephant",
+            record,
+            s3_put_fn=lambda b, k, body: uploaded.append((b, k, body)),
+        )
+        self.assertEqual(meta["s3_key"], "telemetry/year=2026/month=11/day=23/session_sess-101.json")
+        self.assertEqual(len(uploaded), 1)
+
+        # 거부 케이스 (Negative Test): inha-capstone-20으로 시작하지 않는 버킷명은 ValueError로 즉시 차단!
+        with self.assertRaises(ValueError):
+            archive_completed_session_to_s3("wrong-bucket-name", record)
+
 
 if __name__ == "__main__":
     unittest.main()
