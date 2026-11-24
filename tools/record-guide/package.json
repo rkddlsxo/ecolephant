@@ -1,0 +1,6 @@
+{
+  "name": "@ecolephant/record-guide",
+  "private": true,
+  "type": "module",
+  "description": "로컬 전용 검증 영상 녹화 도구 (서비스 화면 아님, 배포 안 함)"
+}

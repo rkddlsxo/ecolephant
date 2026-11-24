@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.ecolephant.airpods-helper</string>
+	<key>CFBundleName</key>
+	<string>airpods-helper</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AirPods 머리 기울기로 고개 숙임을 측정해 이 컴퓨터의 브라우저로만 보냅니다.</string>
+</dict>
+</plist>

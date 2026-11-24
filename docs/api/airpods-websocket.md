@@ -1,6 +1,6 @@
 # AirPods 도우미와 웹의 로컬 통신
 
-설계 제안 · 프로토콜 1.0 · 메시지 기준: [JSON Schema](helper-message.schema.json). 실제 Swift 도우미·장치 호환성은 아직 구현·검증되지 않았습니다.
+설계 제안 · 프로토콜 1.0 · 메시지 기준: [JSON Schema](helper-message.schema.json). macOS용 Swift 도우미 초안은 [tools/airpods-helper](../../tools/airpods-helper/README.md)에 있고, 웹 수신부는 `frontend/src/features/measurement/airpods/`(개발 플래그 `?airpods=helper`)에 있습니다. 둘 다 실제 Mac·AirPods에서 아직 실행·검증하지 않았습니다(DEC-003).
 
 ## 연결과 인증
 

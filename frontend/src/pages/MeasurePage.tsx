@@ -1,11 +1,16 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { policy, type Level, type Mode, type PostureType, type Scenario } from '@ecolephant/ai';
+import { policy, type Level, type Mode, type Scenario } from '@ecolephant/ai';
 import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
 import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
 import { Select } from '../components/Select';
 import { CameraPreview } from '../components/CameraPreview';
 import { CalibrationControl } from '../features/measurement/CalibrationControl';
+import {
+  airpodsHelperEnabled,
+  startProblem,
+  useAirPods,
+} from '../features/measurement/airpods/airpods-link';
 import { useCameraPipeline } from '../features/measurement/camera-pipeline';
 import { measurement } from '../features/measurement/controller';
 import { usePolicyCheck } from '../features/measurement/policy';
@@ -18,11 +23,12 @@ const levelLabel: Record<Level, string> = {
   high: '높음',
   unknown: '판단 불가',
 };
-const postureLabel: Record<PostureType, string> = {
-  chin_forward: '턱 내밀기',
-  head_down: '고개 숙임',
-  combined: '복합',
-};
+/**
+ * One label for any detected type (2026-11-21): the front-camera type (chin forward / head down /
+ * both) was unreliable in the test videos, so only the level is shown with "거북목 자세".
+ * The type is still recorded with each window.
+ */
+const postureLabel = '거북목 자세';
 const inputOptions: { value: MeasurementInput; label: string }[] = [
   { value: 'camera', label: '실제 카메라' },
   { value: 'demo', label: '테스트 입력' },
@@ -57,10 +63,18 @@ export function MeasurePage() {
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
   const camera = state.input === 'camera';
   const pipeline = useCameraPipeline();
-  // Real input is webcam-only until AirPods are connected.
-  const mode: Mode = camera ? 'webcam' : selectedMode;
+  const airpods = useAirPods();
+  // Real input is webcam-only unless the dev flag `?airpods=helper` connects the AirPods helper.
+  const helper = airpodsHelperEnabled();
+  const mode: Mode = camera && !helper ? 'webcam' : selectedMode;
   const policyCheck = usePolicyCheck(mode);
-  const cameraReady = !camera || (pipeline.status === 'running' && pipeline.hasBaseline);
+  const cameraReady =
+    !camera ||
+    startProblem(mode, {
+      cameraBaseline: pipeline.status === 'running' && pipeline.hasBaseline,
+      helperEnabled: helper,
+      airpodsBaseline: airpods.hasBaseline,
+    }) === null;
 
   useEffect(() => {
     if (!state.alert || document.hidden) return;
@@ -127,7 +141,7 @@ export function MeasurePage() {
           <Select<Mode>
             label="측정 방식"
             value={running ? state.mode : mode}
-            disabled={running || camera}
+            disabled={running || (camera && !helper)}
             onChange={setSelectedMode}
             options={modeOptions}
           />
@@ -171,7 +185,7 @@ export function MeasurePage() {
                 : state.phase === 'recalibrating'
                   ? '기준 재설정 중'
                   : state.latest
-                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel[state.latest.posture_type]}` : ''}`
+                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel}` : ''}`
                     : '대기'}
             </strong>
           </div>
@@ -213,7 +227,12 @@ export function MeasurePage() {
         <div className="button-row service-actions">
           {!running && (
             <Button
-              disabled={policyCheck.status !== 'ok' || !cameraReady || pipeline.calibrating}
+              disabled={
+                policyCheck.status !== 'ok' ||
+                !cameraReady ||
+                pipeline.calibrating ||
+                airpods.calibrating
+              }
               onClick={() => void measurement.start(mode).catch(() => undefined)}
             >
               {policyCheck.status === 'loading'

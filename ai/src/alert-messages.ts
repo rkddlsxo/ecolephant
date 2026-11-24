@@ -26,28 +26,28 @@ export interface AlertSettings {
 
 export const defaultAlertSettings: AlertSettings = { sound: 'chime_and_voice', quiet: null };
 
-const action: Record<PostureType | 'unknown', string> = {
-  chin_forward: '턱을 살짝 당기고 머리를 어깨 위로 가져와 보세요.',
+/**
+ * 2026-11-21 (수연): one "거북목 자세" message instead of one per posture type, because the
+ * front-camera type was unreliable in the test videos (3 of 11). AirPods-only mode still says
+ * only "head down": it cannot see the head moving forward, so it does not claim more.
+ */
+type MessageKind = 'turtle_neck' | 'head_down' | 'unknown';
+
+const action: Record<MessageKind, string> = {
+  turtle_neck: '고개를 들고 턱을 살짝 당겨 보세요.',
   head_down: '고개를 들고 화면을 눈높이로 맞춰 보세요.',
-  combined: '고개를 들고 턱을 살짝 당겨 보세요.',
   unknown: '잠깐 자세를 확인해 보세요.',
 };
 
-const spoken: Record<PostureType | 'unknown', string> = {
-  chin_forward: '머리가 앞으로 나와 있어요. 턱을 살짝 당겨 주세요.',
+const spoken: Record<MessageKind, string> = {
+  turtle_neck: '거북목 자세가 이어지고 있어요. 고개를 들고 턱을 살짝 당겨 주세요.',
   head_down: '고개를 오래 숙이고 있어요. 화면을 눈높이로 올려 주세요.',
-  combined: '고개가 숙여지고 앞으로 나와 있어요. 고개를 들고 턱을 당겨 주세요.',
   unknown: '자세를 한번 확인해 주세요.',
 };
 
-/**
- * AirPods-only mode cannot see the head moving forward, so a chin-forward or combined type
- * cannot come from it; the message stays on head drop and does not claim more.
- */
-function effectiveType(type: PostureType | null, mode: ActiveMode): PostureType | 'unknown' {
+function messageKind(type: PostureType | null, mode: ActiveMode): MessageKind {
   if (!type) return 'unknown';
-  if (mode === 'airpods') return 'head_down';
-  return type;
+  return mode === 'airpods' ? 'head_down' : 'turtle_neck';
 }
 
 export function alertMessage(
@@ -56,13 +56,13 @@ export function alertMessage(
   activeMode: ActiveMode,
   settings: AlertSettings = defaultAlertSettings,
 ): AlertMessage {
-  const type = effectiveType(postureType, activeMode);
+  const kind = messageKind(postureType, activeMode);
   const voice = stage === 2 && settings.sound === 'chime_and_voice';
   return {
     title: stage === 1 ? '자세를 확인해 보세요' : '자세가 계속 무너져 있어요',
-    body: action[type],
+    body: action[kind],
     sound: voice ? 'voice' : 'chime',
-    speech: voice ? spoken[type] : null,
+    speech: voice ? spoken[kind] : null,
   };
 }
 
