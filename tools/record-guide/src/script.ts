@@ -48,19 +48,19 @@ const step = (label: SegmentLabel, holdS: number, prompt: string, note = ''): Sc
 
 /** About 4 minutes 50 seconds. The first step must be upright (judge.py baseline). */
 export const defaultScript: ScriptStep[] = [
-  step('upright', 10, '바른 자세로 화면을 보세요', '기준'),
-  step('chin_forward', 10, '턱을 살짝 앞으로 내미세요', '살짝'),
+  step('upright', 10, '등을 등받이에 붙이고 바른 자세로 화면을 보세요', '기준'),
+  step('chin_forward', 10, '등은 붙인 채, 턱을 살짝 앞으로 내미세요', '살짝'),
   step('upright', 10, '바른 자세로 돌아오세요'),
-  step('chin_forward', 10, '턱을 확실히 앞으로 내미세요', '확실히'),
+  step('chin_forward', 10, '등은 붙인 채, 턱을 확실히 앞으로 내미세요', '확실히'),
   step('upright', 10, '바른 자세로 돌아오세요'),
-  step('head_down', 10, '고개를 살짝 숙이세요', '살짝'),
+  step('head_down', 10, '등은 붙인 채, 고개만 살짝 숙이세요', '살짝'),
   step('upright', 10, '바른 자세로 돌아오세요'),
-  step('head_down', 10, '고개를 크게 숙이세요', '크게'),
+  step('head_down', 10, '등은 붙인 채, 고개만 크게 숙이세요', '크게'),
   step('upright', 10, '바른 자세로 돌아오세요'),
-  step('combined', 10, '턱을 내밀면서 고개도 숙이세요', '복합'),
+  step('combined', 10, '등은 붙인 채, 턱을 내밀면서 고개도 숙이세요', '복합'),
   step('upright', 10, '바른 자세로 돌아오세요'),
   step('turn', 10, '고개를 좌우로 돌리며 말해 보세요', '돌리기·말하기'),
-  step('free', 120, '평소처럼 타이핑하며 편하게 앉아 있으세요', '지시 없음 2분'),
+  step('free', 120, '이제 자유롭게, 평소처럼 타이핑하며 앉아 있으세요', '지시 없음 2분'),
 ];
 
 export function planSchedule(
