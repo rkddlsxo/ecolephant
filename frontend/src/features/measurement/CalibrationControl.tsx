@@ -1,6 +1,8 @@
 import { CheckCircle2, Info } from 'lucide-react';
 import { calibrationTips, guideLabel } from '@ecolephant/ai';
 import { Button } from '../../components/ui';
+import { AirPodsDevStatus } from './airpods/AirPodsDevStatus';
+import { airpodsHelperEnabled, airpodsLink } from './airpods/airpods-link';
 import {
   cameraPipeline,
   restartLabel,
@@ -21,6 +23,16 @@ function guideText(guide: PipelineView['guide']) {
 export function CalibrationControl({ disabled = false }: { disabled?: boolean }) {
   const view = useCameraPipeline();
   const ready = view.status === 'running';
+  // Dev flag `?airpods=helper`: the AirPods baseline is taken together with the camera one.
+  const helper = airpodsHelperEnabled();
+  const begin = () => {
+    cameraPipeline.beginCalibration();
+    if (helper) airpodsLink.beginCalibration();
+  };
+  const cancel = () => {
+    cameraPipeline.cancelCalibration();
+    if (helper) airpodsLink.cancelCalibration();
+  };
   if (view.calibrating)
     return (
       <div className="calibration-progress" role="status">
@@ -34,9 +46,10 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
             <span className="field-error"> {guideText(view.guide)}</span>
           )}
         </p>
-        <Button variant="secondary" onClick={() => cameraPipeline.cancelCalibration()}>
+        <Button variant="secondary" onClick={cancel}>
           취소
         </Button>
+        {helper && <AirPodsDevStatus />}
       </div>
     );
   return (
@@ -78,6 +91,7 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
           )}
         </div>
       )}
+      {helper && <AirPodsDevStatus />}
     </div>
   );
 }

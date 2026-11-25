@@ -1,0 +1,29 @@
+# 기동 순서: rabbitmq(비동기 주문 접수처) -> backend(주문 넣기 Producer) & worker(주문 꺼내서 DB에 저장하기 Consumer)
+services:
+  rabbitmq:
+    # management-alpine : 초경량 버전에 웹 관리 화면(15672 포트)이 포함된 공식 이미지입니다.
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ecolephant}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-ecolephant_local}
+      # 저사양 서버(t4g.small)에서 RabbitMQ가 메모리를 40% 이상 쓰면 새 메시지를 잠시 멈춰 서버 다운(OOM)을 막습니다.
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.4"
+    ports:
+      # 5672: 백엔드와 워커가 메시지를 주고받는 통로 (외부 직접 접속 차단: 127.0.0.1)
+      - "127.0.0.1:5672:5672"
+      # 15672: 브라우저에서 큐에 메시지가 몇 개 쌓였는지 눈으로 보는 관리 화면
+      - "127.0.0.1:15672:15672"
+    volumes:
+      # 컨테이너가 재시작되어도 큐에 쌓인 메시지가 날아가지 않도록 디스크에 보관합니다.
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      # 프로세스만 켜진 게 아니라 실제로 메시지를 받을 준비가 끝났는지 ping으로 확인합니다.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  rabbitmq-data:

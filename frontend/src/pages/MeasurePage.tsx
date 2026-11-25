@@ -159,7 +159,7 @@ export function MeasurePage() {
                 : state.phase === 'recalibrating'
                   ? '표준 자세 다시 등록 중'
                   : state.latest
-                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel[state.latest.posture_type]}` : ''}`
+                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel}` : ''}`
                     : '대기'}
             </strong>
           </div>
@@ -201,7 +201,12 @@ export function MeasurePage() {
         <div className="button-row service-actions">
           {!running && (
             <Button
-              disabled={policyCheck.status !== 'ok' || !cameraReady || pipeline.calibrating}
+              disabled={
+                policyCheck.status !== 'ok' ||
+                !cameraReady ||
+                pipeline.calibrating ||
+                airpods.calibrating
+              }
               onClick={() => void measurement.start(mode).catch(() => undefined)}
             >
               {policyCheck.status === 'loading'

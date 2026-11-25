@@ -263,7 +263,11 @@ class MeasurementController {
       const hiddenStops = document.hidden && store.input !== 'camera';
       const stale = gap || this.cursor < this.unavailableUntil || hiddenStops;
       // Real camera: the window after the calibration state machine stores a baseline ends it.
-      if (this.calibrationUntil === Number.POSITIVE_INFINITY && !cameraPipeline.calibrating)
+      if (
+        this.calibrationUntil === Number.POSITIVE_INFINITY &&
+        !cameraPipeline.calibrating &&
+        !airpodsLink.calibrating
+      )
         this.calibrationUntil = this.cursor;
       const isCalibrating = this.calibrationUntil !== null && this.cursor < this.calibrationUntil;
       if (this.calibrationUntil !== null && this.cursor >= this.calibrationUntil) {
@@ -272,20 +276,22 @@ class MeasurementController {
         if (store.phase !== 'ending') useMeasurement.setState({ phase: 'active' });
         store = useMeasurement.getState();
       }
-      const observation =
-        store.input === 'camera'
-          ? {
-              cameraDeg: null,
-              headDeg: null,
-              ...cameraPipeline.observe(
-                this.origin + this.cursor,
-                this.origin + this.cursor + duration,
-              ),
-            }
-          : demoObservation(store.scenario, this.cursor, {
-              cameraDeg: store.camera,
-              headDeg: store.head,
-            });
+      const windowStart = this.origin + this.cursor;
+      const windowEnd = windowStart + duration;
+      const camera =
+        store.input === 'camera' ? cameraPipeline.observe(windowStart, windowEnd) : null;
+      const observation = camera
+        ? airpodsHelperEnabled()
+          ? combineObservation(
+              store.mode,
+              camera,
+              airpodsLink.observe(windowStart, windowEnd).headDeg,
+            )
+          : { cameraDeg: null, headDeg: null, ...camera }
+        : demoObservation(store.scenario, this.cursor, {
+            cameraDeg: store.camera,
+            headDeg: store.head,
+          });
       if (stale) observation.quality = 'no_sensor';
       else if (isCalibrating) observation.quality = 'calibrating';
       else if (
@@ -372,7 +378,9 @@ class MeasurementController {
     this.addEvent({ type: 'calibration_started', data: { calibration_epoch: epoch } });
     if (store.input === 'camera') {
       // Ends when the real 3 s stable segment is found, not after a fixed 3 s.
-      cameraPipeline.beginCalibration();
+      const helper = airpodsHelperEnabled();
+      if (nextMode !== 'airpods' || !helper) cameraPipeline.beginCalibration();
+      if (helper && nextMode !== 'webcam') airpodsLink.beginCalibration();
       this.calibrationUntil = Number.POSITIVE_INFINITY;
     } else this.calibrationUntil = this.cursor + 3000;
     useMeasurement.setState({ phase: 'recalibrating', epoch, mode: nextMode });

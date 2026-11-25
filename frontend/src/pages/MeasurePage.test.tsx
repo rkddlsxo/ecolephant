@@ -170,7 +170,7 @@ it('shows the posture type next to the level', () => {
     },
   });
   render(<MeasurePage />);
-  expect(screen.getByText('주의 · 턱 내밀기')).toBeInTheDocument();
+  expect(screen.getByText('주의 · 거북목 자세')).toBeInTheDocument();
 });
 
 it('shows the kept camera and its off button in the same notice spot', async () => {

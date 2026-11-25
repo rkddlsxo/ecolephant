@@ -5,6 +5,7 @@ Usage (WSL, repository root, `.venv-pose` from tools/pose-compare):
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --mediapipe-task frontend/public/mediapipe/pose_landmarker_lite.task
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --segments .data/cva/p01_segments.json
   python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --check 0
+  python tools/cva-label/label_video.py .data/cva/P05_s1_side.mp4 --segments .data/cva/P05_s1.segments.json --sync-ms 4120
 
 Outputs stay in the local, git-ignored `.data/cva/` folder. Nothing is uploaded.
 """
@@ -29,6 +30,7 @@ from cva import (
     approx_cva,
     cva_deg,
     find_sticker,
+    shift_segments,
     summarize_segments,
 )
 
@@ -57,9 +59,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tragus-hsv", default=None, help="귀구슬 스티커 HSV 범위 h1,s1,v1,h2,s2,v2 (기본 초록)")
     ap.add_argument("--c7-hsv", default=None, help="C7 스티커 HSV 범위 (기본 파랑)")
     ap.add_argument("--min-area", type=int, default=30, help="스티커로 인정할 최소 픽셀 수")
+    ap.add_argument("--max-area", type=int, default=3000, help="이보다 큰 같은 색 영역(옷·쿠션)은 스티커가 아님")
+    ap.add_argument("--min-fill", type=float, default=0.45, help="둥근 정도 (영역/테두리 상자, 원은 약 0.79)")
+    ap.add_argument(
+        "--c7-max-dist",
+        type=float,
+        default=0.4,
+        help="C7은 귀구슬보다 아래, 이 거리(영상 높이 대비 비율) 안에서만 찾음",
+    )
     ap.add_argument("--mediapipe-task", help="주면 귀–어깨 근사 CVA도 함께 계산")
     ap.add_argument("--min-conf", type=float, default=0.5, help="근사 CVA에 쓸 점 최소 신뢰도")
     ap.add_argument("--segments", help="자세 구간 JSON [{start_ms,end_ms,label}] → 구간별 요약")
+    ap.add_argument(
+        "--sync-ms",
+        type=float,
+        default=None,
+        help="구간 JSON이 맞춤 신호(삐 소리)=0 기준일 때, 측면 영상에서 삐 소리가 난 시각(ms)",
+    )
     ap.add_argument("--threshold", type=float, default=50.0, help="참고 기준 각도 (기본 50°)")
     ap.add_argument("--check", type=int, default=None, help="이 프레임에 찾은 점·선을 그린 확인 이미지만 저장")
     args = ap.parse_args(argv)
@@ -96,8 +112,13 @@ def main(argv: list[str] | None = None) -> int:
             if args.check is None and index % max(1, args.stride):
                 continue
             ts = index * 1000.0 / fps
-            tragus = find_sticker(bgr, tragus_hsv, args.min_area)
-            c7 = find_sticker(bgr, c7_hsv, args.min_area)
+            shape = dict(min_area=args.min_area, max_area=args.max_area, min_fill=args.min_fill)
+            tragus = find_sticker(bgr, tragus_hsv, **shape)
+            c7 = (
+                find_sticker(bgr, c7_hsv, **shape, below=tragus, max_dist=args.c7_max_dist * bgr.shape[0])
+                if tragus
+                else None
+            )
             sticker = cva_deg(tragus, c7) if tragus and c7 and (tragus.x, tragus.y) != (c7.x, c7.y) else None
             approx = approx_cva(runner(bgr, ts), args.min_conf) if runner else None
             if args.check is not None:
@@ -142,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.segments:
         segments = json.loads(Path(args.segments).read_text(encoding="utf-8"))
+        if args.sync_ms is not None:
+            segments = shift_segments(segments, args.sync_ms)
         summary = summarize_segments(rows, segments, args.threshold)
         summary_path = out.with_name(out.stem + "_segments.csv")
         with summary_path.open("w", newline="", encoding="utf-8") as f:

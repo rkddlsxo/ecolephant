@@ -1,11 +1,17 @@
 import type { PostureType } from './types';
 
 /**
- * Posture-type stretching recommendation (team-agreed set of three, 2026-11-10).
+ * Stretching recommendation for a detected turtle-neck posture.
  *
- * Pure rules, no network or storage: the caller passes the current posture type and a short
- * history kept by the app. Not a medical prescription; every result carries the stop-on-pain
- * caution. Hold times are draft values (DEC-007) and should be reviewed with the team.
+ * 2026-11-21 (수연): one common routine instead of a stretch per posture type. In the recorded
+ * test videos (4 people) the type from the front camera matched the instructed posture in only
+ * 3 of 11 detected segments: pushing the chin forward also lowers the ears, and dropping the
+ * head also enlarges the face. The app therefore shows one "거북목 자세" and rotates through the
+ * three agreed stretches (2026-11-10). The posture type is still passed in and recorded so the
+ * old per-type rule can come back if a better signal appears.
+ *
+ * Pure rules, no network or storage. Not a medical prescription; every result carries the
+ * stop-on-pain caution. Hold times are draft values (DEC-007).
  */
 export type StretchId = 'chin_tuck' | 'neck_back_stretch' | 'chest_opener';
 
@@ -54,11 +60,22 @@ export const stretches: Record<StretchId, Stretch> = {
   },
 };
 
-/** Which stretches suit each posture type (team agreement, 2026-11-10). */
+/** The common routine, in order (2026-11-21). */
+export const commonRoutine: readonly StretchId[] = [
+  'chin_tuck',
+  'neck_back_stretch',
+  'chest_opener',
+];
+
+/**
+ * Kept for callers of the per-type rule: every posture type now uses the common routine.
+ * (2026-11-10 per-type set: chin_forward → chin_tuck, head_down → neck_back_stretch,
+ * combined → chin_tuck + chest_opener.)
+ */
 export const stretchesForType: Record<PostureType, readonly StretchId[]> = {
-  chin_forward: ['chin_tuck'],
-  head_down: ['neck_back_stretch'],
-  combined: ['chin_tuck', 'chest_opener'],
+  chin_forward: commonRoutine,
+  head_down: commonRoutine,
+  combined: commonRoutine,
 };
 
 export const stretchCaution = '통증이나 어지러움이 느껴지면 바로 멈추세요. 의료 처방이 아니에요.';
@@ -76,10 +93,11 @@ export interface StretchAttempt {
 export interface StretchHistory {
   /** Most recent last. */
   attempts: readonly StretchAttempt[];
-  /** How often each posture type was detected recently (e.g. today's windows). */
+  /** How often each posture type was detected recently (e.g. today's windows). Any count > 0 means a stretch is due. */
   postureCounts?: Partial<Record<PostureType, number>>;
 }
 
+/** 'most_frequent_posture' keeps its old name: it now means "detected recently, not now". */
 export type StretchReason = 'current_posture' | 'most_frequent_posture';
 
 export interface StretchRecommendation {
@@ -94,36 +112,26 @@ export interface StretchRecommendation {
 
 const MIN_HOLD_SECONDS = 3;
 
-function mostFrequent(counts: Partial<Record<PostureType, number>> | undefined) {
-  let best: PostureType | null = null;
-  let bestCount = 0;
-  for (const type of ['combined', 'chin_forward', 'head_down'] as const) {
-    const count = counts?.[type] ?? 0;
-    if (count > bestCount) {
-      best = type;
-      bestCount = count;
-    }
-  }
-  return best;
+function detectedRecently(counts: Partial<Record<PostureType, number>> | undefined) {
+  return Object.values(counts ?? {}).some((count) => (count ?? 0) > 0);
 }
 
 /**
- * Picks one stretch.
- * 1. Posture type: the current one, otherwise the most frequent in the history.
- * 2. Among that type's stretches, avoid repeating the one done last.
- * 3. If the last attempt of the chosen stretch was not finished, shorten the hold.
+ * Picks one stretch from the common routine.
+ * 1. Needed when a turtle-neck posture is detected now, otherwise when one was detected recently.
+ * 2. Goes through the routine in order and does not repeat the stretch done last.
+ * 3. If the last attempt of the chosen stretch was not finished, shortens the hold.
  * Returns null when there is no posture to correct.
  */
 export function recommendStretch(
   current: PostureType | null,
   history: StretchHistory = { attempts: [] },
 ): StretchRecommendation | null {
-  const type = current ?? mostFrequent(history.postureCounts);
-  if (!type) return null;
+  if (!current && !detectedRecently(history.postureCounts)) return null;
   const reason: StretchReason = current ? 'current_posture' : 'most_frequent_posture';
-  const candidates = stretchesForType[type];
   const last = history.attempts.at(-1)?.id;
-  const id = candidates.find((candidate) => candidate !== last) ?? candidates[0];
+  const lastIndex = last ? commonRoutine.indexOf(last) : -1;
+  const id = commonRoutine[(lastIndex + 1) % commonRoutine.length];
   const stretch = stretches[id];
   const previous = [...history.attempts].reverse().find((attempt) => attempt.id === id);
   let holdSeconds = stretch.holdSeconds;
@@ -136,12 +144,5 @@ export function recommendStretch(
     );
     eased = true;
   }
-  return {
-    stretch,
-    holdSeconds,
-    reason,
-    eased,
-    tip: type === 'head_down' || type === 'combined' ? screenTip : null,
-    caution: stretchCaution,
-  };
+  return { stretch, holdSeconds, reason, eased, tip: screenTip, caution: stretchCaution };
 }

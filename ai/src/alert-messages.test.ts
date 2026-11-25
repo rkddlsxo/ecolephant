@@ -8,7 +8,17 @@ describe('alert messages', () => {
     expect(first.body).toMatch(/턱/);
     const second = alertMessage(2, 'chin_forward', 'webcam');
     expect(second.sound).toBe('voice');
-    expect(second.speech).toMatch(/앞으로/);
+    expect(second.speech).toMatch(/거북목 자세/);
+  });
+
+  it('says the same thing for every posture type with the camera (2026-11-21)', () => {
+    for (const mode of ['webcam', 'combined'] as const)
+      for (const stage of [1, 2] as const) {
+        const texts = (['chin_forward', 'head_down', 'combined'] as const).map((type) =>
+          JSON.stringify(alertMessage(stage, type, mode)),
+        );
+        expect(new Set(texts).size).toBe(1);
+      }
   });
 
   it('keeps stage 2 as a chime when voice is turned off', () => {
@@ -21,19 +31,20 @@ describe('alert messages', () => {
   it('does not claim a forward head in AirPods-only mode', () => {
     const message = alertMessage(2, 'combined', 'airpods');
     expect(message.speech).toMatch(/숙이고/);
-    expect(message.speech).not.toMatch(/앞으로/);
+    expect(message.speech).not.toMatch(/거북목|앞으로|턱/);
   });
 
-  it('has a neutral message when the posture type is unknown', () => {
+  it('has a neutral message when nothing was detected', () => {
     expect(alertMessage(1, null, 'webcam').body).toMatch(/확인/);
   });
 
   it('never uses diagnostic wording', () => {
     for (const type of ['chin_forward', 'head_down', 'combined', null] as const)
-      for (const stage of [1, 2] as const) {
-        const text = JSON.stringify(alertMessage(stage, type, 'combined'));
-        expect(text).not.toMatch(/진단|질환|치료/);
-      }
+      for (const stage of [1, 2] as const)
+        for (const mode of ['webcam', 'airpods', 'combined'] as const) {
+          const text = JSON.stringify(alertMessage(stage, type, mode));
+          expect(text).not.toMatch(/진단|질환|치료/);
+        }
   });
 
   it('handles quiet hours, including past midnight', () => {
