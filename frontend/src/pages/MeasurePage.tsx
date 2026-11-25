@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { policy, type Level, type Mode, type PostureType } from '@ecolephant/ai';
+import { policy, type Level, type Mode } from '@ecolephant/ai';
 import {
   Bell,
   BellOff,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button, ErrorState, formatDuration, Modal, Notice } from '../components/ui';
 import { stopBackgroundCamera, useBackgroundCamera } from '../features/camera/background-camera';
+import { useAirPods } from '../features/measurement/airpods/airpods-link';
 import { useCameraPipeline } from '../features/measurement/camera-pipeline';
 import { measurement } from '../features/measurement/controller';
 import { usePolicyCheck } from '../features/measurement/policy';
@@ -25,11 +26,12 @@ const levelLabel: Record<Level, string> = {
   high: '높음',
   unknown: '판단 불가',
 };
-const postureLabel: Record<PostureType, string> = {
-  chin_forward: '턱 내밀기',
-  head_down: '고개 숙임',
-  combined: '복합',
-};
+/**
+ * One label for any detected type (2026-11-21): the front-camera type (chin forward / head down /
+ * both) was unreliable in the test videos, so only the level is shown with "거북목 자세".
+ * The type is still recorded with each window.
+ */
+const postureLabel = '거북목 자세';
 
 const changeThresholds = policy.camera_change_thresholds;
 const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
@@ -42,6 +44,7 @@ export function MeasurePage() {
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
   const camera = state.input === 'camera';
   const pipeline = useCameraPipeline();
+  const airpods = useAirPods();
   // The page measures with the real camera only. The camera is turned on and the baseline taken
   // on the calibration page; the background camera keeps it running here (no preview).
   // Test input (synthetic signals) stays in the controller for automated tests only.

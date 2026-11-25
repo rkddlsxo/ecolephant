@@ -76,7 +76,8 @@ export function StatisticsPage() {
         ...(mode ? { mode } : {}),
       }),
   });
-  const groups = stats.data?.groups ?? [];
+  // `?? []` makes a new array every render, so memo it to keep the useMemo deps below stable.
+  const groups = useMemo(() => stats.data?.groups ?? [], [stats.data]);
   const unassigned = mode ? 0 : (stats.data?.unassigned_unknown_duration_ms ?? 0);
 
   const view = useMemo(() => buildStatsView(groups, unit), [groups, unit]);

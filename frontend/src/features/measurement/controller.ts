@@ -11,6 +11,12 @@ import type { ActiveMode, AlertCommand, DerivedWindow, Mode } from '@ecolephant/
 import { api, errorMessage, isMissingSession } from '../../api/client';
 import type { EventPayload, Sample, Session, SessionCreate, SessionEvent } from '../../api/client';
 import { queryClient } from '../../api/query';
+import {
+  airpodsHelperEnabled,
+  airpodsLink,
+  combineObservation,
+  startProblem,
+} from './airpods/airpods-link';
 import { backgroundProbe } from './background-probe';
 import { cameraPipeline } from './camera-pipeline';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
@@ -123,9 +129,15 @@ class MeasurementController {
     if (this.finishPromise) return;
     if (['active', 'paused', 'recalibrating', 'ending', 'starting'].includes(current.phase)) return;
     if (current.input === 'camera') {
-      // AirPods are not connected yet, so real input is webcam-only and needs a baseline first.
-      if (mode !== 'webcam' || !cameraPipeline.hasBaseline) {
-        useMeasurement.setState({ error: '카메라를 켜고 표준 자세를 먼저 등록해 주세요.' });
+      // Real input is webcam-only unless the dev flag `?airpods=helper` connects the AirPods
+      // helper. Each sensor the mode uses needs its own baseline first.
+      const problem = startProblem(mode, {
+        cameraBaseline: cameraPipeline.hasBaseline,
+        helperEnabled: airpodsHelperEnabled(),
+        airpodsBaseline: airpodsLink.hasBaseline,
+      });
+      if (problem) {
+        useMeasurement.setState({ error: problem });
         return;
       }
     }

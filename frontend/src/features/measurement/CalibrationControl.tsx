@@ -54,11 +54,7 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
     );
   return (
     <div className="calibration-progress">
-      <Button
-        className="calibration-start"
-        disabled={disabled || !ready}
-        onClick={() => cameraPipeline.beginCalibration()}
-      >
+      <Button className="calibration-start" disabled={disabled || !ready} onClick={begin}>
         {view.hasBaseline ? '표준 자세 다시 등록' : '등록 시작'}
       </Button>
       {view.hasBaseline ? (
