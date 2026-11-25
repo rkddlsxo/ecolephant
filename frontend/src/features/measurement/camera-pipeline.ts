@@ -96,14 +96,15 @@ export interface CameraPipelineOptions {
    */
   requireGuide?: boolean;
   /**
-   * True while the page is hidden and still analysing (dev `?bg=timer` only for now). Hidden
-   * tabs run timers ~1/s, so windows then need 1 analysed frame instead of 3 (DEC-007/010).
+   * True while the page is hidden and still analysing. Analysis pages keep the camera on in the
+   * background; hidden tabs run timers ~1/s, so windows then need 1 analysed frame instead of 3
+   * (DEC-007/010).
    */
   hiddenAnalysis?: () => boolean;
 }
 
 function hiddenAnalysisByPage() {
-  return typeof document !== 'undefined' && document.hidden && backgroundMode() === 'timer';
+  return typeof document !== 'undefined' && document.hidden;
 }
 
 function guideRequiredByUrl() {
@@ -153,6 +154,11 @@ export class CameraPipeline {
     this.halt();
     this.video = video;
     if (video) void this.run();
+  }
+
+  /** Stop analysing `video` only if it is still the attached one (another may have taken over). */
+  detach(video: HTMLVideoElement | null) {
+    if (video && video === this.video) this.attach(null);
   }
 
   /** Starts a new 3 s calibration. The previous baseline stays until the new one is stored. */

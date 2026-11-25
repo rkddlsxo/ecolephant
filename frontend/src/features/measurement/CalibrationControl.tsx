@@ -24,7 +24,7 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
   if (view.calibrating)
     return (
       <div className="calibration-progress" role="status">
-        <progress max={1} value={view.progress} aria-label="기준 자세 측정 진행" />
+        <progress max={1} value={view.progress} aria-label="표준 자세 등록 진행" />
         <p>
           편한 자세로 가만히 있어 주세요 · {Math.round(view.progress * 100)}%
           {view.lastRestart && (
@@ -46,25 +46,25 @@ export function CalibrationControl({ disabled = false }: { disabled?: boolean })
         disabled={disabled || !ready}
         onClick={() => cameraPipeline.beginCalibration()}
       >
-        {view.hasBaseline ? '기준 자세 다시 잡기' : '보정 시작'}
+        {view.hasBaseline ? '표준 자세 다시 등록' : '등록 시작'}
       </Button>
       {view.hasBaseline ? (
         <p className="calibration-pending">
           <CheckCircle2 size={14} aria-hidden="true" />
-          기준 자세를 저장했어요. 이 기기 안에만 보관하고 서버로 보내지 않아요.
+          표준 자세를 등록했어요. 이 기기 안에만 보관하고 서버로 보내지 않아요.
         </p>
       ) : !ready ? (
         <p className="calibration-pending">
           <Info size={14} aria-hidden="true" />
           {view.status === 'loading'
             ? 'AI 모델을 불러오는 중이에요.'
-            : '카메라를 켜면 보정을 시작할 수 있어요.'}
+            : '카메라를 켜면 등록을 시작할 수 있어요.'}
         </p>
       ) : (
         <div className="calibration-guide">
           <p className="calibration-pending">
             <Info size={14} aria-hidden="true" />
-            바른 자세를 기준으로 저장해요. 시작 전에 확인해 주세요.
+            바른 자세를 표준 자세로 등록해요. 시작 전에 확인해 주세요.
           </p>
           <ul className="calibration-tips">
             {calibrationTips.map((tip) => (

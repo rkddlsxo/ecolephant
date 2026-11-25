@@ -15,6 +15,7 @@ import {
 import { api } from '../api/client';
 import { useMeasurement } from '../state/measurement';
 import { useAuth } from '../features/auth/AuthContext';
+import { stopBackgroundCamera, useBackgroundCamera } from '../features/camera/background-camera';
 import { Button } from './ui';
 
 export function Shell() {
@@ -29,14 +30,15 @@ export function Shell() {
     enabled: auth.kind !== 'preview',
   });
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(phase);
+  const backgroundCamera = useBackgroundCamera((state) => state.on);
 
   const navigation = [
     {
       title: '측정하기',
       items: [
         { to: '/', label: '카메라 확인', Icon: Camera },
-        { to: '/calibration', label: '기준 자세 보정', Icon: Crosshair },
-        { to: '/measure', label: '테스트 측정', Icon: Activity },
+        { to: '/calibration', label: '표준 자세 등록', Icon: Crosshair },
+        { to: '/measure', label: '사용자 측정', Icon: Activity },
       ],
     },
     {
@@ -136,6 +138,28 @@ export function Shell() {
           </div>
         </aside>
         <main id="main-content" className="service-main">
+          {/* 측정 화면은 자체 안내 자리에 카메라 상태와 끄기 버튼을 보여 준다 */}
+          {backgroundCamera && pathname !== '/measure' && (
+            <div className="background-camera-bar" role="status">
+              <span className="background-camera-dot" aria-hidden="true" />
+              <span className="background-camera-text">
+                {running ? '측정 중 · 카메라 켜짐' : '카메라 켜짐 · 표준 자세 등록됨'}
+                <small>
+                  {running
+                    ? '다른 메뉴에 있어도 이 브라우저 안에서 자세 분석이 계속돼요. 영상은 밖으로 보내지 않아요.'
+                    : '측정 화면에서 시작을 누르면 이 카메라로 바로 측정해요. 영상은 밖으로 보내지 않아요.'}
+                </small>
+              </span>
+              <span className="button-row">
+                <Link to="/measure" className="button button-secondary">
+                  측정 화면으로
+                </Link>
+                <Button variant="secondary" onClick={stopBackgroundCamera}>
+                  카메라 끄기
+                </Button>
+              </span>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

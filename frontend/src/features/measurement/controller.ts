@@ -11,7 +11,7 @@ import type { ActiveMode, AlertCommand, DerivedWindow, Mode } from '@ecolephant/
 import { api, errorMessage, isMissingSession } from '../../api/client';
 import type { EventPayload, Sample, Session, SessionCreate, SessionEvent } from '../../api/client';
 import { queryClient } from '../../api/query';
-import { backgroundMode, backgroundProbe } from './background-probe';
+import { backgroundProbe } from './background-probe';
 import { cameraPipeline } from './camera-pipeline';
 import { initialMeasurement, useMeasurement } from '../../state/measurement';
 import { usePreferences } from '../../state/preferences';
@@ -125,7 +125,7 @@ class MeasurementController {
     if (current.input === 'camera') {
       // AirPods are not connected yet, so real input is webcam-only and needs a baseline first.
       if (mode !== 'webcam' || !cameraPipeline.hasBaseline) {
-        useMeasurement.setState({ error: '카메라를 켜고 기준 자세를 먼저 잡아 주세요.' });
+        useMeasurement.setState({ error: '카메라를 켜고 표준 자세를 먼저 등록해 주세요.' });
         return;
       }
     }
@@ -258,10 +258,9 @@ class MeasurementController {
     const gap = target - this.cursor > 1500;
     while (this.cursor < target && this.samples.length < policy.transport.memory_queue_windows) {
       const duration = Math.min(1000, target - this.cursor);
-      // `?bg=timer` (dev only) keeps measuring on a hidden tab; windows with too few analysed
-      // frames still become no_sensor in the camera pipeline, never normal.
-      const hiddenStops =
-        document.hidden && !(store.input === 'camera' && backgroundMode() === 'timer');
+      // Camera measurement keeps running on a hidden tab (DEC-010); windows with too few
+      // analysed frames still become no_sensor in the camera pipeline, never normal.
+      const hiddenStops = document.hidden && store.input !== 'camera';
       const stale = gap || this.cursor < this.unavailableUntil || hiddenStops;
       // Real camera: the window after the calibration state machine stores a baseline ends it.
       if (this.calibrationUntil === Number.POSITIVE_INFINITY && !cameraPipeline.calibrating)
@@ -362,7 +361,7 @@ class MeasurementController {
     const target = Math.floor(performance.now() - this.origin);
     this.advance(target);
     if (this.cursor < target) {
-      useMeasurement.setState({ error: '저장 연결을 확인한 후 기준을 재설정해 주세요.' });
+      useMeasurement.setState({ error: '저장 연결을 확인한 후 표준 자세를 다시 등록해 주세요.' });
       return;
     }
     this.close();

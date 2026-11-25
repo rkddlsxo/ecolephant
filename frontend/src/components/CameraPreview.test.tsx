@@ -193,4 +193,16 @@ describe('camera preview', () => {
     expect(track.stop).toHaveBeenCalled();
     expect(video.srcObject).toBeNull();
   });
+  it('hides the picture without removing the video so analysis keeps its frames', async () => {
+    render(<CameraPreview hideable />);
+    fireEvent.click(screen.getByRole('button', { name: '켜기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '미리보기 숨기기' }));
+    const video = screen.getByLabelText('실시간 웹캠 미리보기') as HTMLVideoElement;
+    expect(video).toBeInTheDocument();
+    expect(video.srcObject).toBe(stream);
+    expect(video.parentElement).toHaveClass('is-concealed');
+    expect(screen.getByRole('status')).toHaveTextContent('자세 분석은 계속돼요');
+    fireEvent.click(screen.getByRole('button', { name: '미리보기 보기' }));
+    expect(video.parentElement).not.toHaveClass('is-concealed');
+  });
 });

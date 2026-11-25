@@ -19,10 +19,17 @@ vi.mock('../features/measurement/controller', () => ({
 }));
 import { MeasurePage } from './MeasurePage';
 import { initialMeasurement, useMeasurement } from '../state/measurement';
+import { initialPipelineView, useCameraPipeline } from '../features/measurement/camera-pipeline';
+
+/** Camera turned on and baseline taken on the calibration page. */
+function cameraReady() {
+  useCameraPipeline.setState({ status: 'running', hasBaseline: true });
+}
 
 afterEach(() => {
   cleanup();
   useMeasurement.setState({ ...initialMeasurement }, true);
+  useCameraPipeline.setState({ ...initialPipelineView }, true);
   mocks.policyCheck = {
     status: 'ok',
     server: { release_approved: false, camera_mapping_status: 'unvalidated' },
@@ -31,6 +38,7 @@ afterEach(() => {
 });
 
 it('blocks starting when the server policy does not match', () => {
+  cameraReady();
   mocks.policyCheck = { status: 'blocked', message: '서버에 정책 draft-web-v0 (0.1)이 없어' };
   render(<MeasurePage />);
   expect(screen.getByRole('alert')).toHaveTextContent('서버에 정책');
@@ -47,6 +55,7 @@ it('waits for the policy check before allowing start', () => {
 });
 
 it('starts once the server policy matches', () => {
+  cameraReady();
   render(<MeasurePage />);
   expect(screen.getByText(/판정 기준은 검증 전 초안/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '시작' }));
@@ -83,6 +92,7 @@ it('shows the start button with zeroed values right after saving', () => {
     latest: null,
     pending: 0,
   });
+  cameraReady();
   render(<MeasurePage />);
   expect(screen.getByRole('button', { name: '시작' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: /종료·저장/ })).not.toBeInTheDocument();
@@ -98,28 +108,43 @@ it('always shows the link to saved records, even before any measurement', () => 
 it('offers recalibration only while paused and shows progress while recalibrating', () => {
   useMeasurement.setState({ phase: 'active' });
   render(<MeasurePage />);
-  expect(screen.queryByRole('button', { name: '기준 재설정' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '표준 자세 다시 등록' })).not.toBeInTheDocument();
   cleanup();
   useMeasurement.setState({ phase: 'paused' });
   render(<MeasurePage />);
-  expect(screen.getByRole('button', { name: '기준 재설정' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '표준 자세 다시 등록' })).toBeEnabled();
   cleanup();
   useMeasurement.setState({ phase: 'recalibrating' });
   render(<MeasurePage />);
-  expect(screen.getByText('기준 재설정 중')).toBeInTheDocument();
+  expect(screen.getByText('표준 자세 다시 등록 중')).toBeInTheDocument();
   expect(screen.getByText(/3초 동안 가만히/)).toBeInTheDocument();
 });
 
-it('real camera input shows the camera, hides test scenarios and waits for a baseline', () => {
-  useMeasurement.setState({ input: 'camera' });
+it('measures with the real camera only, without a preview or input choice', () => {
   render(<MeasurePage />);
-  expect(screen.getByRole('heading', { name: '시범 측정' })).toBeInTheDocument();
-  expect(screen.getByLabelText('실시간 웹캠 미리보기')).toBeInTheDocument();
+  expect(useMeasurement.getState().input).toBe('camera');
+  expect(screen.getByRole('heading', { name: '사용자 측정' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('실시간 웹캠 미리보기')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^입력 / })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^측정 방식 / })).not.toBeInTheDocument();
+  expect(screen.queryByText('테스트 입력')).not.toBeInTheDocument();
   expect(screen.getByText(/서버에는 판정 결과와 변화량 숫자만/)).toBeInTheDocument();
-  expect(screen.queryByText('테스트 입력', { selector: 'label' })).not.toBeInTheDocument();
-  const start = screen.getByRole('button', { name: '기준 자세를 먼저 잡아 주세요' });
-  expect(start).toBeDisabled();
-  expect(screen.getByRole('button', { name: '보정 시작' })).toBeDisabled();
+});
+
+it('sends the user to calibration while the camera is off or there is no baseline', () => {
+  render(<MeasurePage />);
+  expect(screen.getByText(/카메라가 꺼져 있어요/)).toBeInTheDocument();
+  expect(screen.getByText('표준 자세 등록으로')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '표준 자세를 먼저 등록해 주세요' })).toBeDisabled();
+  cleanup();
+  useCameraPipeline.setState({ status: 'running', hasBaseline: false });
+  render(<MeasurePage />);
+  expect(screen.getByText(/아직 표준 자세가 없어요/)).toBeInTheDocument();
+  cleanup();
+  cameraReady();
+  render(<MeasurePage />);
+  expect(screen.queryByText('표준 자세 등록으로')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '시작' })).toBeEnabled();
 });
 
 it('shows the posture type next to the level', () => {
@@ -146,4 +171,26 @@ it('shows the posture type next to the level', () => {
   });
   render(<MeasurePage />);
   expect(screen.getByText('주의 · 턱 내밀기')).toBeInTheDocument();
+});
+
+it('shows the kept camera and its off button in the same notice spot', async () => {
+  const { useBackgroundCamera } = await import('../features/camera/background-camera');
+  const off = vi
+    .spyOn(await import('../features/camera/background-camera'), 'stopBackgroundCamera')
+    .mockImplementation(() => useBackgroundCamera.setState({ on: false }));
+  cameraReady();
+  useBackgroundCamera.setState({ on: true });
+  render(<MeasurePage />);
+  expect(screen.getByText(/카메라 켜짐 · 표준 자세 등록됨/)).toBeInTheDocument();
+  expect(screen.queryByText('표준 자세 등록으로')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '카메라 끄기' }));
+  expect(off).toHaveBeenCalled();
+  useBackgroundCamera.setState({ on: false });
+});
+
+it('says the windows are not judged when the camera is turned off mid-measurement', () => {
+  useMeasurement.setState({ phase: 'active', input: 'camera' });
+  render(<MeasurePage />);
+  expect(screen.getByText(/판단 불가로 기록돼요/)).toBeInTheDocument();
+  expect(screen.getByText('표준 자세 등록으로')).toBeInTheDocument();
 });

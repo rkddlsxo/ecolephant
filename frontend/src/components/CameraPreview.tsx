@@ -1,26 +1,42 @@
 import { useEffect, useState } from 'react';
 import { useWebcam } from '../features/camera/useWebcam';
 import { cameraPipeline, useCameraPipeline } from '../features/measurement/camera-pipeline';
+import { GuideSilhouette } from '../features/measurement/GuideSilhouette';
 import { PoseDebugOverlay, poseDebugEnabled } from '../features/measurement/pose/PoseDebugOverlay';
 import { Button } from './ui';
 
 /**
  * `analyze`: connect the playing video to the measurement pose pipeline (calibration and
- * measurement pages). The dev point overlay is hidden then, so the model runs only once.
+ * measurement pages). The dev point overlay is hidden then, so the model runs only once, and
+ * the `defaultGuide` silhouette is drawn instead.
+ * `hideable`: offer a button that hides the picture while analysis keeps running. The video
+ * stays rendered (transparent, 1 px) instead of `display: none` so frames keep decoding.
  */
-export function CameraPreview({ analyze = false }: { analyze?: boolean }) {
-  const camera = useWebcam();
+export function CameraPreview({
+  analyze = false,
+  hideable = false,
+}: {
+  analyze?: boolean;
+  hideable?: boolean;
+}) {
+  // Analysis pages keep the camera on in the background so measurement continues (DEC-010).
+  const camera = useWebcam({ keepWhenHidden: analyze });
   const [mirrored, setMirrored] = useState(true);
+  const [concealed, setConcealed] = useState(false);
   const [poseDebug] = useState(() => poseDebugEnabled());
   const playing = camera.status === 'playing';
   const requesting = camera.status === 'requesting';
   const pipeline = useCameraPipeline();
   const { videoRef } = camera;
+  const hidden = hideable && concealed && playing;
 
   useEffect(() => {
     if (!analyze || !playing) return;
-    cameraPipeline.attach(videoRef.current);
-    return () => cameraPipeline.attach(null);
+    const video = videoRef.current;
+    cameraPipeline.attach(video);
+    // Only detach our own video: when leaving during a measurement the background camera has
+    // already taken over the pipeline.
+    return () => cameraPipeline.detach(video);
   }, [analyze, playing, videoRef]);
 
   return (
@@ -44,13 +60,24 @@ export function CameraPreview({ analyze = false }: { analyze?: boolean }) {
         </div>
         {playing ? (
           <div className="button-row">
-            <Button
-              variant="secondary"
-              onClick={() => setMirrored((value) => !value)}
-              aria-pressed={mirrored}
-            >
-              좌우 반전
-            </Button>
+            {hideable && (
+              <Button
+                variant="secondary"
+                onClick={() => setConcealed((value) => !value)}
+                aria-pressed={concealed}
+              >
+                {concealed ? '미리보기 보기' : '미리보기 숨기기'}
+              </Button>
+            )}
+            {!hidden && (
+              <Button
+                variant="secondary"
+                onClick={() => setMirrored((value) => !value)}
+                aria-pressed={mirrored}
+              >
+                좌우 반전
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => camera.stop()}>
               끄기
             </Button>
@@ -65,7 +92,9 @@ export function CameraPreview({ analyze = false }: { analyze?: boolean }) {
           </Button>
         )}
       </div>
-      <div className={`webcam-stage ${playing ? 'is-playing' : ''}`}>
+      <div
+        className={`webcam-stage ${playing ? 'is-playing' : ''} ${hidden ? 'is-concealed' : ''}`}
+      >
         <video
           ref={camera.videoRef}
           muted
@@ -76,6 +105,18 @@ export function CameraPreview({ analyze = false }: { analyze?: boolean }) {
         />
         {poseDebug && !analyze && (
           <PoseDebugOverlay videoRef={camera.videoRef} mirrored={mirrored} active={playing} />
+        )}
+        {analyze && playing && !hidden && (
+          <GuideSilhouette
+            videoRef={camera.videoRef}
+            mirrored={mirrored}
+            fit={pipeline.guide === 'ok'}
+          />
+        )}
+        {hidden && (
+          <div className="webcam-concealed" role="status">
+            미리보기를 숨겼어요 · 자세 분석은 계속돼요
+          </div>
         )}
         {!playing && (
           <div className="webcam-empty">{requesting ? '권한 요청 중' : '카메라 꺼짐'}</div>
