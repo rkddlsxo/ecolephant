@@ -129,11 +129,11 @@ export function startProblem(
   ready: { cameraBaseline: boolean; helperEnabled: boolean; airpodsBaseline: boolean },
 ): string | null {
   if (mode !== 'webcam' && !ready.helperEnabled)
-    return '카메라를 켜고 기준 자세를 먼저 잡아 주세요.';
+    return '카메라를 켜고 표준 자세를 먼저 등록해 주세요.';
   if (mode !== 'airpods' && !ready.cameraBaseline)
-    return '카메라를 켜고 기준 자세를 먼저 잡아 주세요.';
+    return '카메라를 켜고 표준 자세를 먼저 등록해 주세요.';
   if (mode !== 'webcam' && !ready.airpodsBaseline)
-    return 'AirPods를 연결하고 기준 자세를 먼저 잡아 주세요.';
+    return 'AirPods를 연결하고 표준 자세를 먼저 등록해 주세요.';
   return null;
 }
 

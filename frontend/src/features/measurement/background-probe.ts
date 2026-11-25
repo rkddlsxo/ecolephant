@@ -1,9 +1,9 @@
 /**
  * Development-only probe for background measurement (DEC-010, 2026-11-11).
  *
- * Open the dev server with `?bg=timer` to keep the camera on when the tab is hidden and log,
- * every 10 s, how many frames were analysed and how the 1 s windows were judged. Without the
- * flag (and in production builds) nothing changes: the camera still stops on a hidden tab.
+ * Open the dev server with `?bg=timer` to log, every 10 s, how many frames were analysed and
+ * how the 1 s windows were judged. Analysis pages (calibration, measurement) now keep the camera
+ * on in the background by default; the flag also keeps it on for the plain preview page.
  *
  * Only counts and quality names are logged. No frames, landmarks or features.
  */

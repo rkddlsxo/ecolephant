@@ -508,7 +508,7 @@ p {
   color: var(--color-text);
   font-size: 22px;
 }
-/* 기준 자세 보정 */
+/* 표준 자세 등록 */
 .calibration-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -1320,7 +1320,7 @@ p {
   transform: rotate(180deg);
 }
 
-/* 테스트 측정 */
+/* 사용자 측정 */
 .measure-badge {
   display: inline-flex;
   align-items: center;
@@ -1331,7 +1331,11 @@ p {
   font-size: 13px;
   font-weight: 600;
 }
+/* 측정 화면 안내 상자 높이 통일 (글이 길어 줄바꿈되면 늘어남) */
 .measure-page .notice {
+  display: flex;
+  align-items: center;
+  min-height: 60px;
   border-left: 3px solid var(--color-primary);
   color: var(--color-ink);
   font-size: 14px;
@@ -1509,21 +1513,23 @@ p {
   }
 }
 .measure-page .service-actions {
+  margin-top: 12px;
   padding-top: 20px;
   border-top: 1px solid color-mix(in srgb, var(--color-line) 60%, white);
 }
 .measure-mute {
   gap: 6px;
-  margin-left: auto;
 }
 .measure-record-link {
   gap: 6px;
+  border: 0;
 }
-/* '저장된 기록 보러가기'를 선택 칸 줄 오른쪽 끝에 두고 선택 상자와 아래선을 맞춤 */
-.measure-panel .service-controls {
-  align-items: flex-end;
-}
-.measure-panel .measure-record-link {
+/* 동작 버튼 줄 오른쪽 끝: '저장된 기록 보러가기' · '알림 끄기' */
+.measure-actions-end {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-left: auto;
 }
 .service-table-wrap {
@@ -1623,6 +1629,86 @@ p {
   visibility: visible;
 }
 .webcam-stage video.mirrored {
+  transform: scaleX(-1);
+}
+/* Hidden preview: keep the video rendered (not display:none) so frames keep decoding. */
+.webcam-stage.is-concealed {
+  aspect-ratio: auto;
+  min-height: 48px;
+  background: var(--color-soft);
+}
+.webcam-stage.is-concealed video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Camera kept on while the measurement runs and the user is on another page. */
+.background-camera-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-point) 35%, white);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-point) 8%, white);
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.background-camera-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 25%, transparent);
+}
+.background-camera-text {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 220px;
+}
+.background-camera-text small {
+  color: color-mix(in srgb, var(--color-ink) 60%, white);
+  font-size: 12px;
+  font-weight: 400;
+}
+.webcam-concealed {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 0 12px;
+  color: var(--color-ink);
+  font-size: 14px;
+}
+.guide-silhouette {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: rgb(255 255 255 / 0.08);
+  stroke: rgb(255 255 255 / 0.85);
+  stroke-width: 2.5px;
+  stroke-dasharray: 8 6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.6));
+}
+.guide-silhouette * {
+  vector-effect: non-scaling-stroke;
+}
+.guide-silhouette.is-fit {
+  stroke: #3ddc84;
+  stroke-dasharray: none;
+}
+.guide-silhouette.mirrored {
   transform: scaleX(-1);
 }
 .webcam-empty {
@@ -1743,11 +1829,38 @@ p {
   }
 }
 
-/* 실제 카메라 측정: 미리보기와 보정 버튼 */
-.measure-camera {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 16px;
+/* 측정 화면: 카메라·표준 자세가 준비되지 않았을 때 등록 화면으로 안내 */
+.measure-calibration-note {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+/* 배경 없는 텍스트 버튼 */
+.measure-calibration-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.measure-camera-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.measure-calibration-link:hover {
+  text-decoration: underline;
 }
 .calibration-progress {
   display: grid;
@@ -1758,9 +1871,39 @@ p {
   height: 8px;
 }
 
+/* 지표 카드와 아래 버튼 줄 구분선 사이 세로 가운데 (위 12px · 아래 .service-actions margin-top 12px) */
 .measure-change-readout {
-  margin: 0;
+  margin: 12px 0 0;
   font-size: 0.8rem;
   color: var(--muted, #6b7280);
   font-variant-numeric: tabular-nums;
+}
+
+/* 측정 화면의 카메라 켜짐 안내: 상단 카메라 표시줄과 같은 포인트 색 (글자·버튼·왼쪽 테두리) */
+.measure-page .background-camera-notice {
+  /* 위아래 테두리 1px만큼 안쪽 여백을 줄여 다른 안내 상자와 높이를 맞춤 */
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-point) 35%, white);
+  border-left: 3px solid var(--color-point);
+  background: color-mix(in srgb, var(--color-point) 8%, white);
+  color: var(--color-point);
+  font-weight: 600;
+}
+/* '카메라 끄기': '저장된 기록 보러가기'와 같은 버튼 동작(크기·hover·눌림), 색은 안내 색 그대로 */
+.measure-page .background-camera-notice .background-camera-off {
+  /* 글자만 있는 안내 상자와 높이가 같도록 버튼이 줄 높이를 키우지 않게 함 (hover 배경은 위아래로 4px 넘침) */
+  min-height: 0;
+  margin: -4px 0;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--color-point);
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+}
+/* hover도 글자와 같은 안내 색 계열 */
+.measure-page .background-camera-notice .button:not(:disabled):hover.background-camera-off {
+  background: color-mix(in srgb, var(--color-point) 14%, white);
+  border-color: transparent;
 }

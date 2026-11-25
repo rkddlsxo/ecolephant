@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { policy } from '@ecolephant/ai';
 
 const mocks = vi.hoisted(() => ({
   api: { statistics: vi.fn() },
@@ -58,7 +59,7 @@ test('shows an empty state when there is nothing to chart', async () => {
   expect(await screen.findByText(/이 기간에는 통계가 없어요/)).toBeInTheDocument();
 });
 
-test('sums additive totals across groups and charts ratios per group', async () => {
+test('sums additive totals across groups and charts ratios per mode', async () => {
   mocks.api.statistics.mockResolvedValue({
     groups: [group('webcam', 'p1', 120000, 2), group('airpods', 'p2', 60000, 1)],
     unassigned_unknown_duration_ms: 5000,
@@ -70,7 +71,9 @@ test('sums additive totals across groups and charts ratios per group', async () 
   expect(screen.getByText('0분 5초')).toBeInTheDocument();
   expect(screen.getByRole('img', { name: /정상 범위 비율 추이/ })).toBeInTheDocument();
   expect(screen.getByRole('img', { name: /유효 측정 시간/ })).toBeInTheDocument();
+  // 방식이 다르면 선을 따로 그리고, 이름표가 붙음
   expect(screen.getAllByText('웹캠 · 테스트').length).toBeGreaterThan(0);
+  expect(screen.queryByTestId('trend-note')).not.toBeInTheDocument();
   expect(screen.getAllByText(/웹캠 · 테스트 · 기준 p1/).length).toBeGreaterThan(0);
 });
 
@@ -163,4 +166,54 @@ test('downloads a statistics PDF that uses the same filters and numbers as the s
   );
   vi.unstubAllGlobals();
   click.mockRestore();
+});
+
+test('draws one ratio line per mode, using only each mode’s latest judging policy', async () => {
+  const { buildStatsView } = await import('../features/statistics/model');
+  const bucket = (starts_at: string, within: number) => ({
+    starts_at,
+    ends_at: starts_at,
+    metrics: metrics(60000, within, 0),
+  });
+  const withBuckets = (mode: string, policyId: string, buckets: ReturnType<typeof bucket>[]) => ({
+    ...group(mode, policyId, 60000, 0),
+    buckets,
+  });
+  const view = buildStatsView(
+    [
+      withBuckets('webcam', 'v1', [bucket('2026-11-01T15:00:00Z', 10)]),
+      withBuckets('webcam', 'v2', [
+        bucket('2026-11-05T15:00:00Z', 20),
+        bucket('2026-11-06T15:00:00Z', 50),
+      ]),
+      withBuckets('airpods', 'v2', [bucket('2026-11-06T15:00:00Z', 90)]),
+    ] as never,
+    'day',
+  );
+  expect(view.series.map((s) => s.key)).toEqual(['demo:webcam:v2', 'demo:airpods:v2']);
+  // 이전 기준(v1)만 있던 11/01은 추이 x축에서 빠지고, 막대용 labels에는 남음
+  expect(view.trendLabels.map((l) => l.x)).toEqual([
+    '2026-11-05T15:00:00Z',
+    '2026-11-06T15:00:00Z',
+  ]);
+  expect(view.labels).toHaveLength(3);
+  expect(view.series[0]!.points.map((p) => p.value)).toEqual([20, 50]);
+  expect(view.series[1]!.points.map((p) => p.value)).toEqual([null, 90]);
+  expect(view.olderPolicies).toBe(1);
+});
+
+test('draws the state donuts only for the current judging policy', async () => {
+  mocks.api.statistics.mockResolvedValue({
+    groups: [
+      group('webcam', policy.policy_id, 60000, 0),
+      group('webcam', 'draft-web-v1', 56000, 0),
+    ],
+    unassigned_unknown_duration_ms: 0,
+  });
+  setup();
+  const note = await screen.findByTestId('older-policy-note');
+  expect(note).toHaveTextContent('이전 판정 기준으로 잰 기록 0분 56초');
+  const donuts = document.querySelector('.state-donuts')!;
+  expect(within(donuts as HTMLElement).queryByText(/draft-web-v1/)).not.toBeInTheDocument();
+  expect(donuts.children).toHaveLength(1);
 });

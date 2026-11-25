@@ -414,7 +414,7 @@ describe('synthetic session flow', () => {
     vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(false);
     await measurement.start('webcam');
     expect(mocks.api.create).not.toHaveBeenCalled();
-    expect(useMeasurement.getState().error).toMatch(/기준 자세/);
+    expect(useMeasurement.getState().error).toMatch(/표준 자세/);
     vi.spyOn(cameraPipeline, 'hasBaseline', 'get').mockReturnValue(true);
     await measurement.start('combined');
     expect(mocks.api.create).not.toHaveBeenCalled();

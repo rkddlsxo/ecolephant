@@ -1,6 +1,14 @@
 import { formatDuration } from '../../components/ui';
 import type { Point, Series } from '../statistics/charts';
-import { groupName, showsPolicy, type Group, type StatsView, type Unit } from '../statistics/model';
+import {
+  groupName,
+  showsPolicy,
+  splitByPolicy,
+  trendNote,
+  type Group,
+  type StatsView,
+  type Unit,
+} from '../statistics/model';
 import { correctionRatio, meanCorrection, summaryView } from '../history/format';
 import { STATE_COLORS } from '../statistics/StateDonut';
 import {
@@ -294,29 +302,31 @@ export async function createStatisticsPdf(input: StatisticsReportInput): Promise
   drawTiles(doc, input);
 
   if (input.groups.length) {
+    // 화면과 같이 지금 판정 기준 묶음만 그린다.
+    const byPolicy = splitByPolicy(input.groups);
     sectionTitle(doc, '자세 상태 분포');
-    drawDonuts(doc, input.groups, showsPolicy(input.groups));
-  }
-
-  if (input.view.labels.length) {
-    sectionTitle(doc, '정상 범위 비율 추이');
-    drawLineChart(doc, input.view.labels, input.view.series);
-    if (input.view.hidden > 0)
+    drawDonuts(doc, byPolicy.current, false);
+    if (byPolicy.older.length) {
       doc.text(
-        `그룹이 많아 처음 ${input.view.series.length}개만 그렸어요. 나머지는 아래 표를 확인해 주세요.`,
+        `이전 판정 기준으로 잰 기록 ${formatDuration(byPolicy.olderValidMs)}은 기준이 달라 분포에서 뺐어요.`,
         MARGIN,
         doc.y,
         8.5,
         color.faint,
       );
-    doc.text(
-      '측정 방식·출처·판정 기준이 다르면 비율을 합치지 않고 따로 보여 줘요.',
-      MARGIN,
-      doc.y + (input.view.hidden > 0 ? 14 : 0),
-      8.5,
-      color.faint,
-    );
-    doc.y += input.view.hidden > 0 ? 34 : 20;
+      doc.y += 20;
+    }
+  }
+
+  if (input.view.labels.length) {
+    sectionTitle(doc, '정상 범위 비율 추이');
+    drawLineChart(doc, input.view.trendLabels, input.view.series);
+    const trend = trendNote(input.view);
+    for (const line of trend ?? []) {
+      doc.text(line, MARGIN, doc.y, 8.5, color.faint);
+      doc.y += 13;
+    }
+    doc.y += 7;
 
     sectionTitle(doc, '유효 측정 시간');
     drawBarChart(doc, input.view.validByStart);

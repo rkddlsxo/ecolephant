@@ -1,20 +1,23 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { policy, type Level, type Mode, type Scenario } from '@ecolephant/ai';
-import { Bell, BellOff, Gauge, HardDriveUpload, History, Timer } from 'lucide-react';
-import { Button, ErrorState, formatDuration, Modal, modeLabel, Notice } from '../components/ui';
-import { Select } from '../components/Select';
-import { CameraPreview } from '../components/CameraPreview';
-import { CalibrationControl } from '../features/measurement/CalibrationControl';
+import { policy, type Level, type Mode } from '@ecolephant/ai';
 import {
-  airpodsHelperEnabled,
-  startProblem,
-  useAirPods,
-} from '../features/measurement/airpods/airpods-link';
+  Bell,
+  BellOff,
+  CameraOff,
+  Crosshair,
+  Gauge,
+  HardDriveUpload,
+  History,
+  Timer,
+} from 'lucide-react';
+import { Button, ErrorState, formatDuration, Modal, Notice } from '../components/ui';
+import { stopBackgroundCamera, useBackgroundCamera } from '../features/camera/background-camera';
+import { useAirPods } from '../features/measurement/airpods/airpods-link';
 import { useCameraPipeline } from '../features/measurement/camera-pipeline';
 import { measurement } from '../features/measurement/controller';
 import { usePolicyCheck } from '../features/measurement/policy';
-import { useMeasurement, type MeasurementInput } from '../state/measurement';
+import { useMeasurement } from '../state/measurement';
 import { usePreferences } from '../state/preferences';
 
 const levelLabel: Record<Level, string> = {
@@ -29,52 +32,36 @@ const levelLabel: Record<Level, string> = {
  * The type is still recorded with each window.
  */
 const postureLabel = '거북목 자세';
-const inputOptions: { value: MeasurementInput; label: string }[] = [
-  { value: 'camera', label: '실제 카메라' },
-  { value: 'demo', label: '테스트 입력' },
-];
-const scenarioLabel: Partial<Record<Scenario, string>> = {
-  auto: '자동',
-  normal: '정상',
-  high: '높음',
-  head_down: '고개 숙임',
-  camera_lost: '카메라 끊김',
-  missing: '센서 없음',
-  motion: '움직임',
-};
 
 const changeThresholds = policy.camera_change_thresholds;
 const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
-
-const modeOptions = (['webcam', 'airpods', 'combined'] as const).map((mode) => ({
-  value: mode,
-  label: modeLabel[mode],
-}));
-const scenarioOptions = (Object.entries(scenarioLabel) as [Scenario, string][]).map(
-  ([value, label]) => ({ value, label }),
-);
 
 export function MeasurePage() {
   const state = useMeasurement();
   const muted = usePreferences((value) => value.muted);
   const setMuted = usePreferences((value) => value.setMuted);
-  const [selectedMode, setSelectedMode] = useState<Mode>('webcam');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const running = ['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(state.phase);
   const camera = state.input === 'camera';
   const pipeline = useCameraPipeline();
   const airpods = useAirPods();
-  // Real input is webcam-only unless the dev flag `?airpods=helper` connects the AirPods helper.
-  const helper = airpodsHelperEnabled();
-  const mode: Mode = camera && !helper ? 'webcam' : selectedMode;
+  // The page measures with the real camera only. The camera is turned on and the baseline taken
+  // on the calibration page; the background camera keeps it running here (no preview).
+  // Test input (synthetic signals) stays in the controller for automated tests only.
+  const mode: Mode = 'webcam';
   const policyCheck = usePolicyCheck(mode);
-  const cameraReady =
-    !camera ||
-    startProblem(mode, {
-      cameraBaseline: pipeline.status === 'running' && pipeline.hasBaseline,
-      helperEnabled: helper,
-      airpodsBaseline: airpods.hasBaseline,
-    }) === null;
+  const cameraReady = !camera || (pipeline.status === 'running' && pipeline.hasBaseline);
+  // The camera kept on from the calibration page (or during the measurement).
+  const cameraOn = useBackgroundCamera((value) => value.on);
+
+  useEffect(() => {
+    const current = useMeasurement.getState();
+    if (
+      current.input !== 'camera' &&
+      !['starting', 'active', 'paused', 'recalibrating', 'ending'].includes(current.phase)
+    )
+      useMeasurement.setState({ input: 'camera', error: null });
+  }, []);
 
   useEffect(() => {
     if (!state.alert || document.hidden) return;
@@ -90,12 +77,12 @@ export function MeasurePage() {
       <div className="page-heading">
         <div>
           <div className="title-with-status">
-            <h1>{camera ? '시범 측정' : '테스트 측정'}</h1>
+            <h1>사용자 측정</h1>
             <span className="measure-badge">{camera ? '기준값 검증 전' : '가상 입력'}</span>
           </div>
           <p className="page-description">
             {camera
-              ? '웹캠으로 기준 자세에서 얼마나 달라졌는지 판정해요. 기록은 검증 전 연습용으로 저장돼요.'
+              ? '웹캠으로 표준 자세에서 얼마나 달라졌는지 판정해요. 기록은 검증 전 연습용으로 저장돼요.'
               : '가상 입력으로 측정·알림·저장 흐름이 잘 이어지는지 확인하는 화면이에요.'}
           </p>
         </div>
@@ -119,57 +106,47 @@ export function MeasurePage() {
       {state.alert && <Notice>자세 확인 · {state.alert.stage}차 알림</Notice>}
       {state.phase === 'recalibrating' && (
         <Notice>
-          기준 자세를 다시 잡고 있어요. 편한 자세로 3초 동안 가만히 있어 주세요.
+          표준 자세를 다시 등록하고 있어요. 편한 자세로 3초 동안 가만히 있어 주세요.
           {camera && ` (${Math.round(pipeline.progress * 100)}%)`}
         </Notice>
       )}
-      {camera && (
-        <div className="measure-camera">
-          <CameraPreview analyze />
-          {!running && <CalibrationControl />}
+      {/* 카메라 상태는 이 한 자리에서: 켜져 있으면 끄기, 꺼져 있거나 기준이 없으면 보정 안내 */}
+      {camera && cameraOn && (
+        <div className="notice background-camera-notice" role="status">
+          <span className="measure-calibration-note">
+            <span className="measure-camera-on">
+              <span className="background-camera-dot" aria-hidden="true" />
+              {running
+                ? '측정 중 · 카메라 켜짐. 다른 메뉴로 옮겨도 이 브라우저 안에서 자세 분석이 계속돼요.'
+                : '카메라 켜짐 · 표준 자세 등록됨. 시작을 누르면 이 카메라로 바로 측정해요.'}
+            </span>
+            <button
+              type="button"
+              className="button button-secondary measure-record-link background-camera-off"
+              onClick={stopBackgroundCamera}
+            >
+              <CameraOff size={16} aria-hidden="true" />
+              카메라 끄기
+            </button>
+          </span>
         </div>
       )}
+      {camera && !cameraOn && (running ? pipeline.status !== 'running' : !cameraReady) && (
+        <Notice>
+          <span className="measure-calibration-note">
+            {running
+              ? '카메라가 꺼져 있어 지금은 판단 불가로 기록돼요. 표준 자세 등록에서 카메라를 다시 켜 주세요.'
+              : pipeline.status === 'running' || pipeline.status === 'loading'
+                ? '아직 표준 자세가 없어요. 표준 자세 등록에서 표준 자세를 등록한 뒤 이 화면으로 돌아와 주세요.'
+                : '카메라가 꺼져 있어요. 표준 자세 등록에서 카메라를 켜고 표준 자세를 등록한 뒤 이 화면으로 돌아와 주세요.'}
+            <Link to="/calibration" className="measure-calibration-link">
+              <Crosshair size={16} aria-hidden="true" />
+              표준 자세 등록으로
+            </Link>
+          </span>
+        </Notice>
+      )}
       <section className="panel service-panel measure-panel">
-        <div className="service-controls">
-          <Select<MeasurementInput>
-            label="입력"
-            value={state.input}
-            disabled={running}
-            onChange={(input) => useMeasurement.setState({ input, error: null })}
-            options={inputOptions}
-          />
-          <Select<Mode>
-            label="측정 방식"
-            value={running ? state.mode : mode}
-            disabled={running || (camera && !helper)}
-            onChange={setSelectedMode}
-            options={modeOptions}
-          />
-          {!camera && (
-            <Select<Scenario>
-              label="테스트 입력"
-              value={state.scenario}
-              onChange={(scenario) => useMeasurement.setState({ scenario })}
-              options={scenarioOptions}
-            />
-          )}
-          {/* 항상 기록으로 갈 수 있게 선택 칸 줄 오른쪽 끝에 고정. 방금 저장한 세션이 있으면 그 상세로 */}
-          {state.phase === 'completed' && state.session ? (
-            <Link
-              to="/history/$sessionId"
-              params={{ sessionId: state.session.id }}
-              className="button button-secondary measure-record-link"
-            >
-              <History size={16} aria-hidden="true" />
-              저장된 기록 보러가기
-            </Link>
-          ) : (
-            <Link to="/history" className="button button-secondary measure-record-link">
-              <History size={16} aria-hidden="true" />
-              저장된 기록 보러가기
-            </Link>
-          )}
-        </div>
         <div className="service-metrics">
           <div
             className={`measure-metric level-${state.phase === 'paused' || state.phase === 'recalibrating' ? 'idle' : (state.latest?.posture_level ?? 'idle')}`}
@@ -183,7 +160,7 @@ export function MeasurePage() {
               {state.phase === 'paused'
                 ? '일시정지'
                 : state.phase === 'recalibrating'
-                  ? '기준 재설정 중'
+                  ? '표준 자세 다시 등록 중'
                   : state.latest
                     ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel}` : ''}`
                     : '대기'}
@@ -209,7 +186,7 @@ export function MeasurePage() {
         </div>
         {camera && changeThresholds && (
           <p className="measure-change-readout" data-testid="change-readout">
-            기준 대비 변화 (시범값 확인용) · 앞쏠림{' '}
+            표준 자세 대비 변화 · 앞쏠림{' '}
             {state.latest?.camera_forward_change != null
               ? signed(state.latest.camera_forward_change)
               : '—'}{' '}
@@ -238,7 +215,7 @@ export function MeasurePage() {
               {policyCheck.status === 'loading'
                 ? '정책 확인 중'
                 : camera && !cameraReady
-                  ? '기준 자세를 먼저 잡아 주세요'
+                  ? '표준 자세를 먼저 등록해 주세요'
                   : '시작'}
             </Button>
           )}
@@ -253,7 +230,7 @@ export function MeasurePage() {
               disabled={state.pending > 550}
               onClick={() => measurement.recalibrate()}
             >
-              기준 재설정
+              표준 자세 다시 등록
             </Button>
           )}
           {!state.missingSession &&
@@ -274,14 +251,32 @@ export function MeasurePage() {
               측정 정리
             </Button>
           )}
-          <Button variant="ghost" className="measure-mute" onClick={() => setMuted(!muted)}>
-            {muted ? (
-              <Bell size={16} aria-hidden="true" />
+          {/* 오른쪽 끝: 저장된 기록(방금 저장한 세션이 있으면 그 상세) · 알림 켜기/끄기 */}
+          <span className="measure-actions-end">
+            {state.phase === 'completed' && state.session ? (
+              <Link
+                to="/history/$sessionId"
+                params={{ sessionId: state.session.id }}
+                className="button button-secondary measure-record-link"
+              >
+                <History size={16} aria-hidden="true" />
+                저장된 기록 보러가기
+              </Link>
             ) : (
-              <BellOff size={16} aria-hidden="true" />
+              <Link to="/history" className="button button-secondary measure-record-link">
+                <History size={16} aria-hidden="true" />
+                저장된 기록 보러가기
+              </Link>
             )}
-            {muted ? '알림 켜기' : '알림 끄기'}
-          </Button>
+            <Button variant="ghost" className="measure-mute" onClick={() => setMuted(!muted)}>
+              {muted ? (
+                <Bell size={16} aria-hidden="true" />
+              ) : (
+                <BellOff size={16} aria-hidden="true" />
+              )}
+              {muted ? '알림 켜기' : '알림 끄기'}
+            </Button>
+          </span>
         </div>
         {state.phase === 'starting' && (
           <p className="service-note" role="status">

@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { Mode } from '@ecolephant/ai';
+import { policy, type Mode } from '@ecolephant/ai';
 import { Bell, ChevronDown, Clock, FileText, HelpCircle, Table2, TrendingUp } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { Select } from '../components/Select';
 import { Button, ErrorState, formatDuration, Loading, modeLabel, Notice } from '../components/ui';
 import { BarChart, LineChart, SERIES_COLORS } from '../features/statistics/charts';
-import { buildStatsView, groupName, showsPolicy, type Unit } from '../features/statistics/model';
+import {
+  buildStatsView,
+  groupName,
+  splitByPolicy,
+  trendNote,
+  type Unit,
+} from '../features/statistics/model';
 import { StateDonut } from '../features/statistics/StateDonut';
 import { StatisticsTables } from '../features/history/StatisticsTables';
 import { useSeoulDayEnd } from '../features/history/useSeoulDayEnd';
@@ -70,12 +76,14 @@ export function StatisticsPage() {
         ...(mode ? { mode } : {}),
       }),
   });
-  const groups = stats.data?.groups ?? [];
+  // `?? []` makes a new array every render, so memo it to keep the useMemo deps below stable.
+  const groups = useMemo(() => stats.data?.groups ?? [], [stats.data]);
   const unassigned = mode ? 0 : (stats.data?.unassigned_unknown_duration_ms ?? 0);
 
   const view = useMemo(() => buildStatsView(groups, unit), [groups, unit]);
+  const byPolicy = useMemo(() => splitByPolicy(groups), [groups]);
 
-  const hidden = view.hidden;
+  const trend = trendNote(view);
   const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   async function savePdf() {
@@ -198,23 +206,29 @@ export function StatisticsPage() {
               <div className="session-section-head state-donut-head">
                 <h2 className="history-section-title">자세 상태 분포</h2>
                 <p className="stats-note state-donut-note">
-                  유효 측정 시간 기준이에요. 판단 불가 시간은 빠져 있고, 측정 방식·출처·판정 기준이
-                  다르면 따로 그려요.
+                  지금 판정 기준({policy.policy_id})으로 잰 유효 측정 시간 기준이에요. 판단 불가
+                  시간은 빠져 있고, 측정 방식·출처가 다르면 따로 그려요.
                 </p>
               </div>
-              <div className="state-donuts">
-                {groups.map((group) => (
-                  <StateDonut
-                    key={`${group.data_source}:${group.active_mode}:${group.policy_id}`}
-                    title={
-                      showsPolicy(groups)
-                        ? `${groupName(group)} · 기준 ${group.policy_id}`
-                        : groupName(group)
-                    }
-                    metrics={group.summary}
-                  />
-                ))}
-              </div>
+              {byPolicy.current.length > 0 ? (
+                <div className="state-donuts">
+                  {byPolicy.current.map((group) => (
+                    <StateDonut
+                      key={`${group.data_source}:${group.active_mode}:${group.policy_id}`}
+                      title={groupName(group)}
+                      metrics={group.summary}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="service-note">이 기간에는 지금 판정 기준으로 잰 기록이 없어요.</p>
+              )}
+              {byPolicy.older.length > 0 && (
+                <p className="stats-note" data-testid="older-policy-note">
+                  이전 판정 기준으로 잰 기록 {formatDuration(byPolicy.olderValidMs)}은 기준이 달라
+                  분포에서 뺐어요. 아래 표에서 확인할 수 있어요.
+                </p>
+              )}
             </section>
           )}
 
@@ -235,20 +249,16 @@ export function StatisticsPage() {
                   )}
                 </div>
                 <LineChart
-                  labels={view.labels}
+                  labels={view.trendLabels}
                   series={view.series}
                   format={percent}
                   ariaLabel="정상 범위 비율 추이 차트. 자세한 값은 아래 표에서 확인할 수 있어요."
                 />
-                {hidden > 0 && (
-                  <p className="stats-note">
-                    그룹이 많아 처음 {view.series.length}개만 그렸어요. 나머지 {hidden}개는 아래
-                    표에서 확인해 주세요.
+                {trend && (
+                  <p className="stats-note" data-testid="trend-note">
+                    {trend.join(' ')}
                   </p>
                 )}
-                <p className="stats-note">
-                  측정 방식·출처·판정 기준이 다르면 비율을 합치지 않고 따로 보여 줘요.
-                </p>
               </section>
 
               <section className="panel stats-chart-panel">
