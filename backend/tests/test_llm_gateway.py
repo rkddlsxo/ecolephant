@@ -1,4 +1,4 @@
-"""[5일 플랜 — Day 4 단위 테스트] LLM Input/Output 가드레일·시맨틱 버킷 캐싱·멀티 모델 라우터·3단계 상태 머신 서킷 브레이커 검증."""
+"""LLM Input/Output 가드레일·시맨틱 버킷 캐싱·멀티 모델 라우터·3단계 상태 머신 서킷 브레이커 검증."""
 import unittest
 
 from backend.ecolephant.llm_gateway import (
