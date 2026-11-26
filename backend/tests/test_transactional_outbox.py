@@ -1,4 +1,4 @@
-"""[5일 플랜 — Day 3 단위 테스트] Transactional Outbox 원자성(Dual Write 방어) 및 SQS/SNS 릴레이 멱등성 검증."""
+"""Transactional Outbox 원자성(Dual Write 방어) 및 SQS/SNS 릴레이 멱등성 검증."""
 import unittest
 
 from backend.ecolephant.transactional_outbox import TransactionalOutboxStore
