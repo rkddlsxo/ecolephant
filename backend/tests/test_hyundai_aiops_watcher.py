@@ -1,7 +1,11 @@
 """클라우드 장애 RCA 자동 진단 및 런북 브리핑(ErrorWatcher) 단위 테스트."""
 import unittest
 
-from backend.ecolephant.hyundai_aiops_watcher import analyze_cloud_incident
+from backend.ecolephant.hyundai_aiops_watcher import (
+    analyze_cloud_incident,
+    build_sns_filtered_alert,
+    matches_sns_filter_policy,
+)
 
 
 class Day5HyundaiAIOpsWatcherTest(unittest.TestCase):
@@ -31,6 +35,17 @@ class Day5HyundaiAIOpsWatcherTest(unittest.TestCase):
         degraded = analyze_cloud_incident("QueueBacklogHigh", latency_ms=2500.0, llm_fn=broken_llm)
         self.assertEqual(degraded["severity"], "CRITICAL")
         self.assertIn("기본 런북", degraded["ai_diagnosis"])
+
+    def test_sns_message_filtering_routes_only_critical_alerts_to_emergency_channel(self):
+        crit_report = analyze_cloud_incident("Backend503Alert", error_code="storage_unavailable")
+        warn_report = analyze_cloud_incident("HostLowAvailableMemory", latency_ms=200.0)
+
+        crit_env = build_sns_filtered_alert(crit_report)
+        warn_env = build_sns_filtered_alert(warn_report)
+        emergency_policy = {"severity": ["CRITICAL"]}
+
+        self.assertTrue(matches_sns_filter_policy(crit_env, emergency_policy))
+        self.assertFalse(matches_sns_filter_policy(warn_env, emergency_policy))
 
 
 if __name__ == "__main__":
