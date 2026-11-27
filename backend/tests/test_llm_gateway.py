@@ -7,6 +7,7 @@ from backend.ecolephant.llm_gateway import (
     enforce_input_guardrail,
     enforce_output_guardrail,
     select_bedrock_model,
+    stream_bedrock_coaching_sse,
 )
 
 
@@ -58,6 +59,13 @@ class Day4LLMGatewayPatternsTest(unittest.TestCase):
         self.assertEqual(cb.state, "HALF_OPEN")
         cb.record_success()
         self.assertEqual(cb.state, "CLOSED")
+
+    def test_stream_bedrock_coaching_sse_emits_token_chunks_and_done_marker(self):
+        chunks = list(stream_bedrock_coaching_sse("턱을 당기고 스트레칭하세요.", chunk_size=4))
+        self.assertGreater(len(chunks), 2)
+        self.assertTrue(chunks[0].startswith("data: "))
+        self.assertIn('"done": false', chunks[0])
+        self.assertIn('"done": true', chunks[-1])
 
 
 if __name__ == "__main__":

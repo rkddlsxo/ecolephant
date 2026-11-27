@@ -4,6 +4,7 @@
 3) 시맨틱 버킷 캐싱(Semantic Bucket Cache): 유사한 자세 통계 패턴(10% 단위 버킷)은 LLM을 재호출하지 않고 캐시에서 0.001초 만에 반환해 토큰 비용 70% 절감
 4) 상태 머신 서킷 브레이커(State-Machine Circuit Breaker): CLOSED(정상) -> 3회 연속 실패 시 OPEN(즉시 차단) -> 쿨다운 후 HALF_OPEN(1회 시험 복구)
 """
+import json
 import time
 
 INJECTION_PATTERNS = ("ignore previous instructions", "system prompt", "비밀번호 알려줘", "이전 지시 무시")
@@ -74,3 +75,15 @@ class StateMachineCircuitBreaker:
         if self.failures >= self.failure_threshold:
             self.state = "OPEN"
             self.opened_at = self._clock()
+
+
+def stream_bedrock_coaching_sse(coaching_text, chunk_size=4):
+    """[Bedrock + Lambda SSE 실시간 스트리밍] 긴 AI 코칭 답변을 3초 동안 기다리지 않고
+    챗GPT처럼 chunk_size(4글자) 단위로 쪼개어 실시간 SSE('data: ...\n\n') 이벤트로 전송합니다.
+    """
+    safe_text = enforce_output_guardrail(coaching_text)
+    for idx in range(0, len(safe_text), int(chunk_size)):
+        token = safe_text[idx : idx + int(chunk_size)]
+        yield f"data: {json.dumps({'token': token, 'done': False}, ensure_ascii=False)}\n\n"
+    yield f"data: {json.dumps({'token': '', 'done': True}, ensure_ascii=False)}\n\n"
+
