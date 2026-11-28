@@ -1,5 +1,18 @@
 # ML 담당자 인계
 
+## 현재 상태 (2026-11-28, 진수연)
+
+| 항목 | 상태 | 위치 |
+|---|---|---|
+| 관절점 모델 | MediaPipe Pose Landmarker lite 1.1.1, 브라우저 GPU→CPU | `frontend/src/features/measurement/pose/`, [ADR-0004](../decisions/adr-0004-pose-model-adapter.md) |
+| 특징값·보정·판정 | r·h·n, 표준 자세 3초 중앙값, 1초 창 변화량 판정 | `ai/src/camera-features.ts`, `calibration.ts`, `camera-window.ts`, `decision.ts` |
+| 판정 기준 | `draft-web-v3`: 앞쏠림 +0.07/+0.12, 숙임·코 −0.05/−0.10 (미승인) | `backend/harness/fixtures/policy/change-v3.json`, [신호 설계](signal-pipeline.md) |
+| 보여 주는 자세 유형 | 고개 숙임 / 고개 앞으로 쏠림 (저장값은 세 값 유지) | `ai/src/posture-display.ts` |
+| 검증 | 녹화 도구로 4명 5세션 + 측면 스티커 CVA, 지시 자세 재현율 18/24·바른 자세 오탐 0/25·유형 일치 16/18, B안 영상 16/17 | `tools/record-guide`, `tools/cva-label`, `tools/pose-compare` |
+| 남은 일 | 정책 승인과 실측 저장(ECOLEPHANT-12), 알림·스트레칭 화면 연결(프론트), AirPods 실기기 축 확인(DEC-003), (선택) RTMPose 판정 비교 | |
+
+검증 도구 사용 순서: `tools/record-guide`로 촬영 → `tools/cva-label/find_beep.py`로 측면 시간 맞추기 → `label_video.py --sync-ms` → `tools/pose-compare/evaluate_segments.py` → `tune_thresholds.py`. 실험 영상은 `.data/`(git 제외)에만 둡니다.
+
 ## 맡을 작업
 
 1. 브라우저에서 실행 가능한 자세 모델을 후보별 성능·속도·라이선스로 비교하고 선택합니다.

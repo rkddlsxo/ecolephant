@@ -99,7 +99,7 @@ function say(text: string) {
 // ---------- UI helpers ----------
 const NEXT_STEP: Record<Mode, string> = {
   off: '다음: 참가자 ID·회차를 넣고 카메라 켜기',
-  preview: '다음: 가이드 안에 앉아서 기준 자세 잡기 (녹화 시작은 기준 자세 저장 후에 눌려요)',
+  preview: '다음: 가이드 안에 앉아서 표준 자세 등록 (녹화 시작은 표준 자세 등록 후에 눌려요)',
   calibrating: '바른 자세로 3초 가만히…',
   ready: '다음: 측면 폰 녹화를 켜고 녹화 시작',
   countdown: '곧 녹화가 시작돼요',
@@ -220,9 +220,9 @@ function calibrate(frame: CameraFrame, guide: GuideFit) {
   if (next.status === 'done') {
     baseline = { r0: next.baseline.r0, h0: next.baseline.h0, n0: next.baseline.n0 ?? null };
     progressEl.value = 1;
-    calibLabelEl.textContent = '기준 자세: 저장 완료 ✓';
+    calibLabelEl.textContent = '표준 자세: 등록 완료 ✓';
     setMode('ready');
-    status('기준 자세 저장 완료. 녹화를 시작할 수 있어요.', 'ok');
+    status('표준 자세 등록 완료. 녹화를 시작할 수 있어요.', 'ok');
     beep(880, 150, 0.2);
     return;
   }
@@ -325,7 +325,7 @@ cameraBtn.onclick = async () => {
 
 calibBtn.onclick = () => {
   notice('');
-  calibLabelEl.textContent = '기준 자세 진행';
+  calibLabelEl.textContent = '표준 자세 진행';
   calibration = initialCalibration();
   baseline = null;
   progressEl.value = 0;
@@ -474,7 +474,7 @@ $<HTMLButtonElement>('next').onclick = () => {
   summaryEl.textContent = '';
   setMode('ready');
   status(
-    '같은 기준 자세로 다음 녹화를 할 수 있어요. 자리를 옮겼다면 기준 자세를 다시 잡아 주세요.',
+    '같은 표준 자세로 다음 녹화를 할 수 있어요. 자리를 옮겼다면 표준 자세를 다시 등록해 주세요.',
     'info',
   );
 };
