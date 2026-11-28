@@ -23,7 +23,21 @@ POINT_NAMES = ("nose", "left_ear", "right_ear", "left_shoulder", "right_shoulder
 LEVEL_RANK = {"normal": 0, "caution": 1, "high": 2}
 RISK_LABELS = ("chin_forward", "head_down", "combined")
 LABEL_ALIASES = {"turn_talk": "turn"}
-KNOWN_LABELS = ("upright", "chin_forward", "head_down", "combined", "trunk_lean", "turn")
+KNOWN_LABELS = (
+    "upright",
+    "chin_forward",
+    "head_down",
+    "combined",
+    "trunk_lean",
+    "turn",
+)
+# ai/src/posture-display.ts (2026-11-28): the type shown to the user. A stored "combined" (and an
+# instructed "combined" segment) is head down, because the front camera cannot tell them apart.
+DISPLAY_TYPE = {
+    "chin_forward": "chin_forward",
+    "head_down": "head_down",
+    "combined": "head_down",
+}
 
 
 # ---------------------------------------------------------------- options (same draft values)
@@ -460,6 +474,7 @@ class SegmentResult:
     n_change: float | None
     is_baseline: bool = False
     level_counts: dict = field(default_factory=dict)
+    display_type: str = ""  # shown type (DISPLAY_TYPE), most common among non-normal windows
 
 
 def segment_windows(windows: list[WindowResult], seg: Segment) -> list[WindowResult]:
@@ -472,7 +487,10 @@ def segment_windows(windows: list[WindowResult], seg: Segment) -> list[WindowRes
 
 
 def aggregate_segment(
-    seg: Segment, windows: list[WindowResult], is_baseline: bool = False, min_windows: int = 3
+    seg: Segment,
+    windows: list[WindowResult],
+    is_baseline: bool = False,
+    min_windows: int = 3,
 ) -> SegmentResult:
     """Segment level = most frequent window level (tie → worse).
 
@@ -492,6 +510,16 @@ def aggregate_segment(
         level = max((lv for lv, c in counts.items() if c == top), key=lambda lv: LEVEL_RANK[lv])
         types = Counter(w.posture_type for w in ok if w.level != "normal")
         ptype = "" if level == "normal" or not types else types.most_common(1)[0][0]
+    shown = Counter(
+        DISPLAY_TYPE.get(w.posture_type, w.posture_type)
+        for w in ok
+        if w.level != "normal" and w.posture_type
+    )
+    display = (
+        ""
+        if level in ("normal", "unknown", "too_short") or not shown
+        else shown.most_common(1)[0][0]
+    )
 
     def med(attr):
         vals = [getattr(w, attr) for w in ok if getattr(w, attr) is not None]
@@ -510,6 +538,7 @@ def aggregate_segment(
         med("n_change"),
         is_baseline,
         dict(counts),
+        display,
     )
 
 
@@ -525,7 +554,8 @@ def metrics(segments: list[SegmentResult]) -> dict:
     evaluated = [s for s in segments if not s.is_baseline and s.level != "too_short"]
     windows = sum(s.windows for s in evaluated)
     unknown_windows = sum(s.unknown_windows for s in evaluated)
-    type_ok = [s for s in detected if s.posture_type == s.label]
+    # Type match uses the shown type (2026-11-28): instructed "combined" is expected as head down.
+    type_ok = [s for s in detected if s.display_type == DISPLAY_TYPE.get(s.label)]
     return {
         "risk_segments": len(risk),
         "risk_unknown": sum(1 for s in risk if s.level == "unknown"),

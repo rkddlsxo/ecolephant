@@ -1,6 +1,12 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { policy, type Level, type Mode } from '@ecolephant/ai';
+import {
+  displayPostureLabel,
+  displayPostureType,
+  policy,
+  type Level,
+  type Mode,
+} from '@ecolephant/ai';
 import {
   Bell,
   BellOff,
@@ -27,11 +33,13 @@ const levelLabel: Record<Level, string> = {
   unknown: '판단 불가',
 };
 /**
- * One label for any detected type (2026-11-21): the front-camera type (chin forward / head down /
- * both) was unreliable in the test videos, so only the level is shown with "거북목 자세".
- * The type is still recorded with each window.
+ * Shown posture type (2026-11-28, ai/src/posture-display.ts): "고개 숙임" when the head drop
+ * reached caution (stored head_down or combined), "고개 앞으로 쏠림" when only the forward part did.
  */
-const postureLabel = '거북목 자세';
+const postureLabel = (type: Parameters<typeof displayPostureType>[0]) => {
+  const shown = displayPostureType(type);
+  return shown ? ` · ${displayPostureLabel[shown]}` : '';
+};
 
 const changeThresholds = policy.camera_change_thresholds;
 const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
@@ -162,7 +170,7 @@ export function MeasurePage() {
                 : state.phase === 'recalibrating'
                   ? '표준 자세 다시 등록 중'
                   : state.latest
-                    ? `${levelLabel[state.latest.posture_level]}${state.latest.posture_type ? ` · ${postureLabel}` : ''}`
+                    ? `${levelLabel[state.latest.posture_level]}${postureLabel(state.latest.posture_type)}`
                     : '대기'}
             </strong>
           </div>

@@ -152,7 +152,15 @@ def test_read_segments(tmp_path):
 
 def win(start_s, level, ok=True):
     return judge.WindowResult(
-        start_s * 1000, 12, 1.0, ok, "" if ok else "motion", 0.1, 0.0, None, level if ok else ""
+        start_s * 1000,
+        12,
+        1.0,
+        ok,
+        "" if ok else "motion",
+        0.1,
+        0.0,
+        None,
+        level if ok else "",
     )
 
 
@@ -185,7 +193,18 @@ def test_segment_majority_tie_unknown_and_short():
 def test_metrics_exclude_baseline_and_unknown():
     def seg(label, level, base=False, ptype=""):
         return judge.SegmentResult(
-            label, 0, 10, 8, 1 if level == "unknown" else 0, level, ptype, None, None, None, base
+            label,
+            0,
+            10,
+            8,
+            1 if level == "unknown" else 0,
+            level,
+            ptype,
+            None,
+            None,
+            None,
+            base,
+            display_type=judge.DISPLAY_TYPE.get(ptype, ""),
         )
 
     segs = [
@@ -198,12 +217,17 @@ def test_metrics_exclude_baseline_and_unknown():
     ]
     m = judge.metrics(segs)
     assert (m["risk_detected"], m["risk_unknown"], m["recall"]) == (2, 1, 1.0)
-    assert (m["upright_segments"], m["upright_false_positive"], m["false_positive_rate"]) == (
+    assert (
+        m["upright_segments"],
+        m["upright_false_positive"],
+        m["false_positive_rate"],
+    ) == (
         2,
         1,
         0.5,
     )
-    assert m["type_match"] == 1
+    # Shown types: chin_forward matches; a stored "combined" is shown as head down → matches too.
+    assert m["type_match"] == 2
     assert m["windows"] == 40 and m["unknown_windows"] == 1
 
 

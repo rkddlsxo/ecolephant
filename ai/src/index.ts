@@ -44,13 +44,9 @@ export type {
 } from './camera-window';
 export { calibrationTips, defaultGuide, guideFit, guideLabel } from './guide-fit';
 export type { GuideFit, GuideIssue, GuideShape } from './guide-fit';
-export {
-  commonRoutine,
-  recommendStretch,
-  stretchCaution,
-  stretches,
-  stretchesForType,
-} from './stretching';
+export { recommendStretch, stretchCaution, stretches, stretchesForType } from './stretching';
+export { displayPostureLabel, displayPostureType } from './posture-display';
+export type { DisplayPostureType } from './posture-display';
 export type {
   Stretch,
   StretchAttempt,

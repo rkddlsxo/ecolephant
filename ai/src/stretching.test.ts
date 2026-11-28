@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import {
-  commonRoutine,
-  recommendStretch,
-  stretchCaution,
-  stretches,
-  stretchesForType,
-} from './stretching';
+import { recommendStretch, stretchCaution, stretches, stretchesForType } from './stretching';
 
-describe('stretch recommendation (one common routine, 2026-11-21)', () => {
-  it('uses the same routine for every posture type', () => {
-    expect(commonRoutine).toEqual(['chin_tuck', 'neck_back_stretch', 'chest_opener']);
-    for (const type of ['chin_forward', 'head_down', 'combined'] as const) {
-      expect(recommendStretch(type)?.stretch.id).toBe('chin_tuck');
-      expect(stretchesForType[type]).toBe(commonRoutine);
-    }
+describe('stretch recommendation by shown posture type (2026-11-28)', () => {
+  it('chin tuck for head forward; neck back stretch then chest opener for head down', () => {
+    expect(stretchesForType.chin_forward).toEqual(['chin_tuck']);
+    expect(stretchesForType.head_down).toEqual(['neck_back_stretch', 'chest_opener']);
+    // The front camera cannot tell "combined" from a large head drop, so it is shown as head down.
+    expect(stretchesForType.combined).toEqual(stretchesForType.head_down);
+    expect(recommendStretch('chin_forward')?.stretch.id).toBe('chin_tuck');
+    expect(recommendStretch('head_down')?.stretch.id).toBe('neck_back_stretch');
+    expect(recommendStretch('combined')?.stretch.id).toBe('neck_back_stretch');
     expect(Object.keys(stretches)).toHaveLength(3);
   });
 
@@ -23,24 +19,38 @@ describe('stretch recommendation (one common routine, 2026-11-21)', () => {
     expect(recommendStretch(null, { attempts: [], postureCounts: { head_down: 0 } })).toBeNull();
   });
 
-  it('still recommends when a posture was detected recently but not now', () => {
-    const result = recommendStretch(null, { attempts: [], postureCounts: { head_down: 7 } });
-    expect(result).toMatchObject({ reason: 'most_frequent_posture', stretch: { id: 'chin_tuck' } });
+  it('uses the most frequent shown type when nothing is detected now (combined counts as head down)', () => {
+    const forward = recommendStretch(null, {
+      attempts: [],
+      postureCounts: { chin_forward: 5, head_down: 2 },
+    });
+    expect(forward).toMatchObject({
+      reason: 'most_frequent_posture',
+      stretch: { id: 'chin_tuck' },
+    });
+    const down = recommendStretch(null, {
+      attempts: [],
+      postureCounts: { chin_forward: 5, head_down: 2, combined: 4 },
+    });
+    expect(down?.stretch.id).toBe('neck_back_stretch');
   });
 
-  it('goes through the routine in order without repeating the last stretch', () => {
-    const next = (id: (typeof commonRoutine)[number]) =>
-      recommendStretch('combined', { attempts: [{ id, completed: true }] })?.stretch.id;
-    expect(next('chin_tuck')).toBe('neck_back_stretch');
-    expect(next('neck_back_stretch')).toBe('chest_opener');
-    expect(next('chest_opener')).toBe('chin_tuck');
+  it('does not repeat the last stretch when the type has another one', () => {
+    const after = (id: 'neck_back_stretch' | 'chest_opener') =>
+      recommendStretch('head_down', { attempts: [{ id, completed: true }] })?.stretch.id;
+    expect(after('neck_back_stretch')).toBe('chest_opener');
+    expect(after('chest_opener')).toBe('neck_back_stretch');
+    expect(
+      recommendStretch('chin_forward', { attempts: [{ id: 'chin_tuck', completed: true }] })
+        ?.stretch.id,
+    ).toBe('chin_tuck');
   });
 
   it('shortens the hold after an unfinished attempt, never below 3 s', () => {
     const eased = recommendStretch('head_down', {
       attempts: [
         { id: 'neck_back_stretch', completed: false, heldSeconds: 6 },
-        { id: 'chin_tuck', completed: true },
+        { id: 'chest_opener', completed: true },
       ],
     });
     expect(eased).toMatchObject({
@@ -49,19 +59,17 @@ describe('stretch recommendation (one common routine, 2026-11-21)', () => {
       holdSeconds: 9,
     });
     const short = recommendStretch('chin_forward', {
-      attempts: [
-        { id: 'chin_tuck', completed: false, heldSeconds: 1 },
-        { id: 'chest_opener', completed: true },
-      ],
+      attempts: [{ id: 'chin_tuck', completed: false, heldSeconds: 1 }],
     });
     expect(short).toMatchObject({ stretch: { id: 'chin_tuck' }, eased: true, holdSeconds: 3 });
-    expect(recommendStretch('head_down')).toMatchObject({ eased: false, holdSeconds: 5 });
+    expect(recommendStretch('chin_forward')).toMatchObject({ eased: false, holdSeconds: 5 });
   });
 
-  it('always carries the caution and the screen-height tip', () => {
-    for (const type of ['chin_forward', 'head_down', 'combined'] as const) {
+  it('always carries the caution; the screen-height tip only for head down', () => {
+    for (const type of ['chin_forward', 'head_down', 'combined'] as const)
       expect(recommendStretch(type)).toMatchObject({ caution: stretchCaution });
-      expect(recommendStretch(type)?.tip).toMatch(/눈높이/);
-    }
+    expect(recommendStretch('head_down')?.tip).toMatch(/눈높이/);
+    expect(recommendStretch('combined')?.tip).toMatch(/눈높이/);
+    expect(recommendStretch('chin_forward')?.tip).toBeNull();
   });
 });

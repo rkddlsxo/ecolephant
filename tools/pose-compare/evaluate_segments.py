@@ -69,7 +69,13 @@ def extract_landmarks(video: Path, task: Path, analysis_fps: float) -> list[judg
             frames.append(judge.Frame(t_ms, w, h, None))
             continue
         lms = result.pose_landmarks[0]
-        idx = {"nose": 0, "left_ear": 7, "right_ear": 8, "left_shoulder": 11, "right_shoulder": 12}
+        idx = {
+            "nose": 0,
+            "left_ear": 7,
+            "right_ear": 8,
+            "left_shoulder": 11,
+            "right_shoulder": 12,
+        }
         points = {
             name: judge.to_landmark(
                 lms[i].x,
@@ -94,7 +100,12 @@ def save_cache(path: Path, frames: list[judge.Frame]) -> None:
         writer = csv.writer(f)
         writer.writerow(fields)
         for fr in frames:
-            row = [round(fr.t_ms, 1), fr.width, fr.height, int(fr.landmarks is not None)]
+            row = [
+                round(fr.t_ms, 1),
+                fr.width,
+                fr.height,
+                int(fr.landmarks is not None),
+            ]
             for p in judge.POINT_NAMES:
                 lm = (fr.landmarks or {}).get(p)
                 row += (
@@ -178,13 +189,13 @@ def print_report(pid: str, res: dict) -> None:
         f"  기준 자세: {b['start_ms'] / 1000:.1f}~{b['end_ms'] / 1000:.1f}초, r0={b['r0']:.3f} h0={b['h0']:.3f} n0={b['n0']}"
     )
     print(
-        f"  {'label':<13}{'구간(초)':<12}{'창':>3}{'불가':>5}  {'판정':<10}{'유형':<13}{'rChange':>8}{'hChange':>8}{'nChange':>8}"
+        f"  {'label':<13}{'구간(초)':<12}{'창':>3}{'불가':>5}  {'판정':<10}{'유형(표시)':<13}{'rChange':>8}{'hChange':>8}{'nChange':>8}"
     )
     for s in res["segments"]:
         mark = " (기준)" if s.is_baseline else ""
         print(
             f"  {s.label:<13}{f'{s.start_s:g}~{s.end_s:g}':<12}{s.windows:>3}{s.unknown_windows:>5}  "
-            f"{s.level + mark:<10}{s.posture_type:<13}{fmt(s.r_change):>8}{fmt(s.h_change):>8}{fmt(s.n_change):>8}"
+            f"{s.level + mark:<10}{s.display_type:<13}{fmt(s.r_change):>8}{fmt(s.h_change):>8}{fmt(s.n_change):>8}"
         )
     m = res["metrics"]
     print(
@@ -201,11 +212,16 @@ def main() -> None:
     )
     ap.add_argument("--data-dir", type=Path, default=Path(".data/test-b"))
     ap.add_argument(
-        "--task", type=Path, default=Path("frontend/public/mediapipe/pose_landmarker_lite.task")
+        "--task",
+        type=Path,
+        default=Path("frontend/public/mediapipe/pose_landmarker_lite.task"),
     )
     ap.add_argument("--policy", type=Path, default=Path("ai/src/policy.json"))
     ap.add_argument(
-        "--analysis-fps", type=float, default=15.0, help="browser analysis cap (camera-pipeline.ts)"
+        "--analysis-fps",
+        type=float,
+        default=15.0,
+        help="browser analysis cap (camera-pipeline.ts)",
     )
     ap.add_argument("--only", nargs="*", help="e.g. P01 P03")
     ap.add_argument(
