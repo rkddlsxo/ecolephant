@@ -1,4 +1,4 @@
-"""[5일 플랜 — Day 4 단위 테스트] LLM Input/Output 가드레일·시맨틱 버킷 캐싱·멀티 모델 라우터·3단계 상태 머신 서킷 브레이커 검증."""
+"""LLM Input/Output 가드레일·시맨틱 버킷 캐싱·멀티 모델 라우터·3단계 상태 머신 서킷 브레이커 검증."""
 import unittest
 
 from backend.ecolephant.llm_gateway import (
@@ -7,6 +7,7 @@ from backend.ecolephant.llm_gateway import (
     enforce_input_guardrail,
     enforce_output_guardrail,
     select_bedrock_model,
+    stream_bedrock_coaching_sse,
 )
 
 
@@ -58,6 +59,13 @@ class Day4LLMGatewayPatternsTest(unittest.TestCase):
         self.assertEqual(cb.state, "HALF_OPEN")
         cb.record_success()
         self.assertEqual(cb.state, "CLOSED")
+
+    def test_stream_bedrock_coaching_sse_emits_token_chunks_and_done_marker(self):
+        chunks = list(stream_bedrock_coaching_sse("턱을 당기고 스트레칭하세요.", chunk_size=4))
+        self.assertGreater(len(chunks), 2)
+        self.assertTrue(chunks[0].startswith("data: "))
+        self.assertIn('"done": false', chunks[0])
+        self.assertIn('"done": true', chunks[-1])
 
 
 if __name__ == "__main__":

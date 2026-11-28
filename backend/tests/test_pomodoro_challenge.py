@@ -20,12 +20,14 @@ class Day2PomodoroAndDynamoChatTest(unittest.TestCase):
 
     def test_dynamodb_chat_history_preserves_multiturn_order_and_blocks_invalid_role(self):
         store = DynamoChatHistoryStore()
-        store.append_turn("user-1", "user", "오늘 거북목 경고가 왜 많이 떴어?")
-        store.append_turn("user-1", "assistant", "15분~20분 구간에 앞쏠림이 4회 집중되었습니다.")
+        store.append_turn("user-1", "user", "오늘 거북목 경고가 왜 많이 떴어?", ttl_days=7, now_fn=lambda: 1000)
+        store.append_turn("user-1", "assistant", "15분~20분 구간에 앞쏠림이 4회 집중되었습니다.", ttl_days=7, now_fn=lambda: 1000)
         history = store.recent_turns("user-1")
         self.assertEqual(len(history), 2)
         self.assertEqual(history[0]["pk"], "CHAT#user-1")
         self.assertEqual(history[1]["sk"], "TURN#0002")
+        # DynamoDB TTL(expires_at = 1000 + 7 * 86400 = 605800) 자동 부여 확인
+        self.assertEqual(history[0]["expires_at"], 605800)
 
         # 거부 케이스 (Negative Test): user/assistant 외의 잘못된 role 입력 시 ValueError 차단
         with self.assertRaises(ValueError):

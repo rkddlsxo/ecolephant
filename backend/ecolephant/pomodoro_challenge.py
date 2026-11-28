@@ -3,6 +3,7 @@
   1) 정형 데이터(측정 세션, 5초 샘플, 1분 타임라인 통계) -> RDS(PostgreSQL)
   2) 비정형·가변 길이 데이터(AI 자세 코치 챗봇의 사용자별 멀티턴 질문/답변 대화 히스토리) -> DynamoDB (pk=CHAT#{owner}, sk=TURN#{seq})
 """
+import time
 
 
 def evaluate_pomodoro_challenge(good_ratio, duration_minutes=25, prev_streak=0):
@@ -35,13 +36,15 @@ class DynamoChatHistoryStore:
     def __init__(self):
         self._items = {}
 
-    def append_turn(self, owner, role, message):
+    def append_turn(self, owner, role, message, ttl_days=7, now_fn=time.time):
         if role not in {"user", "assistant"}:
             raise ValueError(f"허용되지 않은 대화 역할입니다: {role}")
         pk = f"CHAT#{owner}"
         turns = self._items.setdefault(pk, [])
         seq = len(turns) + 1
-        item = {"pk": pk, "sk": f"TURN#{seq:04d}", "role": role, "message": str(message)}
+        # 하루는 86400초 인데, 현재 시각에 7일을 더 한 초 단위 숫자를 expires_at칸에 넣어두면, 7일 뒤에 삭제 쿼리를 안 날려도 aws dynamodb가 백그라운드에서 무료로 자동 소각 해줌.
+        expires_at = int(now_fn()) + (int(ttl_days) * 86400)
+        item = {"pk": pk, "sk": f"TURN#{seq:04d}", "role": role, "message": str(message), "expires_at": expires_at}
         turns.append(item)
         return item
 
@@ -49,3 +52,4 @@ class DynamoChatHistoryStore:
         pk = f"CHAT#{owner}"
         turns = self._items.get(pk, [])
         return list(turns[-int(limit) :])
+
