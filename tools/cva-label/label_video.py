@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.check is None and index % max(1, args.stride):
                 continue
             ts = index * 1000.0 / fps
-            shape = dict(min_area=args.min_area, max_area=args.max_area, min_fill=args.min_fill)
+            shape = {"min_area": args.min_area, "max_area": args.max_area, "min_fill": args.min_fill}
             tragus = find_sticker(bgr, tragus_hsv, **shape)
             c7 = (
                 find_sticker(bgr, c7_hsv, **shape, below=tragus, max_dist=args.c7_max_dist * bgr.shape[0])
