@@ -1,3 +1,4 @@
+import { displayPostureType, type DisplayPostureType } from './posture-display';
 import type { ActiveMode, PostureType } from './types';
 
 /**
@@ -27,27 +28,28 @@ export interface AlertSettings {
 export const defaultAlertSettings: AlertSettings = { sound: 'chime_and_voice', quiet: null };
 
 /**
- * 2026-11-21 (수연): one "거북목 자세" message instead of one per posture type, because the
- * front-camera type was unreliable in the test videos (3 of 11). AirPods-only mode still says
- * only "head down": it cannot see the head moving forward, so it does not claim more.
+ * One message per shown posture type (2026-11-28, posture-display.ts): head down (stored
+ * head_down or combined) or head forward (stored chin_forward). The 2026-11-21 single
+ * "거북목 자세" message is replaced. AirPods-only mode still says only "head down": it cannot see
+ * the head moving forward, so it does not claim more.
  */
-type MessageKind = 'turtle_neck' | 'head_down' | 'unknown';
+type MessageKind = DisplayPostureType | 'unknown';
 
 const action: Record<MessageKind, string> = {
-  turtle_neck: '고개를 들고 턱을 살짝 당겨 보세요.',
+  chin_forward: '턱을 살짝 당기고 머리를 어깨 위로 가져와 보세요.',
   head_down: '고개를 들고 화면을 눈높이로 맞춰 보세요.',
   unknown: '잠깐 자세를 확인해 보세요.',
 };
 
 const spoken: Record<MessageKind, string> = {
-  turtle_neck: '거북목 자세가 이어지고 있어요. 고개를 들고 턱을 살짝 당겨 주세요.',
+  chin_forward: '머리가 앞으로 나와 있어요. 턱을 살짝 당겨 주세요.',
   head_down: '고개를 오래 숙이고 있어요. 화면을 눈높이로 올려 주세요.',
   unknown: '자세를 한번 확인해 주세요.',
 };
 
 function messageKind(type: PostureType | null, mode: ActiveMode): MessageKind {
   if (!type) return 'unknown';
-  return mode === 'airpods' ? 'head_down' : 'turtle_neck';
+  return mode === 'airpods' ? 'head_down' : (displayPostureType(type) ?? 'unknown');
 }
 
 export function alertMessage(

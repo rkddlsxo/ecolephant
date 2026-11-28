@@ -47,3 +47,16 @@ python tools/cva-label/label_video.py .data/cva/p01_side.mp4 --segments .data/cv
 - `p01_side_cva_segments.csv`: 자세 구간별 스티커 CVA 중앙값·IQR·인식 프레임 수, 근사 CVA 중앙값, (근사 − 스티커) 중앙값, 기준 미만 여부
 - 구간 JSON은 `tools/pose-compare/segments.example.json`과 같은 형식입니다 (`start_ms`, `end_ms`, `label`). 동기화(박수·비프음) 시점을 0으로 맞춰 적습니다.
 - 스티커가 안 보인 프레임은 빈칸으로 남고 채우지 않습니다.
+
+## 측면 영상 시간 맞추기 (`find_beep.py`)
+
+```bash
+python tools/cva-label/find_beep.py P03_s1 P05_s1
+```
+
+- 녹화 도구의 맞춤 신호(1000Hz, 0.3초)를 측면 영상 소리에서 찾아 `--sync-ms` 값을 알려 줍니다 (ffmpeg 필요)
+- 기준 자세 저장 완료(880Hz)·유지 시작(900Hz) 소리와 구분하고, 1초 뒤 첫 준비 소리(600Hz)가 있는 것만 고릅니다. 측면 폰을 일찍 켜도 됩니다 (11/27 P03에서 880Hz를 맞춤 신호로 오인해 구간이 약 13초 밀린 문제 수정)
+- `<ID>_side.<영상 확장자>`만 읽고 Windows 꼬리표(`:Zone.Identifier`)·손 라벨 영상(`_side_label`)은 건너뜁니다
+- 맞게 맞춰졌는지는 결과의 바른 자세 구간 CVA가 서로 ±3° 안에 모이는지로 확인합니다
+- 측면 인식 프레임이 50% 미만인 구간(스티커 가림)은 측면 정답으로 쓰지 않습니다
+- 손 라벨 영상(점을 그려 넣은 영상, 소리 없음)은 원본과 프레임 수·fps가 같을 때만, 원본에서 찾은 값을 그대로 씁니다

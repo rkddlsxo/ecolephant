@@ -24,10 +24,11 @@ def main():
             load('backend/harness/fixtures/policy/example.json'),
             load('backend/harness/fixtures/http/contract-cases.json')['cases'],
             {'change-v1': load('backend/harness/fixtures/policy/change-v1.json'),
-             'change-v2': load('backend/harness/fixtures/policy/change-v2.json')},
+             'change-v2': load('backend/harness/fixtures/policy/change-v2.json'),
+             'change-v3': load('backend/harness/fixtures/policy/change-v3.json')},
         ),
         'policy': lambda: [check_policy(load(f'backend/harness/fixtures/policy/{name}.json'))
-                           for name in ('example', 'change-v1', 'change-v2')],
+                           for name in ('example', 'change-v1', 'change-v2', 'change-v3')],
         'links': check_links,
         'secrets': check_secrets,
         'self-tests': self_tests,

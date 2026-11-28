@@ -8,16 +8,17 @@ describe('alert messages', () => {
     expect(first.body).toMatch(/턱/);
     const second = alertMessage(2, 'chin_forward', 'webcam');
     expect(second.sound).toBe('voice');
-    expect(second.speech).toMatch(/거북목 자세/);
+    expect(second.speech).toMatch(/앞으로/);
   });
 
-  it('says the same thing for every posture type with the camera (2026-11-21)', () => {
+  it('has one message for head forward and one for head down; combined is head down (2026-11-28)', () => {
     for (const mode of ['webcam', 'combined'] as const)
       for (const stage of [1, 2] as const) {
-        const texts = (['chin_forward', 'head_down', 'combined'] as const).map((type) =>
-          JSON.stringify(alertMessage(stage, type, mode)),
-        );
-        expect(new Set(texts).size).toBe(1);
+        const forward = alertMessage(stage, 'chin_forward', mode);
+        const down = alertMessage(stage, 'head_down', mode);
+        expect(forward.body).not.toBe(down.body);
+        expect(alertMessage(stage, 'combined', mode)).toEqual(down);
+        expect(down.body).toMatch(/눈높이/);
       }
   });
 

@@ -170,7 +170,21 @@ it('shows the posture type next to the level', () => {
     },
   });
   render(<MeasurePage />);
-  expect(screen.getByText('주의 · 거북목 자세')).toBeInTheDocument();
+  expect(screen.getByText('주의 · 고개 앞으로 쏠림')).toBeInTheDocument();
+  cleanup();
+  // A stored "combined" window is shown as head down (the front camera cannot tell them apart).
+  const latest = useMeasurement.getState().latest!;
+  useMeasurement.setState({
+    latest: {
+      ...latest,
+      posture_level: 'high',
+      reason_code: 'combined_high',
+      camera_drop_change: -0.12,
+      posture_type: 'combined',
+    },
+  });
+  render(<MeasurePage />);
+  expect(screen.getByText('높음 · 고개 숙임')).toBeInTheDocument();
 });
 
 it('shows the kept camera and its off button in the same notice spot', async () => {

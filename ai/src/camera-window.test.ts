@@ -112,7 +112,7 @@ const summary = (rChange: number, hChange: number, nChange: number | null = 0) =
 
 describe('judgeCameraChange', () => {
   it('is normal inside the thresholds', () => {
-    expect(judgeCameraChange(summary(0.05, -0.05, -0.05))).toEqual({
+    expect(judgeCameraChange(summary(0.05, -0.03, -0.03))).toEqual({
       level: 'normal',
       type: null,
       forwardLevel: 'normal',
@@ -136,7 +136,7 @@ describe('judgeCameraChange', () => {
   });
 
   it('takes the worse of the two signals as the level', () => {
-    const result = judgeCameraChange(summary(0.25, -0.12));
+    const result = judgeCameraChange(summary(0.25, -0.06));
     expect(result).toMatchObject({ level: 'high', forwardLevel: 'high', dropLevel: 'caution' });
     expect(result.type).toBe('combined');
   });

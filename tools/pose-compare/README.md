@@ -162,3 +162,19 @@ python tools/pose-compare/evaluate_segments.py
 - 모델 실행 코드(`extract.py`의 각 runner)는 클라우드에서 모델을 내려받을 수 없어 실제 모델로 검증하지 못했습니다.
   지표 계산(`metrics.py`, `import_sapiens.py`)만 합성 데이터 테스트로 검증했습니다.
 - `evaluate_segments.py`의 MediaPipe 추출 부분도 같은 이유로 클라우드에서는 실제 영상으로 돌려 보지 못했습니다. 판정·지표(`judge.py`)는 합성 관절점 테스트로 검증했습니다.
+
+## 기준값 조정 (`tune_thresholds.py`)
+
+녹화 도구로 찍은 세션(`.data/test-c/`)의 관절점 캐시와 구간표로 앞쏠림(r)·숙임(h) 기준값 후보를 비교합니다. 먼저 `evaluate_segments.py`를 한 번 돌려 캐시가 있어야 합니다.
+
+```bash
+python tools/pose-compare/tune_thresholds.py --data-dir .data/test-c --check-dir .data/test-b
+```
+
+- 후보: r 0.02~0.07 × h −0.03~−0.10. 높음 기준은 현재 비율(0.12/0.07, 2배)을 따르고 코 높이는 h와 같게
+- 선택 규칙(결과 보기 전에 정함): 바른 자세 구간 오탐 0 + 사람별 바른 자세 창 오탐 ≤ 10% → 재현율 최고 → 5%p 이내면 가장 보수적인 값 → 현재 v2가 5%p 이내면 v2 유지
+- 사람 하나 빼기: 나머지 사람으로 고른 수치를 빠진 사람에게 적용 (`P05_s1`, `P05_s2`는 같은 사람으로 묶음)
+- 로지스틱 회귀(Δr·Δh·Δn, 순수 파이썬)도 같은 방식으로 비교
+- `--check-dir`: 고르는 데 쓰지 않은 다른 세트(B안 영상)에 고른 수치를 적용해 확인만 함
+- `--exclude P01`: 특정 사람·세션 제외
+- 결과: `<data-dir>/results/tune_thresholds.json`. 서비스 기준을 바꾸려면 새 정책 ID(`draft-web-v3`)로

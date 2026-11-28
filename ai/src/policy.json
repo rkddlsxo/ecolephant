@@ -1,9 +1,9 @@
 {
-  "policy_id": "draft-web-v2",
+  "policy_id": "draft-web-v3",
   "revision": "0.1",
   "release_approved": false,
   "camera_mapping_status": "unvalidated",
-  "status": "변화율 판정 초안(DEC-002, 팀 동의 2026-11-10). draft-web-v1에서 앞쏠림 기준만 0.07/0.12로 낮춤(2026-11-14 1인 시범 측정, 목을 조금만 내민 자세도 주의로 잡도록 수연 결정). 기준값은 실험 전 초기 제안값, 운영 사용 금지",
+  "status": "변화율 판정 초안(DEC-002, 팀 동의 2026-11-10). draft-web-v2에서 숙임 기준(귀 높이·코 높이)만 주의 -0.05 / 높음 -0.10으로 낮춤(2026-11-28 검증 영상 4명 5세션, 측면 CVA 정답, 사람 하나 빼기·B안 영상 확인, 수연 결정). 앞쏠림 0.07/0.12는 유지(낮추면 처음 보는 사람·영상에서 바른 자세 오탐 증가). 예비 검증 값, 운영 사용 금지",
   "thresholds_deg": {
     "caution": 15,
     "high": 30
@@ -15,12 +15,12 @@
       "high": 0.12
     },
     "drop": {
-      "caution": -0.1,
-      "high": -0.2
+      "caution": -0.05,
+      "high": -0.1
     },
     "nose_drop": {
-      "caution": -0.1,
-      "high": -0.2
+      "caution": -0.05,
+      "high": -0.1
     }
   },
   "fusion_weights": {
