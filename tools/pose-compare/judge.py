@@ -5,7 +5,7 @@ Mirrors (keep in sync when those change):
   - ai/src/camera-features.ts                               features r, h, n
   - ai/src/calibration.ts                                   3 s stable-segment baseline
   - ai/src/camera-window.ts                                 1 s window summary and level / posture type
-Thresholds come from the policy JSON (ai/src/policy.json, draft-web-v2 at the time of writing).
+Thresholds come from the policy JSON (ai/src/policy.json, the app's current policy).
 
 Pure functions only: no video, model or network access. Landmarks are normalized 0..1 in the
 original frame and never leave this machine (AGENTS.md).

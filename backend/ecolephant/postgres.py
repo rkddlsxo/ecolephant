@@ -74,7 +74,7 @@ class PostgresRepository:
             else:    
                 conn.close()
 
-    # 판정 정책(예: draft-web-v1, draft-web-v2)을 DB에 등록.
+    # 판정 정책(예: draft-web-v1, draft-web-v2, draft-web-v3)을 DB에 등록.
     # ON CONFLICT DO NOTHING: 이미 똑같은 정책 ID가 들어있으면 에러 내지 말고 그냥 넘어가라는 뜻.
     # 단, 이름은 같은데 안의 기준값 내용이 다르면 409 에러(policy_id_conflict)로 막아줌.
     def ensure_policy(self, policy):

@@ -168,7 +168,7 @@ describe('invalid input is never treated as normal', () => {
 });
 
 /** draft-web-v1 (DEC-002): webcam judged by change against the personal baseline. */
-describe('change-based decision (draft-web-v1)', () => {
+describe('change-based decision (app policy, draft-web-v3)', () => {
   const change = (forward: number, drop: number, noseDrop: number | null = null) => ({
     forward,
     drop,
@@ -182,13 +182,14 @@ describe('change-based decision (draft-web-v1)', () => {
 
   it.each([
     // forward, drop, level, reason, posture type
-    [0.05, -0.05, 'normal', 'within_range', null],
+    // v3 (2026-11-28): forward 0.07/0.12, drop and nose -0.05/-0.10
+    [0.05, -0.03, 'normal', 'within_range', null],
     [0.1, 0, 'caution', 'mixed_caution', 'chin_forward'],
     [0.2, 0, 'high', 'forward_shift', 'chin_forward'],
-    [0, -0.1, 'caution', 'head_flexion', 'head_down'],
-    [0, -0.25, 'high', 'head_flexion', 'head_down'],
-    [0.1, -0.12, 'caution', 'mixed_caution', 'combined'],
-    [0.25, -0.12, 'high', 'combined_high', 'combined'],
+    [0, -0.06, 'caution', 'head_flexion', 'head_down'],
+    [0, -0.12, 'high', 'head_flexion', 'head_down'],
+    [0.1, -0.06, 'caution', 'mixed_caution', 'combined'],
+    [0.25, -0.06, 'high', 'combined_high', 'combined'],
   ] as const)('webcam forward %d, drop %d → %s / %s / %s', (f, d, level, reason, type) => {
     expect(
       runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(f, d) }),
@@ -216,11 +217,11 @@ describe('change-based decision (draft-web-v1)', () => {
 
   it('uses a dropped nose when the ears alone stay within range', () => {
     expect(
-      runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(0, -0.02, -0.15) }),
+      runV1('webcam', { cameraDeg: null, headDeg: null, cameraChange: change(0, -0.02, -0.07) }),
     ).toMatchObject({
       posture_level: 'caution',
       posture_type: 'head_down',
-      camera_nose_drop_change: -0.15,
+      camera_nose_drop_change: -0.07,
     });
   });
 
